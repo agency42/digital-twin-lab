@@ -1,0 +1,22 @@
+{
+  "inProgress": false,
+  "startTime": 1743559346921,
+  "url": "https://jerry.diy",
+  "userId": "jerry",
+  "originalUserId": "jerry",
+  "pagesVisited": 2,
+  "imagesFound": 1,
+  "textAssetsCreated": 1,
+  "lastUpdated": 1743559347944,
+  "status": "completed",
+  "summary": {
+    "baseUrl": "https://jerry.diy",
+    "pagesVisited": 2,
+    "imagesFound": 1,
+    "textAssetsCreated": 2,
+    "duration": "1.02 seconds",
+    "userId": "jerry",
+    "originalUserId": "jerry"
+  },
+  "endTime": 1743559347944
+}
