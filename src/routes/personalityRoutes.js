@@ -2,113 +2,150 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs').promises;
 const UserDataService = require('../services/userDataService'); // Import UserDataService
+const personalityProfileService = require('../services/personalityProfileService');
 
 function createPersonalityRouter(abstractionApproach) {
   const router = express.Router();
   const userDataService = new UserDataService(); // Instantiate UserDataService
 
-  // Generate personality profile (JSON) from selected assets using custom prompt
+  /**
+   * Generate a personality profile
+   * POST /api/personality/generate
+   * {
+   *   userId: string, 
+   *   assetIds: string[],
+   *   prompt: string (optional)
+   * }
+   */
   router.post('/generate', async (req, res) => {
     try {
-      // ** Get userId from request body **
-      const { userId, assetIds, prompt: customPromptInput } = req.body;
+      const { userId, assetIds, prompt } = req.body;
 
       if (!userId) {
-        return res.status(400).json({ error: 'Missing required field: userId' });
+        return res.status(400).json({ error: 'Missing required parameter: userId' });
       }
+
       if (!assetIds || !Array.isArray(assetIds) || assetIds.length === 0) {
-        return res.status(400).json({ error: 'Missing required assetIds array' });
+        return res.status(400).json({ error: 'At least one asset ID must be provided' });
       }
 
-      // Load user data to potentially get a custom prompt
-      const userData = await userDataService.getUserData(userId);
-      // Use custom prompt from request body if provided, else from user data, else null (AbstractionApproach uses default)
-      const effectiveCustomPrompt = customPromptInput || userData?.generation?.customPrompt || null;
-      
-      console.log(`Generating personality for user ${userId} using ${assetIds.length} assets.`);
-      if (effectiveCustomPrompt) {
-          console.log(`Using custom prompt (length: ${effectiveCustomPrompt.length}).`);
-      }
+      // Generate personality JSON using the abstraction approach
+      const { json: personalityJSON, assets } = await abstractionApproach.generatePersonality(userId, assetIds, prompt);
 
-      // --- Generate Personality JSON using AbstractionApproach ---
-      // AbstractionApproach now saves the result internally via UserDataService ideally,
-      // OR we save it here after generation.
-      // Let's assume AbstractionApproach is refactored to accept userId and save.
-      // If not, we would save here using userDataService.updateUserData
-      const personaJSON = await abstractionApproach.generatePersonaJSON(
-        userId, // Pass userId instead of effectivePersonId
+      // Save the generated profile
+      const result = await personalityProfileService.saveProfile(userId, personalityJSON, {
         assetIds,
-        effectiveCustomPrompt
-      );
+        generatedAt: new Date().toISOString(),
+        assetCount: assets.length,
+      });
 
-      // ** Save the generated profile to the user's data **
-      const updateData = {
-          generation: {
-              // Keep existing custom prompt if any
-              customPrompt: userData?.generation?.customPrompt, 
-              lastGeneratedProfile: {
-                  json: personaJSON,
-                  timestamp: new Date().toISOString(),
-                  sourceAssetIds: assetIds
-              }
-          }
-      };
-      await userDataService.updateUserData(userId, updateData);
-      console.log(`Personality JSON generated and saved for user ${userId}.`);
-
-      // --- Return the Generated JSON --- 
+      // Return the generated personality
       return res.status(200).json({
         success: true,
-        userId: userId,
-        personalityJSON: personaJSON, 
-        timestamp: new Date().toISOString(),
-        message: "Personality JSON generated and saved successfully."
+        personalityJSON,
+        assetCount: assets.length,
+        profileId: result.profileId,
+        generatedAt: result.metadata.timestamp
       });
-
     } catch (error) {
-      console.error(`Error processing /api/personality/generate request for user ${req.body.userId}:`, error);
-      // Provide more specific error message if possible
-      const errorMessage = error.message || 'An error occurred during personality generation.';
-      const errorDetail = error.toString();
-      return res.status(500).json({ 
-        error: errorMessage,
-        detail: errorDetail 
-      });
+      console.error('Error generating personality:', error);
+      return res.status(500).json({ error: `Failed to generate personality: ${error.message}` });
     }
   });
-  
-  // Get generated personalities for a user (now reads from UserDataService)
+
+  /**
+   * Get all personality profiles for a user
+   * GET /api/personality/:userId
+   */
   router.get('/:userId', async (req, res) => {
     try {
       const { userId } = req.params;
+      
       if (!userId) {
-        return res.status(400).json({ error: 'Missing required userId parameter' });
+        return res.status(400).json({ error: 'Missing required parameter: userId' });
       }
       
-      const userData = await userDataService.getUserData(userId);
+      // Get profiles for the user
+      const profiles = await personalityProfileService.getUserProfiles(userId);
       
-      if (!userData) {
-           return res.status(404).json({ error: `User '${userId}' not found.` });
+      if (profiles.length === 0) {
+        return res.status(404).json({ error: 'No personality profiles found for this user' });
       }
-
-      // Return relevant part of user data, e.g., last generated profile
-      // Or potentially a history if we store multiple generations later
-      const profileData = userData.generation?.lastGeneratedProfile || null;
-
-      if (!profileData) {
-           return res.status(200).json({ userId: userId, message: "No personality generated yet for this user.", personality: null });
-      }
-
+      
+      // Return the latest profile
+      const latestProfile = profiles[0];
+      
+      // Safely extract metadata properties with fallbacks
+      const profileId = latestProfile.metadata?.profileId || latestProfile.id || 'unknown';
+      const timestamp = latestProfile.metadata?.timestamp || latestProfile.createdAt || new Date().toISOString();
+      const assetIds = latestProfile.metadata?.assetIds || [];
+      
       return res.status(200).json({
-          userId: userId,
-          personality: profileData.json,
-          generatedAt: profileData.timestamp,
-          sourceAssetIds: profileData.sourceAssetIds
+        personality: latestProfile.profile,
+        profileId: profileId,
+        generatedAt: timestamp,
+        assetIds: assetIds
       });
-
     } catch (error) {
-      console.error(`Error getting personality for ${req.params.userId}:`, error);
-      res.status(500).json({ error: 'Failed to retrieve personality data.', details: error.message });
+      console.error('Error getting personality profiles:', error);
+      return res.status(500).json({ error: `Failed to get personality profiles: ${error.message}` });
+    }
+  });
+
+  /**
+   * Get a specific personality profile
+   * GET /api/personality/:userId/:profileId
+   */
+  router.get('/:userId/:profileId', async (req, res) => {
+    try {
+      const { userId, profileId } = req.params;
+      
+      if (!userId || !profileId) {
+        return res.status(400).json({ error: 'Missing required parameters: userId and profileId' });
+      }
+      
+      // Get the specific profile
+      const profileData = await personalityProfileService.getProfile(userId, profileId);
+      
+      if (!profileData) {
+        return res.status(404).json({ error: 'Personality profile not found' });
+      }
+      
+      return res.status(200).json({
+        personality: profileData.profile,
+        profileId: profileData.metadata.profileId,
+        generatedAt: profileData.metadata.timestamp,
+        assetIds: profileData.metadata.assetIds || []
+      });
+    } catch (error) {
+      console.error('Error getting personality profile:', error);
+      return res.status(500).json({ error: `Failed to get personality profile: ${error.message}` });
+    }
+  });
+
+  /**
+   * Delete a personality profile
+   * DELETE /api/personality/:userId/:profileId
+   */
+  router.delete('/:userId/:profileId', async (req, res) => {
+    try {
+      const { userId, profileId } = req.params;
+      
+      if (!userId || !profileId) {
+        return res.status(400).json({ error: 'Missing required parameters: userId and profileId' });
+      }
+      
+      // Delete the profile
+      const deleted = await personalityProfileService.deleteProfile(userId, profileId);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: 'Personality profile not found' });
+      }
+      
+      return res.status(200).json({ success: true, message: 'Personality profile deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting personality profile:', error);
+      return res.status(500).json({ error: `Failed to delete personality profile: ${error.message}` });
     }
   });
 

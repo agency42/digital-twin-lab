@@ -13,37 +13,76 @@
     }
     
     body {
-      background-color: #f8f9fa;
-      color: #333;
+      background-color: #0c0c0c;
+      color: #f0f0f0;
       line-height: 1.6;
     }
     
     .app-container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 30px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
     
     header {
       text-align: center;
-      margin-bottom: 40px;
+      margin-bottom: 20px;
+      padding-top: 20px;
     }
     
     h1 {
-      color: #2c3e50;
+      color: #f0f0f0;
       margin-bottom: 10px;
       font-weight: 600;
     }
     
     .tagline {
-      color: #7f8c8d;
+      color: #bbb;
       font-size: 18px;
     }
-    
-    .workflow {
+
+    /* Navigation Tabs */
+    .nav-tabs {
       display: flex;
-      flex-direction: column;
-      gap: 20px;
+      list-style: none;
+      border-bottom: 2px solid #ddd;
+      margin-bottom: 30px;
+      position: sticky;
+      top: 0;
+      background-color: #f8f9fa;
+      z-index: 100;
+      padding: 0;
+    }
+    
+    .nav-tab {
+      padding: 15px 25px;
+      cursor: pointer;
+      border-radius: 5px 5px 0 0;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      background-color: #eee;
+      margin-right: 4px;
+    }
+    
+    .nav-tab.active {
+      background-color: #3498db;
+      color: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .nav-tab:hover:not(.active) {
+      background-color: #ddd;
+    }
+    
+    /* Page Content */
+    .page {
+      display: none;
+    }
+    
+    .page.active {
+      display: block;
     }
     
     .module {
@@ -90,7 +129,7 @@
       color: #7f8c8d;
       margin-bottom: 25px;
     }
-    
+
     input, textarea, button {
       width: 100%;
       padding: 12px;
@@ -366,6 +405,66 @@
     .flex-col {
       flex: 1;
     }
+
+    /* Profile card for generated personalities */
+    .profile-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      background-color: #f9f9f9;
+      transition: transform 0.2s;
+    }
+
+    .profile-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .profile-card.active {
+      border-color: #3498db;
+      background-color: #eaf2f8;
+      box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3);
+    }
+
+    .profile-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .profile-card-title {
+      font-weight: 600;
+      font-size: 18px;
+      margin: 0;
+    }
+
+    .profile-card-date {
+      font-size: 12px;
+      color: #777;
+    }
+
+    .profile-card-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .traits-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .trait-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      background-color: #e0e0e0;
+      color: #333;
+    }
     
     @media (max-width: 768px) {
       .flex-row {
@@ -375,8 +474,153 @@
       .content-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       }
+
+      .nav-tabs {
+        flex-wrap: wrap;
+      }
+
+      .nav-tab {
+        flex-grow: 1;
+        text-align: center;
+        padding: 10px;
+      }
+    }
+
+    /* Message styling for the chat interface */
+    .message-wrapper {
+      margin-bottom: 16px;
+      clear: both;
+      overflow: hidden;
+      width: 100%;
+    }
+    
+    .user-message {
+      float: right;
+      max-width: 75%;
+    }
+    
+    .assistant-message {
+      float: left;
+      max-width: 75%;
+    }
+    
+    .system-message {
+      margin: 10px auto;
+      max-width: 90%;
+      text-align: center;
+    }
+    
+    .message {
+      padding: 12px 16px;
+      border-radius: 18px;
+      display: inline-block;
+      word-break: break-word;
+      white-space: pre-wrap;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .user-message .message {
+      background-color: #0B93F6;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    
+    .assistant-message .message {
+      background-color: #E9E9EB;
+      color: #000;
+      border-bottom-left-radius: 4px;
+    }
+    
+    .system-message .message {
+      background-color: #FFE2E2;
+      border: 1px solid #FFCACA;
+      font-style: italic;
+      font-size: 14px;
+    }
+    
+    .sender {
+      font-weight: bold;
+      margin-bottom: 5px;
+      font-size: 12px;
+      color: #555;
+      padding: 0 2px;
+    }
+    
+    .content {
+      line-height: 1.4;
+    }
+    
+    /* Typing indicator */
+    .typing-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 10px 15px;
+    }
+    
+    .typing-indicator span {
+      width: 8px;
+      height: 8px;
+      background-color: #555;
+      border-radius: 50%;
+      animation: typing-dot 1.4s infinite ease-in-out both;
+    }
+    
+    .typing-indicator span:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+    
+    .typing-indicator span:nth-child(2) {
+      animation-delay: -0.16s;
+    }
+    
+    @keyframes typing-dot {
+      0%, 80%, 100% { 
+        transform: scale(0.5);
+      }
+      40% { 
+        transform: scale(1);
+      }
+    }
+    
+    /* Toggle switch styling */
+    .toggle-switch input[type="checkbox"] {
+      position: relative;
+      width: 40px;
+      height: 20px;
+      appearance: none;
+      background-color: #d4d4d4;
+      border-radius: 10px;
+      transition: 0.3s;
+      cursor: pointer;
+    }
+    
+    .toggle-switch input[type="checkbox"]:checked {
+      background-color: #4cd964;
+    }
+    
+    .toggle-switch input[type="checkbox"]::before {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      top: 1px;
+      left: 1px;
+      background-color: white;
+      transition: 0.3s;
+    }
+    
+    .toggle-switch input[type="checkbox"]:checked::before {
+      left: 21px;
     }
   </style>
+  
+  <!-- Link to external CSS file for chat formatting -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Include Chart.js library from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -384,238 +628,116 @@
       <h1>Digital Twin Lab</h1>
       <p class="tagline">Experiment with AI personalities generated from web content and files</p>
     </header>
-    
-    <div class="workflow">
-       <!-- NEW: Module 0 - User Selection -->
-      <div class="module" id="user-selection-module">
-        <div class="module-header">
-          <div class="module-icon" style="background-color: #6c757d;">👤</div> 
-          <h2 class="module-title">Select or Create User Profile</h2>
-        </div>
-        <p class="module-description">Select an existing user profile to load its data, or create a new one.</p>
-        <div class="flex-row" style="align-items: flex-end;">
-            <div class="flex-col">
-                <label for="user-select">Load Existing User:</label>
-                <select id="user-select" style="margin-bottom: 0;">
-                    <option value="">-- Select User --</option>
-                    <!-- Options populated by JS -->
-                </select>
-            </div>
-             <div class="flex-col">
-                 <label for="new-user-id">Or Create New User:</label>
-                <input type="text" id="new-user-id" placeholder="Enter new User ID (e.g., ken_v1)" style="margin-bottom: 0;">
-            </div>
-            <div style="flex-basis: 150px;">
-                 <button id="create-user-button" class="action-button" style="width: 100%; margin-bottom: 0;">Create User</button>
-            </div>
-        </div>
-        <div id="user-status" class="status"></div>
-        <div style="margin-top: 15px; font-weight: bold;">Current User: <span id="current-user-display" style="color: #3498db;">None Selected</span></div>
-      </div>
 
-      <!-- Module 1: Collect Content -->
-      <div class="module" id="collect-module">
-        <div class="module-header">
-          <div class="module-icon">1</div>
-          <h2 class="module-title">Collect Content</h2>
-        </div>
-        <p class="module-description">Gather content by scraping websites or uploading files.</p>
-        
-        <div class="flex-row">
-          <!-- Website Scraping -->
-          <div class="flex-col">
-            <h3 class="section-title">Website Scraping</h3>
-            <input type="text" id="scrape-url" placeholder="Enter website URL (e.g., https://example.com)" style="margin-bottom: 10px;">
-            <button id="start-scraping" class="button">Start Scraping</button>
-            <div id="scrape-status" class="status"></div>
-          </div>
-          
-          <!-- File Upload -->
-          <div class="flex-col">
-            <h3 class="section-title">File Upload</h3>
-            <input type="file" id="file-input" multiple>
-            <button id="upload-button">Upload File(s) to Current User</button>
-            <div id="upload-status" class="status"></div>
-          </div>
-        </div>
-      </div>
+    <!-- Content area with side tabs -->
+    <div class="content-area">
+      <!-- Navigation Tabs - Now on the side -->
+      <ul class="nav-tabs">
+        <li class="nav-tab active" data-page="user-setup-page">User Setup</li>
+        <li class="nav-tab" data-page="content-library-page">Content Library</li>
+        <li class="nav-tab" data-page="chat-page">Digital Twin Chat</li>
+        <li class="nav-tab" data-page="alignment-page">Alignment Metrics</li>
+      </ul>
       
-      <!-- Module 2: Manage & Select Assets -->
-      <div class="module">
-        <div class="module-header">
-          <div class="module-icon">2</div>
-          <h2 class="module-title">Manage & Select Assets</h2>
-        </div>
-        <p class="module-description">Review collected assets and choose which ones to use for personality generation.</p>
-        
-        <!-- Asset Display Area -->
-        <div id="asset-display-area">
-            <p>Loading assets...</p>
+      <!-- Pages Container -->
+      <div class="pages-container">
+        <!-- Page 1: User Setup -->
+        <div id="user-setup-page" class="page active">
+          <!-- User Selection Module -->
+          <div class="module" id="user-selection-module">
+            <div class="module-header">
+              <div class="module-icon" style="background-color: #6c757d;">👤</div> 
+              <h2 class="module-title">Select or Create User Profile</h2>
+            </div>
+            <p class="module-description">Select an existing user profile to load its data, or create a new one.</p>
+            <div class="flex-row" style="align-items: flex-end;">
+                <div class="flex-col">
+                    <label for="user-select">Load Existing User:</label>
+                    <select id="user-select" style="margin-bottom: 0;">
+                        <option value="">-- Select User --</option>
+                        <!-- Options populated by JS -->
+                    </select>
+                </div>
+                <div class="flex-col">
+                    <label for="new-user-id">Or Create New User:</label>
+                    <input type="text" id="new-user-id" placeholder="Enter new User ID (e.g., ken_v1)" style="margin-bottom: 0;">
+                </div>
+                <div style="flex-basis: 150px;">
+                    <button id="create-user-button" class="action-button" style="width: 100%; margin-bottom: 0;">Create User</button>
+                </div>
+            </div>
+            <div id="user-status" class="status"></div>
+            <div style="margin-top: 15px; font-weight: bold;">Current User: <span id="current-user-display" style="color: #3498db;">None Selected</span></div>
           </div>
-          
-        <!-- Moved Reset Library Section -->
-        <div style="border-top: 1px solid #eee; margin-top: 25px; padding-top: 20px; text-align: right;">
-             <p class="warning" style="text-align: left; margin-bottom: 10px;">⚠️ Clearing the library permanently deletes all collected assets and generated personality profiles!</p>
-             <button id="clear-library-button" class="action-button danger-button" style="width: auto;">Clear Content Library</button>
-             <div id="clear-library-status" class="status" style="text-align: left; margin-top: 10px;"></div> <!-- New status div -->
-        </div>
-        
-        <!-- Bulk Actions & Selection Bar (sticky) -->
-        <div class="selection-bar">
-          <div>
-                <!-- Replaced Select All with specific types -->
-                <button id="select-all-text-button" class="action-button">Select All Text</button>
-                <button id="select-all-image-button" class="action-button">Select All Images</button>
-                <button id="deselect-all-button" class="action-button">Deselect All</button>
-                <button id="delete-selected-button" class="action-button danger-button">Delete Selected</button>
-          </div>
-            <div class="selection-info" id="selection-summary">0 items selected</div>
-        </div>
-      </div>
-      
-      <!-- Module 3: Generate Personality -->
-      <div class="module" id="generate-module">
-        <div class="module-header">
-          <div class="module-icon">3</div>
-          <h2 class="module-title">Generate Personality</h2>
-        </div>
-        <p class="module-description">Create an AI personality profile based on the selected assets.</p>
-        
-        <h3 class="section-title">Personality Generation Prompt</h3>
-        <textarea id="personality-prompt" rows="6" placeholder="Loading personality generation prompt..."></textarea>
-        <div class="flex-row" style="justify-content: flex-end; gap: 10px; margin-bottom: 20px;">
-            <button id="save-prompt-button" class="action-button" style="width: auto;">Save Prompt</button>
-            <button id="reset-prompt-button" class="action-button" style="width: auto; background-color: #6c757d;">Reset to Default</button>
-        </div>
-        <div id="prompt-status" class="status"></div>
 
-        <button id="generate-personality-button" class="action-button" style="width:100%;" disabled>Generate Personality Profile</button>
-        <div id="personality-generation-status" class="status"></div>
-        
-        <h3 class="section-title">Generated Personality JSON</h3>
-        <pre id="personality-json-output" class="json-output" style="display: none;"></pre>
-        <button id="copy-json-button" class="copy-button" style="display: none;">Copy JSON</button>
-      </div>
+          <!-- User Bio & Data Sources Module -->
+          <div class="module" id="user-data-module">
+            <div class="module-header">
+              <div class="module-icon" style="background-color: #2ecc71;">📝</div>
+              <h2 class="module-title">Profile Information</h2>
+            </div>
+            <p class="module-description">Provide a short bio and connect data sources to create a more accurate digital twin.</p>
 
-      <!-- Module 4: Chat with Digital Twin -->
-      <div class="module" id="chat-module">
-          <div class="module-header">
-              <div class="module-icon">4</div>
-              <h2 class="module-title">Chat with Digital Twin</h2>
-    </div>
-          <p class="module-description">Interact with the AI personality you created, adding optional lore and simulation parameters.</p>
+            <!-- Bio Section -->
+            <h3 class="section-title">Short Bio</h3>
+            <textarea id="user-bio" rows="3" placeholder="Enter a short biography to help shape your digital twin's personality (optional)"></textarea>
+            <button id="save-bio-button" class="action-button" style="width: auto; margin-bottom: 15px;">Save Bio</button>
+            <div id="bio-status" class="status"></div>
 
-          <div id="chat-content-area">
-            <h3 class="section-title">Generated Personality JSON (Read-only) 
-                <button class="info-button" data-tooltip-target="gen-profile-tooltip">?</button>
-            </h3>
-             <div id="gen-profile-tooltip" class="info-tooltip-text" style="display: none;">
-                 <p><strong>What it is:</strong><br>A structured profile extracted from the user's content, summarizing their inferred Big Five traits, interests, values, beliefs, expertise, communication style, and representative expressions.</p>
-                 <p><strong>Why it matters:</strong><br>This JSON serves as the computational substrate of the digital twin — a condensed and interpretable summary of the user's identity. By grounding it in the Big Five trait model (<a href="https://psycnet.apa.org/record/1990-97976-000" target="_blank" rel="noopener noreferrer"> foundational framework</a>), we align with the most widely validated framework in personality psychology. Research confirms LLMs can express and emulate these traits with high consistency when given structured input (<a href="https://arxiv.org/abs/2402.01765" target="_blank" rel="noopener noreferrer">Xu et al., 2024</a>).</p>
-                 <p>Including elements like interests, values, and representative statements supports trait expression via language, helping the model consistently anchor its behavior in specific conceptual domains (<a href="https://arxiv.org/abs/2206.07550" target="_blank" rel="noopener noreferrer">Jiang et al., 2023</a>). Together, these dimensions ensure that the simulated persona maintains not just psychological coherence but semantic and stylistic continuity as well.</p>
-            </div>
-            <pre id="chat-personality-json" class="json-output" style="max-height: 150px; background-color: #e9ecef; margin-bottom: 15px; display: none;"></pre>
-
-            <!-- Personal Background Context -->
-            <h3 class="section-title">Personal Background Context 
-                <button class="info-button" data-tooltip-target="lore-tooltip">?</button>
-            </h3>
-            <div id="lore-tooltip" class="info-tooltip-text" style="display: none;">
-                 <p><strong>What it is:</strong><br>A narrative snapshot of formative experiences, career milestones, and self-identified worldview, often written or approved by the user.</p>
-                 <p><strong>Why it matters:</strong><br>Personality is shaped not just by abstract traits but by lived experience. Including key biographical moments allows the model to integrate autobiographical memory into its reasoning and conversational framing. This supports context-appropriate responses and gives the twin a human-like memory scaffold.</p>
-                 <p>Emerging work like the Stanford "Digital Twin" study (<a href="https://hai.stanford.edu/news/ai-agents-simulate-1052-individuals-personalities-impressive-accuracy" target="_blank" rel="noopener noreferrer">Park et al., 2024</a>) found that including interview-style life history significantly boosted simulation accuracy. This section ensures the twin doesn't just sound like the user in abstract, but feels like it has lived their path.</p>
-            </div>
-            <textarea id="chat-lore-input" rows="5" style="margin-bottom: 15px;" placeholder='{
-  "background": "Key biographical context or formative experiences...",
-  "key_life_milestones": ["Important accomplishments...", "Pivotal life events..."],
-  "defining_decisions": ["Significant choices revealing character..."]
-}'></textarea>
-
-            <!-- Interaction Context -->
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: -5px;">
-                 <h3 class="section-title">Interaction Context 
-                    <button class="info-button" data-tooltip-target="interaction-tooltip">?</button>
-                 </h3>
-                 <label style="font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                    <input type="checkbox" id="include-interaction-context" style="width: auto; margin: 0;" checked> Include in Prompt
-                 </label>
-            </div>
-            <div id="interaction-tooltip" class="info-tooltip-text" style="display: none;">
-                 <p><strong>What it is:</strong><br>Structured metadata about the current conversational setting — where the twin is speaking, to whom, and under what assumptions of familiarity or shared interests.</p>
-                 <p><strong>Why it matters:</strong><br>Personality is expressed situationally. This section enables the twin to adapt its tone, formality, and emotional expression based on setting, without losing its core identity.</p>
-                 <p>This mirrors real-world context-driven trait variation. Modeling personality expression as a function of interaction context produces more natural, believable LLM behavior (<a href="https://arxiv.org/abs/2402.02510" target="_blank" rel="noopener noreferrer">Hu & Collier, 2024</a>).</p>
-            </div>
-            <textarea id="chat-params-input" rows="5" style="margin-bottom: 15px;"></textarea>
-
-            <!-- RESTORE: Psychological State -->
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: -5px;">
-                 <h3 class="section-title">Current Psychological State 
-                    <button class="info-button" data-tooltip-target="psych-state-tooltip">?</button>
-                 </h3>
-                 <label style="font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                    <input type="checkbox" id="include-psych-state" style="width: auto; margin: 0;" checked> Include in Prompt
-                 </label>
-            </div>
-            <div id="psych-state-tooltip" class="info-tooltip-text" style="display: none;">
-                 <p><strong>What it is:</strong><br>Sets the AI's current emotional tone and potential variability, adding nuance beyond stable traits (Simulation Enhancement).</p>
-                 <!-- Add relevant links/citations if desired -->
-            </div>
-            <textarea id="chat-psych-state-input" rows="3" style="margin-bottom: 15px;"></textarea>
-            
-            <!-- Cognitive Style -->
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: -5px;">
-                 <h3 class="section-title">Cognitive Style and Dynamics 
-                    <button class="info-button" data-tooltip-target="cog-style-tooltip">?</button>
-                 </h3>
-                 <label style="font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                    <input type="checkbox" id="include-cog-style" style="width: auto; margin: 0;" checked> Include in Prompt
-                 </label>
-            </div>
-             <div id="cog-style-tooltip" class="info-tooltip-text" style="display: none;">
-                <p><strong>What it is:</strong><br>A set of parameters describing how the twin thinks, reacts, and varies — including preferred thinking styles (e.g. abstract, systems-level), pacing, and acceptable variability from core traits.</p>
-                <p><strong>Why it matters:</strong><br>This layer introduces dynamic flexibility into the simulation. Including things like "response tempo" or "trait_variability_percent" enables more emotionally resonant and believable interactions.</p>
-                 <p>Research shows that even small changes in prompt conditioning influence perceived personality in LLMs (<a href="https://arxiv.org/abs/2402.01765" target="_blank" rel="noopener noreferrer">Sorokovikova et al., 2024</a>). This section gives you the dials to modulate that variability.</p>
-            </div>
-            <textarea id="chat-cog-style-input" rows="3" style="margin-bottom: 15px;"></textarea>
-
-            <h3 class="section-title">Final Chat System Prompt (Generated)</h3>
-            <pre id="chat-system-prompt" class="json-output" style="max-height: 200px; background-color: #e0e0e0; display: none;"></pre>
-            
-            <h3 class="section-title">Chat History</h3>
-            <div id="chat-history" style="height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 15px; margin-bottom: 15px; background-color: #f8f9fa;">
-                <!-- Chat messages will appear here -->
-            </div>
-
+            <!-- Website Scraping Section -->
+            <h3 class="section-title" style="margin-top: 20px;">Website Input</h3>
+            <p style="font-size: 14px; color: #555; margin-bottom: 10px;">Import content from your blog, portfolio, or other personal websites.</p>
             <div class="flex-row">
-                <input type="text" id="chat-input" placeholder="Send a message..." style="flex-grow: 1; margin-bottom: 0;">
-                <button id="send-chat-button" class="action-button" style="width: auto;">Send</button>
+              <div class="flex-col" style="flex-grow: 3;">
+                <input type="text" id="scrape-url" placeholder="Enter website URL (e.g., https://example.com)" style="margin-bottom: 0;">
+              </div>
+              <div class="flex-col" style="flex-grow: 1;">
+                <button id="start-scraping" class="button">Scrape Website</button>
+              </div>
             </div>
-            <button id="clear-chat-button" class="action-button" style="width: auto; background-color: #6c757d; margin-top: 10px;">Clear Chat History</button>
-            <div id="chat-status" class="status"></div>
-          </div>
-      </div>
+            <div id="scrape-status" class="status"></div>
 
-      <!-- NEW: Module 5 - Psych Assessment -->
-      <div id="assessment-module" class="module">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-          <h2 style="margin: 0; display: flex; align-items: center; gap: 8px;">
-            Module 5: Personality Alignment Assessment (TIPI 
-            <button class="info-button" data-tooltip-target="tipi-tooltip">?</button>
-          )</h2>
-          <!-- Runs per Item Input -->
-          <div>
-            <label for="runs-per-item" style="font-size: 0.9em; margin-right: 5px;">Runs per Item:</label>
-            <input type="number" id="runs-per-item" name="runs-per-item" value="3" min="1" max="10" style="width: 50px;">
-          </div>
-        </div>
-        <div id="tipi-tooltip" class="info-tooltip-text" style="display: none;">
-                 Uses the Ten-Item Personality Inventory (TIPI), a brief measure of the Big Five traits. See experimental-design.md for details.
+            <!-- Social Media Integration -->
+            <h3 class="section-title" style="margin-top: 20px;">Social Media
+              <button class="info-button" data-tooltip-target="social-media-tooltip">?</button>
+            </h3>
+            <div id="social-media-tooltip" class="info-tooltip-text" style="display: none;">
+              <p>Connect your social media accounts to import profile data, creating a more complete digital twin.</p>
             </div>
-        <p class="module-description">Assess your own personality using the TIPI scale and compare it against the generated digital twin.</p>
+            
+            <p style="font-size: 14px; color: #555; margin-bottom: 10px;">Connect your social accounts to enhance your digital twin's personality.</p>
+            <div class="flex-row" style="gap: 15px; align-items: center;">
+              <div id="linkedin-connection-container">
+                <button id="connect-linkedin-button" class="action-button" style="background-color: #0077b5; width: auto; display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 18px;">in</span> Connect LinkedIn
+                </button>
+                <button id="disconnect-linkedin-button" class="action-button" style="background-color: #e74c3c; width: auto; display: flex; align-items: center; gap: 8px; display: none;">
+                  <span style="font-size: 18px;">in</span> Disconnect LinkedIn
+                </button>
+                <span id="linkedin-status-badge" style="display: none; background-color: #27ae60; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 10px;">Connected</span>
+              </div>
+              <!-- More social media buttons can be added here -->
+              <span id="social-connect-status"></span>
+            </div>
+          </div>
 
-        <!-- User Assessment Section -->
-        <div id="user-assessment-section" style="margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #eee;">
-            <h3 class="section-title">Your Personality Assessment (TIPI)</h3>
+          <!-- User Assessment (TIPI) Module -->
+          <div id="user-assessment-module" class="module">
+            <div class="module-header">
+              <div class="module-icon" style="background-color: #9b59b6;">📊</div>
+              <h2 class="module-title">Personality Assessment</h2>
+            </div>
+            <p class="module-description">Complete a brief personality assessment to create a baseline for your Digital Twin.</p>
+
+            <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+              <h3 style="margin: 0;">Ten-Item Personality Inventory (TIPI) 
+                <button class="info-button" data-tooltip-target="tipi-tooltip">?</button>
+              </h3>
+            </div>
+            <div id="tipi-tooltip" class="info-tooltip-text" style="display: none;">
+              Uses the Ten-Item Personality Inventory (TIPI), a brief measure of the Big Five traits. See experimental-design.md for details.
+            </div>
+            
             <p style="font-size: 14px; color: #555; margin-bottom: 15px;">Rate how well the following pairs of traits describe you, even if one trait fits better than the other. Use the scale: 1 (Strongly Disagree) to 5 (Strongly Agree).</p>
             
             <!-- Button to start assessment -->
@@ -629,88 +751,330 @@
                 </div>
                 <!-- Submit button - Hidden by default -->
                 <button type="submit" id="submit-user-assessment" class="action-button" style="margin-top: 15px; display: none;">Submit My Assessment</button>
-                 <!-- Retake button - Hidden by default -->
-                 <button type="button" id="retake-user-assessment" class="action-button" style="margin-top: 15px; background-color: #6c757d; display: none;">Retake Assessment</button>
+                <!-- Retake button - Hidden by default -->
+                <button type="button" id="retake-user-assessment" class="action-button" style="margin-top: 15px; background-color: #6c757d; display: none;">Retake Assessment</button>
             </form>
             <div id="user-assessment-status" class="status"></div>
+          </div>
         </div>
-
-        <!-- AI Simulation & Results Section -->
-        <div id="ai-comparison-section">
-            <h3 class="section-title">AI Alignment Simulation</h3>
-             <p style="font-size: 14px; color: #555; margin-bottom: 15px;">Run a simulation to have the AI answer the same questions based on its generated profile. Results will show alignment.</p>
-            
-            <div style="margin-bottom: 15px;">
-                <label for="ai-assessment-temp" style="margin-right: 10px; font-weight: 500;">Simulation Temperature:</label>
-                <input type="number" id="ai-assessment-temp" value="0.8" step="0.1" min="0" max="1.0" style="width: 80px; padding: 5px 8px; margin-bottom: 0;">
-                 <span style="font-size: 12px; color: #666;">(Higher value = more creative/random responses)</span>
+        
+        <!-- Page 2: Content Library -->
+        <div id="content-library-page" class="page">
+          <!-- Content Collection Module -->
+          <div class="module" id="collect-module">
+            <div class="module-header">
+              <div class="module-icon">📥</div>
+              <h2 class="module-title">Collect Content</h2>
             </div>
+            <p class="module-description">Upload files to add to your content library.</p>
             
-            <button id="run-ai-assessment" class="action-button" disabled>Run AI Assessment & Compare</button>
-            <div id="ai-assessment-status" class="status"></div>
+            <!-- File Upload -->
+            <div>
+              <h3 class="section-title">File Upload</h3>
+              <p style="font-size: 14px; color: #555; margin-bottom: 10px;">Upload documents, images, or other files that represent your writing style, interests, and personality.</p>
+              <div class="flex-row">
+                <div class="flex-col" style="flex-grow: 3;">
+                  <input type="file" id="file-input" multiple>
+                </div>
+                <div class="flex-col" style="flex-grow: 1;">
+                  <button id="upload-button">Upload File(s)</button>
+                </div>
+              </div>
+              <div id="upload-status" class="status"></div>
+            </div>
+          </div>
 
+          <!-- Content Management Module -->
+          <div class="module" id="manage-module">
+            <div class="module-header">
+              <div class="module-icon">📝</div>
+              <h2 class="module-title">Manage Content</h2>
+            </div>
+            <p class="module-description">Review collected assets and choose which ones to use for personality generation.</p>
+            
+            <!-- Asset Display Area -->
+            <div id="asset-display-area">
+                <p>Loading assets...</p>
+            </div>
+              
+            <!-- Bulk Actions & Selection Bar (sticky) -->
+            <div class="selection-bar">
+              <div>
+                <!-- Selection Actions -->
+                <button id="select-all-text-button" class="action-button">Select All Text</button>
+                <button id="select-all-image-button" class="action-button">Select All Images</button>
+                <button id="deselect-all-button" class="action-button">Deselect All</button>
+                <button id="delete-selected-button" class="action-button danger-button">Delete Selected</button>
+              </div>
+              <div class="selection-info" id="selection-summary">0 items selected</div>
+            </div>
+          </div>
+
+          <!-- Generate Personality Module -->
+          <div class="module" id="generate-module">
+            <div class="module-header">
+              <div class="module-icon">🧠</div>
+              <h2 class="module-title">Generate Personality</h2>
+            </div>
+            <p class="module-description">Create an AI personality profile based on the selected assets.</p>
+            
+            <h3 class="section-title">Personality Generation Prompt</h3>
+            <textarea id="personality-prompt" rows="6" placeholder="Loading personality generation prompt..."></textarea>
+            <div class="flex-row" style="justify-content: flex-end; gap: 10px; margin-bottom: 20px;">
+                <button id="save-prompt-button" class="action-button" style="width: auto;">Save Prompt</button>
+                <button id="reset-prompt-button" class="action-button" style="width: auto; background-color: #6c757d;">Reset to Default</button>
+            </div>
+            <div id="prompt-status" class="status"></div>
+
+            <button id="generate-personality-button" class="action-button" style="width:100%;" disabled>Generate Personality Profile</button>
+            <div id="personality-generation-status" class="status"></div>
+            
+            <h3 class="section-title">Generated Personality JSON</h3>
+            <pre id="personality-json-output" class="json-output" style="display: none;"></pre>
+            <button id="copy-json-button" class="copy-button" style="display: none;">Copy JSON</button>
+          </div>
+
+          <!-- Saved Personalities Module -->
+          <div class="module" id="saved-personalities-module">
+            <div class="module-header">
+              <div class="module-icon" style="background-color: #27ae60;">💾</div>
+              <h2 class="module-title">Saved Personalities</h2>
+            </div>
+            <p class="module-description">View and manage your generated personality profiles.</p>
+            
+            <div id="saved-personalities-container">
+              <!-- This will be populated by JS with saved personality cards -->
+              <p id="no-personalities-message">No personality profiles generated yet. Use the "Generate Personality" section above to create one.</p>
+            </div>
+          </div>
+
+          <!-- Delete User Data Module -->
+          <div class="module" id="delete-module">
+            <div class="module-header">
+              <div class="module-icon" style="background-color: #e74c3c;">🗑️</div>
+              <h2 class="module-title">Delete User Data</h2>
+            </div>
+            <p class="module-description">Permanently delete user data.</p>
+            
+            <p class="warning" style="text-align: left; margin-bottom: 10px;">⚠️ Clearing the library permanently deletes all collected assets and generated personality profiles!</p>
+            <button id="clear-library-button" class="action-button danger-button">Clear Content Library</button>
+            <div id="clear-library-status" class="status"></div>
+          </div>
+        </div>
+        
+        <!-- Page 3: Chat with Digital Twin -->
+        <div id="chat-page" class="page">
+          <!-- Select Active Personality Module -->
+          <div class="module" id="select-personality-module">
+            <div class="module-header">
+              <div class="module-icon" style="background-color: #9b59b6;">🔄</div>
+              <h2 class="module-title">Select Active Personality</h2>
+            </div>
+            <p class="module-description">Choose which personality profile to chat with.</p>
+            
+            <div id="personality-selector" class="flex-row" style="flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+              <!-- Will be populated by JS with personality options -->
+              <p id="no-personalities-chat-message">No personality profiles available. Go to the Content Library page to generate personalities.</p>
+            </div>
+          </div>
+
+          <!-- Chat Module -->
+          <div class="module" id="chat-module">
+            <div class="module-header">
+              <div class="module-icon">💬</div>
+              <h2 class="module-title">Chat with Digital Twin</h2>
+            </div>
+            <p class="module-description">Interact with the AI personality you created.</p>
+
+            <div id="chat-content-area">
+              <div class="system-prompt-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                  <h3 class="section-title" style="color: #e0e0e0; margin: 0;">System Prompt JSON 
+                    <button class="info-button" data-tooltip-target="system-prompt-tooltip" style="background-color: #333; color: #fff; border: 1px solid #444;">?</button>
+                  </h3>
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #aaa;">
+                      <input type="checkbox" id="show-system-prompt" style="width: auto; margin: 0;" checked> Show System Prompt
+                    </label>
+                  </div>
+                </div>
+                <div id="system-prompt-tooltip" class="info-tooltip-text" style="display: none; background-color: #333; border: 1px solid #444; color: #e0e0e0;">
+                  <p><strong>What it is:</strong><br>The system prompt contains all the instructions sent to the AI model that determine how your digital twin will respond.</p>
+                  <p><strong>How to use it:</strong><br>You can edit this JSON directly to modify any aspect of your digital twin's personality, background, and behavior.</p>
+                </div>
+                
+                <div id="system-prompt-controls" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                  <div style="flex-grow: 1;">
+                    <select id="saved-prompts-dropdown" style="width: 100%; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; padding: 8px; border-radius: 5px;">
+                      <option value="">-- Select a saved prompt --</option>
+                      <!-- Will be populated with saved prompts -->
+                    </select>
+                  </div>
+                  <button id="save-system-prompt" class="action-button" style="background-color: #2b5278; border: none; color: white;">Save Current</button>
+                  <button id="save-as-system-prompt" class="action-button" style="background-color: #2b5278; border: none; color: white;">Save As New</button>
+                </div>
+                
+                <textarea id="system-prompt-editor" rows="15" style="width: 100%; font-family: monospace; margin-bottom: 15px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 5px; padding: 10px;"></textarea>
+              </div>
+              
+              <!-- Chat container styled as terminal -->
+              <div id="chat-container">
+                <div style="padding: 5px 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-family: 'Courier New', monospace;">digital-twin@localhost:~</span>
+                  </div>
+                  <button id="clear-chat-button" class="action-button" style="background-color: transparent; border: 1px solid #444; color: #aaa; padding: 3px 8px; font-size: 12px; font-family: 'Courier New', monospace;">clear</button>
+                </div>
+                
+                <div id="chat-history">
+                  <!-- Terminal welcome message -->
+                  <div class="message-wrapper system-message">
+                    <div class="message"># Digital Twin Terminal v1.0</div>
+                  </div>
+                  <div class="message-wrapper system-message">
+                    <div class="message"># Type your messages and press Enter to communicate with your digital twin</div>
+                  </div>
+                  <div class="message-wrapper system-message">
+                    <div class="message"># Type 'clear' to clear the terminal</div>
+                  </div>
+                </div>
+                
+                <div style="padding: 10px; border-top: 1px solid #333; display: flex; align-items: center;">
+                  <span class="prompt-symbol">$</span>
+                  <input type="text" id="chat-input" placeholder="Type a message...">
+                  <div id="terminal-cursor" class="terminal-cursor"></div>
+                </div>
+              </div>
+              
+              <div id="chat-status" class="status" style="color: #aaa;"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Page 4: Alignment Metrics -->
+        <div id="alignment-page" class="page">
+          <div class="module" id="alignment-module">
+            <div class="module-header">
+              <div class="module-icon" style="background-color: #f39c12;">📊</div>
+              <h2 class="module-title">Personality Alignment Assessment</h2>
+            </div>
+            <p class="module-description">Compare your Digital Twin's personality traits with your own assessment.</p>
+
+            <div style="margin-bottom: 20px;">
+              <!-- Only show if user has completed assessment -->
+              <div id="user-assessment-summary" style="margin-bottom: 20px;">
+                <h3>Your Assessment</h3>
+                <p id="user-assessment-status-summary">Complete your personality assessment in the User Setup page first.</p>
+                <!-- Will show user scores here when available -->
+              </div>
+
+              <div id="ai-simulation-section">
+                <h3 class="section-title">AI Alignment Simulation</h3>
+                <p style="font-size: 14px; color: #555; margin-bottom: 15px;">Run a simulation to have the AI answer the same questions based on its generated profile. Results will show alignment.</p>
+                
+                <div style="margin-bottom: 15px;">
+                  <label for="ai-assessment-temp" style="margin-right: 10px; font-weight: 500;">Simulation Temperature:</label>
+                  <input type="number" id="ai-assessment-temp" value="0.8" step="0.1" min="0" max="1.0" style="width: 80px; padding: 5px 8px; margin-bottom: 0;">
+                  <span style="font-size: 12px; color: #666;">(Higher value = more creative/random responses)</span>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                  <label for="ai-profile-select" style="margin-right: 10px; font-weight: 500;">Select Personality Profile:</label>
+                  <select id="ai-profile-select" style="width: 300px; padding: 5px 8px;">
+                    <option value="">-- Select Personality Profile --</option>
+                    <!-- Will be populated with available profiles -->
+                  </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                  <label for="runs-per-item" style="margin-right: 10px; font-weight: 500;">Runs per Item:</label>
+                  <input type="number" id="runs-per-item" name="runs-per-item" value="3" min="1" max="10" style="width: 50px;">
+                  <span style="font-size: 12px; color: #666;">(More runs = more accurate but slower)</span>
+                </div>
+                
+                <button id="run-ai-assessment" class="action-button" disabled>Run AI Assessment & Compare</button>
+                <div id="ai-assessment-status" class="status"></div>
+              </div>
+            </div>
+
+            <!-- Results Section -->
             <div id="assessment-results-area" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc; display: none;">
               <h3>Alignment Results</h3>
               <p>Overall Alignment: <strong id="overall-alignment">--%</strong></p>
-              <!-- New element for Item Agreement -->
-              <p>Exact Item Agreement: <strong id="item-agreement">--%</strong></p> 
+              <p>Exact Item Agreement: <strong id="item-agreement">--%</strong></p>
               <ul id="dimension-alignment-list" style="margin-bottom: 15px;"></ul>
-              <div style="width: 100%; max-width: 400px; height: 300px; margin: 0 auto;">
+              <div style="width: 100%; max-width: 600px; height: 400px; margin: 0 auto;">
                 <canvas id="radar-chart"></canvas>
               </div>
             </div>
+          </div>
         </div>
       </div>
-
-      <!-- Module 6: Reset (Renumbered) -->
-       <div class="module">
-        <div class="module-header">
-          <div class="module-icon">♻️</div> 
-          <h2 class="module-title">Reset</h2>
-        </div>
-        <p class="module-description">Reset the current session.</p>
-        
-        <button id="reset-session-button" class="action-button danger-button" style="width: 100%;">Reset Session</button>
-      </div>
-
     </div>
   </div>
 
   <!-- Templates (Hidden by default) -->
   <template id="asset-group-template">
     <div class="asset-group" style="margin-bottom: 25px;">
-        <h3 class="section-title profile-group-title" style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px;">Profile ID: <span class="profile-id-display"></span></h3>
-        <div class="flex-row">
-            <div class="flex-col">
-                <h4 style="margin-bottom: 10px;">Text Content</h4>
-                <div class="content-grid text-content-grid">
-                    <p>No text assets for this profile.</p>
-                </div>
-            </div>
-            <div class="flex-col">
-                <h4 style="margin-bottom: 10px;">Image Content</h4>
-                <div class="content-grid image-content-grid">
-                     <p>No image assets for this profile.</p>
-                </div>
-            </div>
+      <h3 class="section-title profile-group-title" style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px;">Profile ID: <span class="profile-id-display"></span></h3>
+      <div class="flex-row">
+        <div class="flex-col">
+          <h4 style="margin-bottom: 10px;">Text Content</h4>
+          <div class="content-grid text-content-grid">
+            <p>No text assets for this profile.</p>
+          </div>
         </div>
+        <div class="flex-col">
+          <h4 style="margin-bottom: 10px;">Image Content</h4>
+          <div class="content-grid image-content-grid">
+            <p>No image assets for this profile.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </template>
 
   <template id="asset-card-template">
-      <div class="content-card">
-          <div class="content-card-header">
-              <span class="content-type"></span>
-              <input type="checkbox" class="content-select" title="Select this asset">
-          </div>
-          <div class="content-title" title="Filename"></div>
-          <div class="content-info source" title="Source URL/Upload"></div>
-          <div class="content-info date"></div>
-        <div class="content-preview"></div>
-          <div style="margin-top: auto; padding-top: 10px;"> 
-              <button class="action-button preview-button" style="width:100%; font-size: 12px; padding: 5px 8px;">Preview</button>
-          </div>
+    <div class="content-card">
+      <div class="content-card-header">
+        <span class="content-type"></span>
+        <input type="checkbox" class="content-select" title="Select this asset">
       </div>
+      <div class="content-title" title="Filename"></div>
+      <div class="content-info source" title="Source URL/Upload"></div>
+      <div class="content-info date"></div>
+      <div class="content-preview"></div>
+      <div style="margin-top: auto; padding-top: 10px;"> 
+        <button class="action-button preview-button" style="width:100%; font-size: 12px; padding: 5px 8px;">Preview</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="profile-card-template">
+    <div class="profile-card">
+      <div class="profile-card-header">
+        <h4 class="profile-card-title"></h4>
+        <span class="profile-card-date"></span>
+      </div>
+      <div class="traits-summary"></div>
+      <div class="profile-card-actions">
+        <button class="action-button view-profile-button">View Profile</button>
+        <button class="action-button use-for-chat-button">Use for Chat</button>
+        <button class="action-button use-for-assessment-button">Use for Assessment</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="personality-selector-template">
+    <div class="profile-selector-item" style="padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong class="profile-name"></strong>
+          <span class="profile-date" style="margin-left: 10px; font-size: 12px; color: #777;"></span>
+        </div>
+        <button class="action-button select-profile-button">Select</button>
+      </div>
+    </div>
   </template>
 
   <!-- Modal for Previews -->
@@ -724,9 +1088,6 @@
     </div>
   </div>
 
-  <!-- Include Chart.js library from CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-
-  <script src="/js/app.js"></script>
+  <script src="js/app.js?v=44"></script>
 </body>
 </html>

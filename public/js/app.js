@@ -14,6 +14,13 @@ let assetGroupTemplate, assetCardTemplate, previewModal, modalTitle, modalConten
 let generateModule, chatModule, assessmentModule, chatContentArea;
 // Add checkbox variables
 let includeInteractionContextCheckbox, includePsychStateCheckbox, includeCogStyleCheckbox;
+// Add bio-related variables
+let userBioTextarea, saveBioButton, bioStatusDiv;
+
+// New variables for tab navigation
+let navTabs, pageContainers;
+let savedPersonalitiesContainer, profileCardTemplate, personalitySelector, personalitySelectorTemplate;
+let aiProfileSelect, userAssessmentSummary, userAssessmentStatusSummary;
 
 // === Global State ===
 const selectedAssets = new Set(); // Keep track of selected asset IDs
@@ -23,10 +30,33 @@ let currentChatHistory = []; // Store chat messages { role: 'user'/'assistant', 
 let userTipiScores = null; // Store user scores { q1: score, q2: score, ... }
 let aiTipiScores = null;   // Store AI average scores
 let currentUserId = null; // Track the active user
+let currentActiveProfileId = null; // Track the currently active personality profile
+
+// === Early Function Definitions ===
+
+/**
+ * Render the current chat history
+ */
+function renderChatHistory() {
+  if (!chatHistoryDiv || !currentChatHistory) return;
+  
+  // Clear chat history
+  chatHistoryDiv.innerHTML = '';
+  
+  // Add each message
+  currentChatHistory.forEach(message => {
+    addMessageToChat(message.role, message.content);
+  });
+}
 
 // === Event Listeners ===
 document.addEventListener('DOMContentLoaded', () => {
   // --- Assign DOM elements inside the listener ---
+  
+  // Tab navigation elements
+  navTabs = document.querySelectorAll('.nav-tab');
+  pageContainers = document.querySelectorAll('.page');
+  
   userSelectDropdown = document.getElementById('user-select');
   newUserInput = document.getElementById('new-user-id');
   createUserButton = document.getElementById('create-user-button');
@@ -59,6 +89,17 @@ document.addEventListener('DOMContentLoaded', () => {
   personalityJsonOutputPre = document.getElementById('personality-json-output');
   copyJsonButton = document.getElementById('copy-json-button');
 
+  // New elements for saved personalities and profile selection
+  savedPersonalitiesContainer = document.getElementById('saved-personalities-container');
+  profileCardTemplate = document.getElementById('profile-card-template');
+  personalitySelector = document.getElementById('personality-selector');
+  personalitySelectorTemplate = document.getElementById('personality-selector-template');
+  
+  // Alignment page elements
+  aiProfileSelect = document.getElementById('ai-profile-select');
+  userAssessmentSummary = document.getElementById('user-assessment-summary');
+  userAssessmentStatusSummary = document.getElementById('user-assessment-status-summary');
+
   chatPersonalityJsonPre = document.getElementById('chat-personality-json');
   chatLoreInput = document.getElementById('chat-lore-input');
   chatParamsInput = document.getElementById('chat-params-input');
@@ -86,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
   runsPerItemInput = document.getElementById('runs-per-item'); 
   itemAgreementSpan = document.getElementById('item-agreement'); 
 
-  // NOTE: Reset session button/module not fully defined in provided HTML, commenting out related elements
+  // NOTE: Reset session button/module not fully defined in provided HTML, commenting out
   // resetSessionButton = document.getElementById('reset-session-button'); 
   clearLibraryButton = document.getElementById('clear-library-button'); // This is the old reset button, now delete user
   clearLibraryStatusDiv = document.getElementById('clear-library-status');
@@ -100,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   generateModule = document.getElementById('generate-module'); 
   chatModule = document.getElementById('chat-module');
-  assessmentModule = document.getElementById('assessment-module');
+  assessmentModule = document.getElementById('user-assessment-module'); // Changed from assessment-module to user-assessment-module
   chatContentArea = document.getElementById('chat-content-area');
   // --- End DOM element assignments ---
 
@@ -111,29 +152,33 @@ document.addEventListener('DOMContentLoaded', () => {
   includeCogStyleCheckbox = document.getElementById('include-cog-style');
   // ... other assignments ...
 
+  // Bio elements
+  userBioTextarea = document.getElementById('user-bio');
+  saveBioButton = document.getElementById('save-bio-button');
+  bioStatusDiv = document.getElementById('bio-status');
+
+  // Create debounced version of saveContext with 500ms delay
+  const debouncedSaveContext = debounce(saveContext, 500);
+
   // Initial setup on page load
-  loadUserList(); // Load existing users first
-  // Disable content modules initially
-  setModuleEnabled('collect-module', false);
-  setModuleEnabled('manage-module', false); // Need ID for Module 2 - Assume it exists or add it
-  setModuleEnabled('generate-module', false);
-  setModuleEnabled('chat-module', false);
-  setModuleEnabled('assessment-module', false);
+  updateNavigationTabsState(); // Initialize tab navigation state
   
   // Other setup
   loadPersonalityPrompt(); // Still load default prompt text
   setupModal();
   updateChatSystemPrompt();
-  updateAssessmentUI(); 
+  updateAssessmentUI();
 
   // --- Attach Event Listeners ---
   // Module 0 Listeners
   userSelectDropdown?.addEventListener('change', handleUserSelect);
   createUserButton?.addEventListener('click', handleCreateUser);
+  saveBioButton?.addEventListener('click', handleSaveBio);
   
   // Module 1 Listeners
   startScrapingButton?.addEventListener('click', handleScrape);
   uploadButton?.addEventListener('click', handleUpload);
+  document.getElementById('connect-linkedin-button')?.addEventListener('click', handleLinkedInConnect);
   
   // Module 2 Listeners
   assetDisplayArea?.addEventListener('change', handleAssetSelectionChange);
@@ -191,1857 +236,3911 @@ document.addEventListener('DOMContentLoaded', () => {
   chatParamsInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); }); 
   chatPsychStateInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); }); 
   chatCogStyleInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); });
+
+  // Check for social auth callback
+  checkSocialAuthCallback();
+
+  // New elements for system prompt editor
+  systemPromptEditor = document.getElementById('system-prompt-editor');
+  showSystemPromptCheckbox = document.getElementById('show-system-prompt');
+  savedPromptsDropdown = document.getElementById('saved-prompts-dropdown');
+  saveSystemPromptButton = document.getElementById('save-system-prompt');
+  saveAsSystemPromptButton = document.getElementById('save-as-system-prompt');
+  
+  // Attach event listeners for system prompt functionality
+  showSystemPromptCheckbox?.addEventListener('change', toggleSystemPromptVisibility);
+  savedPromptsDropdown?.addEventListener('change', selectSystemPrompt);
+  saveSystemPromptButton?.addEventListener('click', saveCurrentSystemPrompt);
+  saveAsSystemPromptButton?.addEventListener('click', saveSystemPromptAs);
 });
 
-// === Functions ===
-
-// --- Initialization & Setup ---
-
-function setupModal() {
-    if (closeModalButton) {
-        closeModalButton.onclick = () => {
-            previewModal.style.display = "none";
-        }
-    }
-    // Close modal if user clicks outside the content area
-    window.onclick = (event) => {
-        if (event.target == previewModal) {
-            previewModal.style.display = "none";
-        }
-    }
+/**
+ * Toggle system prompt visibility based on checkbox
+ */
+function toggleSystemPromptVisibility() {
+  if (!systemPromptEditor) return;
+  
+  systemPromptEditor.style.display = showSystemPromptCheckbox.checked ? 'block' : 'none';
 }
 
-async function loadPersonalityPrompt() {
-    showStatus(promptStatusDiv, 'Loading prompt...', 'loading');
-    try {
-        // TODO: Implement GET /api/prompt/personality endpoint
-        // For now, using a hardcoded default
-        const defaultPrompt = `You are an expert psychoanalyst and personality psychologist tasked with crafting a detailed computational representation ("Digital Persona Profile") of an individual's psychological identity, based on a representative set of their provided content.
-
-You recognize that personality encompasses both conscious expression and unconscious characteristics. Your objective is to capture the core psychological patterns, reliably inferring stable personality dimensions, values, style, beliefs, and motivations from the content.
-
-Ground your generation in established psychological frameworks—particularly the Big Five personality traits (Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism)—and clearly identify distinctive communication styles, recurring interests, enduring values, expertise areas, core beliefs, and future-oriented visions.
-
-Based strictly and accurately on the content provided within the <assets></assets> tags, produce a comprehensive, structured JSON suitable for high-fidelity AI personality simulations, ensuring it generalizes well both within and outside provided contexts.
-
-CONTENT:
-<assets>
-[CONTENT HERE]
-</assets>
-
-DIGITAL PERSONA PROFILE (JSON OUTPUT):
-#####
-{
-  "big_five_traits": {
-    "openness": "[high/medium/low]",
-    "conscientiousness": "[high/medium/low]",
-    "extraversion": "[high/medium/low]",
-    "agreeableness": "[high/medium/low]",
-    "neuroticism": "[high/medium/low]"
-  },
-  "interests": ["distinct recurring topics/interests identified"],
-  "traits": ["descriptive, stable personality adjectives"],
-  "values": ["fundamental principles guiding their judgments"],
-  "expertise": ["specific knowledge areas and proven skillsets"],
-  "philosophical_beliefs": ["explicitly stated or implied philosophical perspectives"],
-  "vision_for_future": ["long-term aspirations, goals, or speculative ideas"],
-  "communication_style": {
-    "tone": "[dominant emotional tone, e.g., reflective, optimistic, analytical]",
-    "formality": "[high/medium/low]",
-    "complexity": "[high/medium/low]",
-    "humor": "[style and frequency, e.g., subtle, frequent, intellectual]"
-  },
-  "representative_statements": [
-    "Short, characteristic quotes illustrating their personality"
-  ]
-}
-#####`;
-        currentPersonalityPrompt = defaultPrompt;
-        personalityPromptTextarea.value = currentPersonalityPrompt;
-        showStatus(promptStatusDiv, 'Default prompt loaded.', 'success'); // Indicate default was loaded
-  } catch (error) {
-        console.error("Error loading personality prompt:", error);
-        showStatus(promptStatusDiv, `Error loading prompt: ${error.message}`, 'error');
-        // Fallback already handled by setting default prompt above
-    }
-}
-
-// --- Asset Loading & Display (NEW IMPLEMENTATION) ---
-
-async function loadAssets(userIdToLoad = null) {
-    const targetUserId = userIdToLoad || currentUserId;
-    console.log(`Loading assets for user: ${targetUserId || 'All (Fallback)'}`);
-    assetDisplayArea.innerHTML = '<p>Loading assets...</p>';
-    selectedAssets.clear(); // Clear selection when reloading
-    updateSelectionUI();
-
-    if (!targetUserId) {
-        assetDisplayArea.innerHTML = '<p>Select a User Profile to load assets.</p>';
-        setModuleEnabled('manage-module', false); // Disable asset management if no user
-        return;
+/**
+ * Update the chat interface with the current profile
+ */
+function updateChatInterface() {
+  if (!currentGeneratedProfile) {
+    // No profile available
+    if (personalitySelector) {
+      personalitySelector.innerHTML = '<p>No personality profile available. Generate one in the Content Library page first.</p>';
     }
     
-    setModuleEnabled('manage-module', true); // Enable asset management
-
-    try {
-        const response = await fetch(`/api/assets?userId=${encodeURIComponent(targetUserId)}`); // Fetch all assets initially
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const groupedAssets = await response.json(); // Expects { images: [], text: [], other: [] }
-
-        // Further process the response to group by profile ID
-        const assetsByProfile = {};
-        const allAssetsList = [...(groupedAssets.images || []), ...(groupedAssets.text || []), ...(groupedAssets.other || [])];
-        
-        allAssetsList.forEach(asset => {
-            const profileId = asset.metadata?.userId || 'unknown_profile';
-            if (profileId === targetUserId) {
-                if (!assetsByProfile[profileId]) {
-                    assetsByProfile[profileId] = { images: [], text: [], other: [] };
-                }
-                if (asset.mimetype?.startsWith('image/')) {
-                    assetsByProfile[profileId].images.push(asset);
-                } else if (asset.mimetype === 'text/plain' || asset.mimetype === 'application/json') {
-                    assetsByProfile[profileId].text.push(asset);
-                }
-            } else {
-                console.warn(`Asset ${asset.id} has incorrect userId ${profileId}, expected ${targetUserId}. Filtering out.`);
-            }
-        });
-
-        assetDisplayArea.innerHTML = ''; // Clear loading message
-
-        if (Object.keys(assetsByProfile).length === 0) {
-            assetDisplayArea.innerHTML = `<p>No content found for user '${targetUserId}'. Use Step 1 to collect content.</p>`;
-            return;
-        }
-
-        // Sort profile IDs alphabetically (optional)
-        const sortedProfileIds = Object.keys(assetsByProfile).sort();
-
-        // Create and append asset groups for each profile ID
-        for (const profileId of sortedProfileIds) {
-            const groupData = assetsByProfile[profileId];
-            // Only create a group if it has text or image assets
-            if (groupData.text.length > 0 || groupData.images.length > 0) {
-                 const groupElement = createAssetGroupElement(profileId, groupData);
-                 assetDisplayArea.appendChild(groupElement);
-            }
-        }
-
-    } catch (error) {
-        console.error("Error loading assets:", error);
-        assetDisplayArea.innerHTML = `<p class="error">Error loading assets: ${error.message}</p>`;
-    }
-}
-
-function createAssetGroupElement(profileId, groupData) {
-    if (!assetGroupTemplate) {
-        console.error("Asset group template not found!");
-        return document.createElement('div'); // Return empty div to prevent errors
-    }
-    const template = assetGroupTemplate.content.cloneNode(true);
-    const groupDiv = template.querySelector('.asset-group');
-    groupDiv.dataset.profileId = profileId;
-    template.querySelector('.profile-id-display').textContent = profileId;
-
-    const textGrid = template.querySelector('.text-content-grid');
-    const imageGrid = template.querySelector('.image-content-grid');
-
-    textGrid.innerHTML = ''; // Clear placeholder
-    if (groupData.text.length > 0) {
-        // Sort text assets by date, newest first (optional)
-        groupData.text.sort((a, b) => new Date(b.metadata?.createdAt || 0) - new Date(a.metadata?.createdAt || 0));
-        groupData.text.forEach(asset => textGrid.appendChild(createAssetCardElement(asset)));
-    } else {
-        textGrid.innerHTML = '<p class="empty-grid-message">No text assets for this profile.</p>';
-    }
-
-    imageGrid.innerHTML = ''; // Clear placeholder
-    if (groupData.images.length > 0) {
-         // Sort image assets by date, newest first (optional)
-        groupData.images.sort((a, b) => new Date(b.metadata?.createdAt || 0) - new Date(a.metadata?.createdAt || 0));
-        groupData.images.forEach(asset => imageGrid.appendChild(createAssetCardElement(asset)));
-    } else {
-        imageGrid.innerHTML = '<p class="empty-grid-message">No image assets for this profile.</p>';
-    }
-
-    return template; // Return the DocumentFragment containing the group
-}
-
-function createAssetCardElement(asset) {
-    if (!assetCardTemplate) {
-         console.error("Asset card template not found!");
-         return document.createElement('div'); // Return empty div
-    }
-    const template = assetCardTemplate.content.cloneNode(true);
-    const card = template.querySelector('.content-card');
-    card.dataset.assetId = asset.id;
-
-    const typeSpan = card.querySelector('.content-type');
-    const titleDiv = card.querySelector('.content-title');
-    const sourceDiv = card.querySelector('.source');
-    const dateDiv = card.querySelector('.date');
-    const checkbox = card.querySelector('.content-select');
-    const previewButton = card.querySelector('.preview-button');
-    // const previewContainer = card.querySelector('.content-preview'); // Preview content loaded into modal now
-
-    let assetType = 'other';
-    if (asset.mimetype?.startsWith('image/')) {
-        assetType = 'image';
-    } else if (asset.mimetype === 'text/plain' || asset.mimetype === 'application/json') {
-        assetType = 'text';
-    }
-
-    typeSpan.textContent = assetType;
-    typeSpan.className = `content-type ${assetType}`; // Add class for styling
-
-    let displayFilename = asset.filename || 'Unnamed Asset';
-    if (displayFilename.length > 30) { // Adjust length as needed
-        displayFilename = displayFilename.substring(0, 27) + '...';
-    }
-    titleDiv.textContent = displayFilename;
-    titleDiv.title = asset.filename || 'Unnamed Asset'; // Full name on hover
-
-    let sourceText = 'Upload';
-    if (asset.metadata?.sourceUrl) {
-        try { sourceText = new URL(asset.metadata.sourceUrl).hostname; } catch { sourceText = asset.metadata.sourceUrl; }
-    } else if (asset.metadata?.context) {
-        sourceText = asset.metadata.context;
-    }
-    sourceDiv.textContent = `Source: ${sourceText}`;
-    sourceDiv.title = asset.metadata?.sourceUrl || sourceText; // Show full URL on hover if available
+    // Disable chat controls
+    if (chatInputElement) chatInputElement.disabled = true;
+    if (sendChatButton) sendChatButton.disabled = true;
+    if (clearChatButton) clearChatButton.disabled = true;
     
-    dateDiv.textContent = `Date: ${new Date(asset.metadata?.createdAt || Date.now()).toLocaleDateString()}`;
-
-    checkbox.dataset.assetId = asset.id;
-    checkbox.checked = selectedAssets.has(asset.id); // Reflect current selection state
-    if (checkbox.checked) card.classList.add('selected');
-
-    previewButton.dataset.assetId = asset.id;
-    previewButton.dataset.assetType = assetType;
-    previewButton.dataset.assetFilename = asset.filename || 'Unnamed Asset'; // Store filename for modal title
-
-    return template; // Return the DocumentFragment containing the card
-}
-
-
-// --- Asset Selection & Actions (Updated Implementation) ---
-
-function handleAssetSelectionChange(event) {
-    if (event.target.classList.contains('content-select')) {
-        const checkbox = event.target;
-        const assetId = checkbox.dataset.assetId;
-        const card = checkbox.closest('.content-card');
-        if (assetId && card) {
-            if (checkbox.checked) {
-                selectedAssets.add(assetId);
-                card.classList.add('selected');
-          } else {
-                selectedAssets.delete(assetId);
-                card.classList.remove('selected');
-            }
-            updateSelectionUI();
-            setModuleEnabled('generate-module', selectedAssets.size > 0); // Enable/disable Generate module
-        }
-    }
-}
-
-function selectAllTextAssets() {
-    let changed = false;
-    document.querySelectorAll('#asset-display-area .content-card').forEach(card => {
-        const typeSpan = card.querySelector('.content-type');
-        const checkbox = card.querySelector('.content-select');
-        if (typeSpan && checkbox && typeSpan.classList.contains('text') && !checkbox.checked) {
-            checkbox.checked = true;
-            const assetId = checkbox.dataset.assetId;
-            selectedAssets.add(assetId);
-            card.classList.add('selected');
-            changed = true;
-        }
-    });
-    if (changed) {
-        updateSelectionUI();
-        setModuleEnabled('generate-module', selectedAssets.size > 0);
-    }
-}
-
-function selectAllImageAssets() {
-    let changed = false;
-    document.querySelectorAll('#asset-display-area .content-card').forEach(card => {
-        const typeSpan = card.querySelector('.content-type');
-        const checkbox = card.querySelector('.content-select');
-        if (typeSpan && checkbox && typeSpan.classList.contains('image') && !checkbox.checked) {
-            checkbox.checked = true;
-            const assetId = checkbox.dataset.assetId;
-            selectedAssets.add(assetId);
-            card.classList.add('selected');
-            changed = true;
-        }
-    });
-    if (changed) {
-        updateSelectionUI();
-        setModuleEnabled('generate-module', selectedAssets.size > 0);
-    }
-}
-
-function deselectAllAssets() {
-    let changed = false;
-    document.querySelectorAll('#asset-display-area .content-select').forEach(checkbox => {
-        if (checkbox.checked) {
-            checkbox.checked = false;
-            const assetId = checkbox.dataset.assetId;
-            const card = checkbox.closest('.content-card');
-            selectedAssets.delete(assetId);
-             if (card) card.classList.remove('selected');
-             changed = true;
-        }
-    });
-    if (changed) {
-        updateSelectionUI();
-        setModuleEnabled('generate-module', selectedAssets.size > 0);
-    }
-}
-
-async function deleteSelectedAssets() {
-    if (selectedAssets.size === 0) {
-        alert("No assets selected to delete.");
-        return;
-    }
-    
-    if (!confirm(`Are you sure you want to delete the ${selectedAssets.size} selected asset(s)? This cannot be undone.`)) {
-        return;
-    }
-
-    console.log("Deleting assets:", Array.from(selectedAssets));
-    // Find a suitable status area, maybe near the delete button or a general one
-    const statusArea = selectionSummarySpan; // Using selection summary temporarily
-    showStatus(statusArea, `Deleting ${selectedAssets.size} assets...`, 'loading');
-
-    let successCount = 0;
-    let failureCount = 0;
-    const assetIdsToDelete = Array.from(selectedAssets);
-
-    for (const assetId of assetIdsToDelete) {
-        try {
-            const response = await fetch(`/api/assets/${assetId}`, { method: 'DELETE' });
-            // No need to parse JSON if DELETE is successful (usually 204 No Content or 200 OK)
-            if (response.ok) {
-                console.log(`Successfully deleted asset ${assetId}`);
-                selectedAssets.delete(assetId);
-                const cardToRemove = assetDisplayArea.querySelector(`.content-card[data-asset-id="${assetId}"]`);
-                if (cardToRemove) {
-                    // Optional: Add a fade-out effect before removing
-                    cardToRemove.style.transition = 'opacity 0.5s ease';
-                    cardToRemove.style.opacity = '0';
-                    setTimeout(() => cardToRemove.remove(), 500);
-                }
-                successCount++;
-      } else {
-                const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
-                console.error(`Failed to delete asset ${assetId}:`, errorData.error || response.statusText);
-                failureCount++;
-                // Mark card as error? (optional)
-                 const cardWithError = assetDisplayArea.querySelector(`.content-card[data-asset-id="${assetId}"]`);
-                 if(cardWithError) cardWithError.classList.add('error-delete'); // Add a class for styling
-            }
-  } catch (error) {
-            console.error(`Network/Request error during deletion for asset ${assetId}:`, error);
-            failureCount++;
-             const cardWithError = assetDisplayArea.querySelector(`.content-card[data-asset-id="${assetId}"]`);
-             if(cardWithError) cardWithError.classList.add('error-delete');
-        }
-    }
-
-    updateSelectionUI(); // Update count and button states
-    setModuleEnabled('generate-module', selectedAssets.size > 0);
-
-    let message = `Deleted ${successCount} asset(s).`;
-    let statusType = 'success';
-    if (failureCount > 0) {
-        message += ` Failed to delete ${failureCount} asset(s). Check console for details.`;
-        statusType = failureCount === assetIdsToDelete.length ? 'error' : 'warning'; // error if all failed, warning if partial
-    }
-    showStatus(statusArea, message, statusType);
-
-    // Optional: Reload assets if cards were just marked with error instead of removed
-    // setTimeout(loadAssets, 2000);
-}
-
-
-function handleAssetAreaClick(event) {
-    // Handle clicks on preview buttons within the asset area
-    if (event.target.classList.contains('preview-button')) {
-        handlePreviewClick(event.target); // Pass the button element itself
-    }
-    // Add other delegated handlers if needed (e.g., describe button)
-}
-
-function updateSelectionUI() {
-    selectionSummarySpan.textContent = `${selectedAssets.size} items selected`;
-    deleteSelectedButton.disabled = selectedAssets.size === 0;
-    // Enable generate button ONLY if a user is selected AND assets are selected
-    setModuleEnabled('generate-module', currentUserId && selectedAssets.size > 0); 
-}
-
-// --- Preview Modal (NEW IMPLEMENTATION) ---
-async function handlePreviewClick(button) {
-    const assetId = button.dataset.assetId;
-    const assetType = button.dataset.assetType;
-    const assetFilename = button.dataset.assetFilename || 'Asset';
-    
-    if (!assetId || !assetType) {
-        console.error("Preview button missing necessary data attributes (assetId, assetType)");
     return;
   }
-
-    console.log(`Preview requested for asset: ${assetId}, type: ${assetType}`);
-
-    modalTitle.textContent = `Preview: ${assetFilename}`; // Use filename in title
-    modalContent.innerHTML = '<p>Loading preview...</p>';
-    previewModal.style.display = 'block';
-
-    try {
-        // Fetch content using the /content endpoint
-        const response = await fetch(`/api/assets/${assetId}/content`);
-    if (!response.ok) {
-            let errorText = `Failed to fetch content (${response.status})`;
-            try { 
-                const errorData = await response.json();
-                errorText = errorData.error || errorText;
-            } catch { /* ignore json parsing error */ }
-            throw new Error(errorText);
-        }
-
-        if (assetType === 'image') {
-            // For images, get the blob and display
-            const blob = await response.blob();
-            // Check if blob is empty or invalid type (sometimes servers return error pages as blobs)
-            if (!blob || blob.size === 0 || !blob.type.startsWith('image/')){
-                 throw new Error('Invalid image data received.');
-            }
-            const objectURL = URL.createObjectURL(blob);
-            modalContent.innerHTML = `<img src="${objectURL}" style="max-width: 100%; max-height: 70vh; display: block; margin: auto;" alt="Preview for ${assetId}">`;
-            // Add cleanup for object URL when modal closes
-            closeModalButton.onclick = () => {
-                URL.revokeObjectURL(objectURL);
-                previewModal.style.display = "none";
-            };
-            window.onclick = (event) => {
-                if (event.target == previewModal) {
-                    URL.revokeObjectURL(objectURL);
-                    previewModal.style.display = "none";
-                }
-            }
-
-        } else if (assetType === 'text') {
-            // For text, display the text content
-            const text = await response.text();
-             let formattedContent = text;
-             // Attempt to pretty-print if it looks like JSON
-             if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
-                 try { formattedContent = JSON.stringify(JSON.parse(text), null, 2); } catch { /* ignore parse error */ }
-             }
-            modalContent.innerHTML = `<pre style="white-space: pre-wrap; word-break: break-word;">${formattedContent}</pre>`;
-             // Reset modal close handler to default if it was changed by image
-             setupModal(); 
-  } else {
-             modalContent.innerHTML = '<p>Preview not available for this asset type.</p>';
-              setupModal();
-        }
-
-    } catch (error) {
-        console.error('Error loading preview content:', error);
-        modalContent.innerHTML = `<p class="error">Error loading preview: ${error.message}</p>`;
-        setupModal(); // Ensure close handler is set even on error
-    }
-}
-
-
-// --- Module 1: Content Collection Functions ---
-async function handleUpload() {
-    if (!currentUserId) {
-        showStatus(uploadStatusDiv, "Please select or create a User first.", "error");
-        return;
-    }
-    const files = fileInputElement.files;
-    if (!files || files.length === 0) {
-        showStatus(uploadStatusDiv, 'Please select at least one file', 'error');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('personId', currentUserId);
-    for (let i = 0; i < files.length; i++) {
-        formData.append('file', files[i]);
-    }
-
-    showStatus(uploadStatusDiv, `Uploading ${files.length} file(s)...`, 'loading');
-    uploadButton.disabled = true;
-
-    try {
-        const response = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-
-        if (response.ok || response.status === 207) {
-            showStatus(uploadStatusDiv, data.message || 'Upload complete.', response.ok ? 'success' : 'warning');
-            if (data.results && Array.isArray(data.results)) {
-                const failedFiles = data.results.filter(r => r.error);
-                if (failedFiles.length > 0) {
-                    console.warn('Some files failed to upload:', failedFiles);
-                }
-            }
-            fileInputElement.value = '';
-            setTimeout(loadAssets, 1500);
-        } else {
-            showStatus(uploadStatusDiv, `Error: ${data.error || 'Upload failed'}`, 'error');
-        }
-    } catch (error) {
-        console.error('Upload error:', error);
-        showStatus(uploadStatusDiv, `Upload Error: ${error.message}`, 'error');
-    } finally {
-        uploadButton.disabled = false;
-    }
-}
-
-async function handleScrape() {
-    if (!currentUserId) {
-        showStatus(scrapeStatusDiv, "Please select or create a User first.", "error");
-        return;
-    }
-    const url = scrapeUrlInput.value.trim();
-    if (!url) {
-        showStatus(scrapeStatusDiv, 'Please fill in the URL', 'error');
-        return;
-    }
+  
+  // Update personality selector
+  if (personalitySelector) {
+    personalitySelector.innerHTML = '';
     
-    showStatus(scrapeStatusDiv, 'Starting website scraping...', 'loading');
-    startScrapingButton.disabled = true;
-
-    try {
-        const response = await fetch('/api/scrape', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, userId: currentUserId })
-        });
-        const data = await response.json();
-
-        if (response.status === 202) {
-            showStatus(scrapeStatusDiv, data.message || 'Scraping initiated.', 'loading');
-            startStatusPolling();
-        } else {
-            throw new Error(data.error || `Failed to start scraping (${response.status})`);
-        }
-    } catch (error) {
-        console.error('Error sending scrape request:', error);
-        showStatus(scrapeStatusDiv, `Scrape Error: ${error.message}`, 'error');
-        startScrapingButton.disabled = false;
-    }
-}
-
-function startStatusPolling() {
-    let statusInterval = null;
-    let consecutiveErrors = 0;
-    const MAX_ERRORS = 3;
-    const POLLING_INTERVAL_MS = 5000;
-    const TIMEOUT_MS = 30 * 60 * 1000;
-
-    const poll = async () => {
-        try {
-            const response = await fetch('/api/scrape/status');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            consecutiveErrors = 0;
-            if (data.status === 'in_progress') {
-                let statusMessage = `Scraping: ${data.pagesVisited || 0} pages visited, ${data.imagesFound || 0} images found`;
-                if (data.currentDuration) statusMessage += ` (${data.currentDuration})`;
-                showStatus(scrapeStatusDiv, statusMessage, 'loading');
-            } else if (data.status === 'completed') {
-                showStatus(scrapeStatusDiv, `Scraping completed! Visited ${data.summary?.pagesVisited || 0} pages. Found ${data.summary?.textAssetsCreated || 0} text, ${data.summary?.imagesFound || 0} images. Duration: ${data.summary?.duration || 'N/A'}.`, 'success');
-                stopPolling();
-                setTimeout(loadAssets, 1000);
-            } else if (data.status === 'error' || data.error) {
-                 showStatus(scrapeStatusDiv, `Scraping failed: ${data.error || 'Unknown error'}`, 'error');
-                 stopPolling();
-            } else if (data.status === 'idle') {
-                 showStatus(scrapeStatusDiv, 'Scraping process ended or was interrupted.', 'warning');
-                 stopPolling();
-                 setTimeout(loadAssets, 1000);
-            } else {
-                 console.warn('Unknown scrape status received:', data);
-                 showStatus(scrapeStatusDiv, `Scraping status: ${data.status || 'Unknown'}...`, 'loading');
-            }
-        } catch (error) {
-            console.error('Error polling scrape status:', error);
-            consecutiveErrors++;
-            if (consecutiveErrors >= MAX_ERRORS) {
-                showStatus(scrapeStatusDiv, 'Error checking scrape status. Please check server logs.', 'error');
-                stopPolling();
-            }
-        }
-    };
-    const stopPolling = () => {
-        if (statusInterval) {
-            clearInterval(statusInterval);
-            statusInterval = null;
-            startScrapingButton.disabled = false;
-            console.log("Stopped polling scrape status.");
-        }
-    };
-    if (window.scrapePollInterval) clearInterval(window.scrapePollInterval);
-    statusInterval = setInterval(poll, POLLING_INTERVAL_MS);
-    window.scrapePollInterval = statusInterval;
-    setTimeout(stopPolling, TIMEOUT_MS);
-    poll();
-}
-
-// --- Module 3: Personality Generation Functions ---
-
-async function savePersonalityPrompt() {
-    if (!currentUserId) {
-        showStatus(promptStatusDiv, "Select a User first to save prompt.", "error");
-        return;
-    }
-    const newPrompt = personalityPromptTextarea.value;
-    showStatus(promptStatusDiv, 'Saving prompt...', 'loading');
-    try {
-        // Call PUT /api/users/:userId to save
-        const response = await fetch(`/api/users/${currentUserId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ generation: { customPrompt: newPrompt } })
-        });
-         if (!response.ok) {
-             const errorData = await response.json().catch(() => ({error: 'Unknown error'}));
-             throw new Error(errorData.error || `Failed to save prompt (${response.status})`);
-         }
-        currentPersonalityPrompt = newPrompt; // Update local state on success
-        showStatus(promptStatusDiv, 'Prompt saved successfully!', 'success');
-    } catch (error) {
-        console.error("Error saving personality prompt:", error);
-        showStatus(promptStatusDiv, `Error saving prompt: ${error.message}`, 'error');
-    }
-}
-
-async function resetPersonalityPrompt() {
-    if (!currentUserId) {
-        showStatus(promptStatusDiv, "Select a User first.", "error");
-        return;
-    }
-    if (confirm("Are you sure you want to reset the prompt to its default?")) {
-        const defaultPrompt = getDefaultPersonalityPrompt();
-        personalityPromptTextarea.value = defaultPrompt;
-        await savePersonalityPrompt(); // Save the default prompt back
-    }
-}
-
-async function generatePersonalityProfile() {
-    if (!currentUserId) {
-        showStatus(personalityGenerationStatusDiv, "Please select or create a User first.", "error");
-        return;
-    }
-    if (selectedAssets.size === 0) {
-        showStatus(personalityGenerationStatusDiv, 'Please select at least one asset', 'error');
-        return;
-    }
-    generatePersonalityButton.disabled = true;
-    showStatus(personalityGenerationStatusDiv, 'Generating personality profile...', 'loading');
-    personalityJsonOutputPre.textContent = 'Generating...';
-    copyJsonButton.style.display = 'none';
-    // Disable later modules until success
-    setModuleEnabled('chat-module', false);
-    setModuleEnabled('assessment-module', false);
-
-    try {
-        const response = await fetch('/api/personality/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                userId: currentUserId,
-                assetIds: Array.from(selectedAssets),
-                prompt: personalityPromptTextarea.value
-            })
-        });
-        const data = await response.json();
-        if (response.ok && data.success) {
-            currentGeneratedProfile = data.personalityJSON;
-            personalityJsonOutputPre.textContent = JSON.stringify(currentGeneratedProfile, null, 2);
-            showStatus(personalityGenerationStatusDiv, 'Personality profile generated successfully!', 'success');
-            copyJsonButton.style.display = 'inline-block';
-            personalityJsonOutputPre.style.display = 'block'; // Make the output visible
-            updateChatSystemPrompt();
-            // Enable downstream modules on success
-            setModuleEnabled('chat-module', true);
-            setModuleEnabled('assessment-module', true);
-            updateAssessmentUI(); // Update assessment button state too
-        } else {
-            throw new Error(data.error || `Failed to generate profile (${response.status})`);
-        }
-    } catch (error) {
-        console.error('Error generating personality profile:', error);
-        showStatus(personalityGenerationStatusDiv, `Generation Error: ${error.message}`, 'error');
-        personalityJsonOutputPre.textContent = `Error: ${error.message}`;
-    } finally {
-        // Re-enable generate button if assets still selected
-        setModuleEnabled('generate-module', selectedAssets.size > 0);
-    }
-}
-
-function copyGeneratedJson() {
-    if (!currentGeneratedProfile) {
-        alert("No profile generated yet to copy.");
-        return;
-    }
-    const jsonString = personalityJsonOutputPre.textContent;
-    copyToClipboard(jsonString, copyJsonButton);
-}
-
-// --- Module 4: Chat Functions ---
-
-function updateChatSystemPrompt() {
-    // Display generated personality separately
-    if (chatPersonalityJsonPre) {
-        chatPersonalityJsonPre.textContent = currentGeneratedProfile
-            ? JSON.stringify(currentGeneratedProfile, null, 2)
-            : "(No Digital Persona Profile generated yet - Step 3)";
-        chatPersonalityJsonPre.style.display = currentGeneratedProfile ? 'block' : 'none';
-    }
-
-    // Helper function to safely parse JSON or return raw text with error indication
-    const parseContextInput = (inputElement, fieldName) => {
-        if (!inputElement) return `(${fieldName} input element not found)`;
-        const text = inputElement.value.trim();
-        if (!text) return `(No ${fieldName} provided)`;
-        try {
-            const parsed = JSON.parse(text);
-            inputElement.style.border = "1px solid #ddd"; // Reset border on success
-            return JSON.stringify(parsed, null, 2); // Return formatted JSON
-        } catch (e) {
-            inputElement.style.border = "1px solid red"; // Indicate invalid JSON
-            return `(Invalid JSON in ${fieldName} - Using raw text):
-${text}`;
-        }
-    };
-
-    // Construct the final system prompt using the new structure
-    let finalPrompt = `You are the Digital Twin of the user. You must respond consistently and convincingly in alignment with your "Digital Persona Profile" and the provided simulation context. Your behavior, speech, and decision-making should authentically mirror your persona attributes, ensuring interactions feel psychologically realistic, nuanced, and faithful to your core identity.
-
-Your core attributes are defined here:
-
-`;
-
-    finalPrompt += "==============================\n";
-    finalPrompt += "📌 DIGITAL PERSONA PROFILE:\n";
-    finalPrompt += "==============================\n";
-    finalPrompt += currentGeneratedProfile ? JSON.stringify(currentGeneratedProfile, null, 2) : "(Not Generated - Use Step 3)";
-    finalPrompt += "\n\n";
-
-    finalPrompt += "==============================\n";
-    finalPrompt += "📖 PERSONAL BACKGROUND CONTEXT:\n";
-    finalPrompt += "==============================\n";
-    finalPrompt += parseContextInput(chatLoreInput, "Personal Background Context");
-    finalPrompt += "\n\n";
-
-    // Conditionally add Interaction Context
-    if (includeInteractionContextCheckbox?.checked) {
-        finalPrompt += "==============================\n";
-        finalPrompt += "🌐 INTERACTION CONTEXT:\n";
-        finalPrompt += "==============================\n";
-        finalPrompt += parseContextInput(chatParamsInput, "Interaction Context");
-        finalPrompt += "\n\n";
-    }
-
-    // Conditionally add Psychological State
-    if (includePsychStateCheckbox?.checked) {
-        finalPrompt += "==============================\n";
-        finalPrompt += "🌤️ CURRENT PSYCHOLOGICAL STATE:\n";
-        finalPrompt += "==============================\n";
-        finalPrompt += parseContextInput(chatPsychStateInput, "Current Psychological State");
-        finalPrompt += "\n\n";
-    }
-
-    // Conditionally add Cognitive Style
-    if (includeCogStyleCheckbox?.checked) {
-        finalPrompt += "==============================\n";
-        finalPrompt += "🧠 COGNITIVE STYLE AND DYNAMICS:\n";
-        finalPrompt += "==============================\n";
-        finalPrompt += parseContextInput(chatCogStyleInput, "Cognitive Style and Dynamics");
-        finalPrompt += "\n\n";
-    }
-
-    finalPrompt += "==============================\n";
-    finalPrompt += "⚠️ ETHICAL GUARDRAILS:\n";
-    finalPrompt += "==============================\n";
-    finalPrompt += `- Ensure ethical integrity, humility, and respectfulness in all interactions.
-- Avoid fabrications or misrepresentations of your persona.
-- Prioritize authenticity within the bounds of your known identity.
-`;
-    finalPrompt += "\n";
-
-    finalPrompt += "==============================\n";
-    finalPrompt += "🛠️ INSTRUCTIONS FOR SIMULATION:\n";
-    finalPrompt += "==============================\n";
-    finalPrompt += `- Frequently reference your core psychological traits, values, philosophical beliefs, and representative statements to maintain authentic personality expression.
-- If contradictions arise, resolve them by prioritizing traits and beliefs most central or recently emphasized.
-- Adapt your communication style based on provided audience context and interaction type, adjusting tone and complexity appropriately.
-- Maintain a balance between authenticity and coherence, allowing nuanced variability without deviating from core identity.
-
-Always ensure your responses adhere strictly to your Digital Persona Profile and contextual guidance. Your goal is seamless fidelity and psychological realism in every interaction.`;
-
-    chatSystemPromptPre.textContent = finalPrompt;
-    chatSystemPromptPre.style.display = currentGeneratedProfile ? 'block' : 'none'; // Show only if profile exists
-}
-
-async function sendChatMessage() {
-    if (!currentUserId) {
-        showStatus(chatStatusDiv, "Select a User first to start chatting.", "error");
-        return;
-    }
-    const userMessage = chatInputElement.value.trim();
-    if (!userMessage) return;
-    addMessageToChatHistory('user', userMessage);
-    chatInputElement.value = '';
-    showStatus(chatStatusDiv, 'Assistant thinking...', 'loading');
-    sendChatButton.disabled = true;
-    try {
-        const systemPrompt = chatSystemPromptPre.textContent;
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                userId: currentUserId, // <-- Add this line
-                systemPrompt, 
-                userMessage 
-            })
-        });
-        if (!response.ok) {
-             const errorData = await response.json().catch(() => ({error: 'Unknown error'}));
-             throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        addMessageToChatHistory('assistant', data.response);
-        showStatus(chatStatusDiv, '', '');
-    } catch (error) {
-        console.error("Chat error:", error);
-        addMessageToChatHistory('assistant', `Sorry, an error occurred: ${error.message}`);
-        showStatus(chatStatusDiv, `Chat Error: ${error.message}`, 'error');
-    } finally {
-        sendChatButton.disabled = false;
-    }
-}
-
-function addMessageToChatHistory(role, content, save = true) {
-    const messageDiv = document.createElement('div');
-    messageDiv.style.padding = '5px';
-    messageDiv.style.marginBottom = '5px';
-    messageDiv.style.borderRadius = '5px';
-    if (role === 'user') {
-        messageDiv.style.backgroundColor = '#eaf2f8';
-        messageDiv.style.textAlign = 'right';
-    } else {
-        messageDiv.style.backgroundColor = '#f8f9fa';
-    }
-    const safeContent = content.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, '<br>');
-    messageDiv.innerHTML = `<strong>${role === 'user' ? 'You' : 'Assistant'}:</strong> ${safeContent}`;
-    chatHistoryDiv.appendChild(messageDiv);
-    chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
-    currentChatHistory.push({ role, content });
-    if (save) {
-        saveChatHistory();
-    }
-}
-
-function clearChat() {
-    if (confirm("Are you sure you want to clear the chat history?")) {
-        chatHistoryDiv.innerHTML = '';
-        currentChatHistory = [];
-        showStatus(chatStatusDiv, 'Chat history cleared.', 'success');
-    }
-}
-
-// --- Module 5: Psych Assessment Functions ---
-
-const TIPI_ITEMS = [
-    { id: 'tipi1', text: 'Extraverted, enthusiastic.', dimension: 'E', reverse: false },
-    { id: 'tipi2', text: 'Critical, quarrelsome.', dimension: 'A', reverse: true },
-    { id: 'tipi3', text: 'Dependable, self-disciplined.', dimension: 'C', reverse: false },
-    { id: 'tipi4', text: 'Anxious, easily upset.', dimension: 'N', reverse: true },
-    { id: 'tipi5', text: 'Open to new experiences, complex.', dimension: 'O', reverse: false },
-    { id: 'tipi6', text: 'Reserved, quiet.', dimension: 'E', reverse: true },
-    { id: 'tipi7', text: 'Sympathetic, warm.', dimension: 'A', reverse: false },
-    { id: 'tipi8', text: 'Disorganized, careless.', dimension: 'C', reverse: true },
-    { id: 'tipi9', text: 'Calm, emotionally stable.', dimension: 'N', reverse: false },
-    { id: 'tipi10', text: 'Conventional, uncreative.', dimension: 'O', reverse: true },
-];
-
-const LIKERT_SCALE = {
-    1: 'Strongly Disagree',
-    2: 'Disagree',
-    3: 'Neither Agree nor Disagree',
-    4: 'Agree',
-    5: 'Strongly Agree'
-};
-
-function loadTipiQuestions() {
-    // Add console log here
-    console.log('loadTipiQuestions - Function called. Container:', tipiQuestionsContainer ? 'Exists' : 'DOES NOT EXIST');
-    if (!tipiQuestionsContainer) return;
-    tipiQuestionsContainer.innerHTML = ''; // Clear loading message
-
-    TIPI_ITEMS.forEach((item, index) => {
-        const questionDiv = document.createElement('div');
-        questionDiv.style.marginBottom = '15px';
-        questionDiv.style.paddingBottom = '10px';
-        questionDiv.style.borderBottom = '1px dotted #eee';
-
-        const label = document.createElement('label');
-        label.htmlFor = item.id;
-        label.textContent = `${index + 1}. I see myself as: ${item.text}`;
-        label.style.display = 'block';
-        label.style.marginBottom = '5px';
-        label.style.fontWeight = '500';
-
-        const radioGroup = document.createElement('div');
-        radioGroup.id = item.id;
-        radioGroup.style.display = 'flex';
-        radioGroup.style.justifyContent = 'space-between';
-        radioGroup.style.fontSize = '14px';
-
-        for (let i = 1; i <= 5; i++) {
-            const radioLabel = document.createElement('label');
-            radioLabel.style.display = 'flex';
-            radioLabel.style.flexDirection = 'column';
-            radioLabel.style.alignItems = 'center';
-            radioLabel.style.cursor = 'pointer';
-
-            const radioInput = document.createElement('input');
-            radioInput.type = 'radio';
-            radioInput.name = item.id; // Group radios by question id
-            radioInput.value = i;
-            radioInput.required = true;
-            radioInput.style.marginBottom = '3px';
-
-            const radioText = document.createElement('span');
-            radioText.textContent = LIKERT_SCALE[i];
-            radioText.style.textAlign = 'center'; 
-
-            radioLabel.appendChild(radioInput);
-            radioLabel.appendChild(radioText);
-            radioGroup.appendChild(radioLabel);
-        }
-
-        questionDiv.appendChild(label);
-        questionDiv.appendChild(radioGroup);
-        tipiQuestionsContainer.appendChild(questionDiv);
-    });
-}
-
-function handleUserAssessmentSubmit(event) {
-    event.preventDefault(); // Prevent default form submission
-    console.log("User assessment submitted");
+    // Create a simple selector item showing the active profile
+    const selectorItem = document.createElement('div');
+    selectorItem.className = 'active-profile';
+    selectorItem.style.padding = '15px';
+    selectorItem.style.backgroundColor = '#eaf2f8';
+    selectorItem.style.borderRadius = '5px';
+    selectorItem.style.marginBottom = '15px';
     
-    userTipiScores = {};
-    let allAnswered = true;
-    TIPI_ITEMS.forEach(item => {
-        const selectedRadio = tipiForm.querySelector(`input[name="${item.id}"]:checked`);
-        if (selectedRadio) {
-            userTipiScores[item.id] = parseInt(selectedRadio.value);
-        } else {
-            allAnswered = false;
-        }
-    });
-
-    if (!allAnswered) {
-        showStatus(userAssessmentStatusDiv, "Please answer all questions.", "error");
-        return;
-    }
-
-    console.log("User TIPI Scores:", userTipiScores);
-    showStatus(userAssessmentStatusDiv, "Your assessment is saved.", "success");
+    selectorItem.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong>Active Personality Profile</strong>
+        </div>
+        <span class="badge" style="background-color: #3498db; color: white; padding: 5px 10px; border-radius: 20px;">Active</span>
+      </div>
+    `;
     
-    // Hide form after successful submission - updateAssessmentUI will handle showing 'Retake'
-    if (tipiQuestionsContainer) tipiQuestionsContainer.style.display = 'none';
-    if (submitUserAssessmentButton) submitUserAssessmentButton.style.display = 'none';
-    
-    updateAssessmentUI();
-    saveUserAssessment();
-}
-
-function handleRetakeAssessment() {
-    if (confirm("Are you sure you want to clear your previous assessment answers?")) {
-        userTipiScores = null;
-        aiTipiScores = null; // Also clear AI scores
-        tipiForm.reset(); // Clear radio button selections
-        
-        // Show the form again, hide retake button
-        if (tipiQuestionsContainer) tipiQuestionsContainer.style.display = 'block';
-        if (submitUserAssessmentButton) submitUserAssessmentButton.style.display = 'inline-block';
-        if (retakeUserAssessmentButton) retakeUserAssessmentButton.style.display = 'none';
-        if (startUserAssessmentButton) startUserAssessmentButton.style.display = 'none'; // Ensure start button remains hidden
-        if (assessmentResultsArea) assessmentResultsArea.style.display = 'none'; // Hide results
-
-        updateAssessmentUI(); // Update other UI elements (like disabling AI run button)
-        showStatus(userAssessmentStatusDiv, "Assessment cleared. Please answer the questions again.", "warning");
-    }
-}
-
-async function handleRunAIAssessment() {
-    console.log("Run AI Assessment button clicked");
-    if (!userTipiScores) {
-        showStatus(aiAssessmentStatusDiv, "Please submit your own assessment first.", "error");
-        return;
-    }
-    if (!currentGeneratedProfile) {
-         showStatus(aiAssessmentStatusDiv, "Please generate a personality profile first (Step 3).", "error");
-         return;
-    }
-
-    runAIAssessmentButton.disabled = true;
-    assessmentResultsArea.style.display = 'none'; // Hide old results
-    const runsPerItem = parseInt(runsPerItemInput.value) || 3;
-    showStatus(aiAssessmentStatusDiv, `Running AI simulation for TIPI assessment (${runsPerItem} runs/item)...`, "loading");
-
-    const aiScores = {};
-    const systemPrompt = chatSystemPromptPre.textContent;
-    const temperature = 0.1; 
-
-    try {
-        for (const item of TIPI_ITEMS) {
-            const itemScores = []; // Store scores from N runs for this item
-            showStatus(aiAssessmentStatusDiv, `Running AI simulation for "${item.text}" (${runsPerItem} runs)...`, 'loading');
-
-            for (let run = 1; run <= runsPerItem; run++) {
-                let currentScore = 3; // Default score if all retries fail
-                let retries = 0;
-                const maxRetries = 3;
-                let apiMessages = []; // History for this specific question run
-                const initialQuestion = `On a scale from 1 (Strongly Disagree) to 5 (Strongly Agree), how much do you agree with the statement: "I see myself as: ${item.text}"? Respond with ONLY the single digit number (1, 2, 3, 4, or 5) and nothing else.`;
-                apiMessages.push({ role: 'user', content: initialQuestion });
-
-                while (retries < maxRetries) {
-                    try {
-                        const response = await fetch('/api/chat', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                userId: currentUserId,
-                                systemPrompt: systemPrompt, 
-                                // Send only the *current* message or sequence for this retry attempt
-                                // The backend API handles history loading from storage, so we send the immediate user prompt
-                                // For retries, we'll send the *new* user message (the retry instruction)
-                                userMessage: apiMessages[apiMessages.length - 1].content, 
-                                temperature: temperature
-                                // Consider adding a flag to backend to *not* load history for assessment?
-                            })
-                        });
-                        
-                        if (!response.ok) {
-                            const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-                            throw new Error(`API Error (Run ${run}, Retry ${retries}): ${errorData.error || 'Unknown API error'}`);
-                        }
-                        const data = await response.json();
-                        const responseText = data.response.trim();
-                        apiMessages.push({ role: 'assistant', content: responseText }); // Add AI response to local history
-
-                        // --- Strict Validation: Check if response is EXACTLY 1, 2, 3, 4, or 5 ---
-                        if (/^[1-5]$/.test(responseText)) {
-                            currentScore = parseInt(responseText, 10);
-                            console.log(`Run ${run}/${runsPerItem} for ${item.id}: Success (Score ${currentScore}) after ${retries} retries. Raw: "${responseText}"`);
-                            break; // Valid score received, exit retry loop
-                        } else {
-                            retries++;
-                            if (retries < maxRetries) {
-                                const retryMessage = `Your response "${responseText}" was not valid. Please respond with ONLY the single digit number (1, 2, 3, 4, or 5) and nothing else.`;
-                                apiMessages.push({ role: 'user', content: retryMessage }); // Add retry instruction
-                                console.warn(`Run ${run}/${runsPerItem} for ${item.id}: Invalid response "${responseText}". Retrying (${retries}/${maxRetries})...`);
-                                await new Promise(resolve => setTimeout(resolve, 500)); // Small delay before retry
-                            } else {
-                                console.error(`Run ${run}/${runsPerItem} for ${item.id}: Failed to get valid score after ${maxRetries} retries. Defaulting to 3. Last response: "${responseText}"`);
-                                // currentScore remains 3 (default)
-                            }
-                        }
-                    } catch (error) {
-                        console.error(`Error during API call (Run ${run}, Retry ${retries}) for item ${item.id}:`, error);
-                        retries++; // Count as a retry attempt
-                        if (retries < maxRetries) {
-                            const retryMessage = `An error occurred. Please try again. Respond with ONLY the single digit number (1, 2, 3, 4, or 5).`;
-                            apiMessages.push({ role: 'user', content: retryMessage });
-                            await new Promise(resolve => setTimeout(resolve, 1000)); // Pause longer on error
-                        } else {
-                             console.error(`Run ${run}/${runsPerItem} for ${item.id}: Failed after API errors on ${maxRetries} retries. Defaulting to 3.`);
-                            // currentScore remains 3 (default)
-                        }
-                    }
-                } // End retry loop
-                itemScores.push(currentScore); // Add score for this run (or default if failed)
-            } // End runs per item loop
-
-            // Calculate median score for the item
-            itemScores.sort((a, b) => a - b);
-            const mid = Math.floor(itemScores.length / 2);
-            const medianScore = itemScores.length % 2 !== 0 ? itemScores[mid] : (itemScores[mid - 1] + itemScores[mid]) / 2;
-            // Round median to nearest integer 1-5 for TIPI scoring
-            const finalScore = Math.max(1, Math.min(5, Math.round(medianScore))); 
-            
-            aiScores[item.id] = finalScore;
-            console.log(`AI median score for ${item.id} (${item.text}): ${finalScore} (Scores: ${itemScores.join(', ')})`);
-        } // End TIPI items loop
-
-        aiTipiScores = aiScores; // Assign the collected median scores
-        console.log("Completed AI TIPI Assessment. Final Median Scores:", aiTipiScores);
-        
-        await saveAIAssessmentResults(); // Save the results
-        calculateAndDisplayAlignment(); // Calculate and show results
-        showStatus(aiAssessmentStatusDiv, "AI simulation complete. Results displayed below.", "success");
-
-    } catch (error) {
-        // Catch unexpected errors in the main loop logic
-        console.error('Error running AI assessment process:', error);
-        showStatus(aiAssessmentStatusDiv, `Fatal error running AI assessment: ${error.message}`, 'error');
-    } finally {
-         updateAssessmentUI(); 
-    }
-}
-
-function calculateAndDisplayAlignment() {
-    if (!userTipiScores || !aiTipiScores) return;
-
-    console.log("Calculating alignment...");
-    assessmentResultsArea.style.display = 'block';
-
-    let totalDifference = 0;
-    const maxDifferencePerItem = 4; // Max diff on 1-5 scale (5-1=4)
-    let dimensionScores = { O: { user: 0, ai: 0 }, C: { user: 0, ai: 0 }, E: { user: 0, ai: 0 }, A: { user: 0, ai: 0 }, N: { user: 0, ai: 0 } };
-    let dimensionCounts = { O: 0, C: 0, E: 0, A: 0, N: 0 };
-    let exactMatches = 0; // Counter for exact item matches
-
-    TIPI_ITEMS.forEach(item => {
-        const userRawScore = userTipiScores[item.id];
-        const aiRawScore = aiTipiScores[item.id]; // This is now the median AI score
-
-        // Check for exact match before reverse scoring
-        if (userRawScore === aiRawScore) {
-            exactMatches++;
-        }
-        
-        // Handle reverse scoring for dimension calculation
-        let userScore = userRawScore;
-        let aiScore = aiRawScore;
-        if (item.reverse) {
-            userScore = 6 - userScore;
-            aiScore = 6 - aiScore;
-        }
-
-        dimensionScores[item.dimension].user += userScore;
-        dimensionScores[item.dimension].ai += aiScore;
-        dimensionCounts[item.dimension]++;
-
-        totalDifference += Math.abs(userScore - aiScore);
-    });
-
-    // Calculate overall alignment percentage
-    const maxTotalDifference = TIPI_ITEMS.length * maxDifferencePerItem;
-    const overallAlignment = Math.max(0, 100 - (totalDifference / maxTotalDifference) * 100);
-    overallAlignmentSpan.textContent = `${overallAlignment.toFixed(1)}%`;
-
-    // Calculate and display Exact Item Agreement
-    const itemAgreementPercentage = (exactMatches / TIPI_ITEMS.length) * 100;
-    itemAgreementSpan.textContent = `${itemAgreementPercentage.toFixed(1)}% (${exactMatches}/${TIPI_ITEMS.length})`; // Show percentage and count
-
-    // Calculate and display dimension alignment
-    dimensionAlignmentList.innerHTML = ''; // Clear previous list
-    const radarLabels = [];
-    const userData = [];
-    const aiData = [];
-
-    for (const dim in dimensionScores) {
-        const count = dimensionCounts[dim];
-        const userAvg = dimensionScores[dim].user / count;
-        const aiAvg = dimensionScores[dim].ai / count;
-        const dimDifference = Math.abs(userAvg - aiAvg);
-        const dimAlignment = Math.max(0, 100 - (dimDifference / maxDifferencePerItem) * 100);
-        
-        const listItem = document.createElement('li');
-        listItem.textContent = `${dim}: ${dimAlignment.toFixed(1)}% Alignment (User Avg: ${userAvg.toFixed(1)}, AI Avg: ${aiAvg.toFixed(1)})`;
-        dimensionAlignmentList.appendChild(listItem);
-
-        radarLabels.push(dim); // For Radar Chart
-        userData.push(userAvg);  // User average score for the dimension (1-5)
-        aiData.push(aiAvg);    // AI average score for the dimension (1-5)
-    }
-
-    // --- TODO: Integrate Radar Chart --- 
-    // Use Chart.js (need to include library) to draw radar chart 
-    // with radarLabels, userData, and aiData.
-    console.log("Radar Chart Data:", { labels: radarLabels, user: userData, ai: aiData });
-    // Example (requires Chart.js library included in HTML):
-     try {
-         if (window.myRadarChart) window.myRadarChart.destroy(); // Destroy previous chart if exists
-         const ctx = radarChartCanvas.getContext('2d');
-         window.myRadarChart = new Chart(ctx, {
-             type: 'radar',
-             data: {
-                 labels: ['Openness', 'Conscientiousness', 'Extraversion', 'Agreeableness', 'Neuroticism'], // Ensure order matches data
-                 datasets: [
-                     { label: 'User Profile', data: userData, fill: true, backgroundColor: 'rgba(54, 162, 235, 0.2)', borderColor: 'rgb(54, 162, 235)', pointBackgroundColor: 'rgb(54, 162, 235)' }, 
-                     { label: 'AI Profile', data: aiData, fill: true, backgroundColor: 'rgba(255, 99, 132, 0.2)', borderColor: 'rgb(255, 99, 132)', pointBackgroundColor: 'rgb(255, 99, 132)' }
-                 ]
-             },
-             options: {
-                 elements: { line: { borderWidth: 3 } },
-                 scales: { r: { beginAtZero: true, max: 5, min: 1, pointLabels: { font: { size: 14 } } } }, // Scale from 1 to 5
-                 maintainAspectRatio: false
-             }
-         });
-    } catch (e) {
-         console.error("Chart.js error:", e);
-         radarChartCanvas.parentElement.innerHTML = '<p class="error">Could not render radar chart. Ensure Chart.js library is included.</p>';
-     }
-}
-
-function updateAssessmentUI() {
-    const profileGenerated = !!currentGeneratedProfile;
-    const userAssessed = !!userTipiScores;
-    
-    // Enable/disable the entire assessment section based on profile generation
-    setModuleEnabled('assessment-module', profileGenerated);
-    
-    // Don't proceed if module isn't enabled or elements don't exist
-    if (!profileGenerated || !startUserAssessmentButton || !retakeUserAssessmentButton || !submitUserAssessmentButton || !tipiQuestionsContainer) return;
-
-    // Control visibility of Start vs Retake buttons
-    startUserAssessmentButton.style.display = userAssessed ? 'none' : 'inline-block';
-    retakeUserAssessmentButton.style.display = userAssessed ? 'inline-block' : 'none';
-
-    // Ensure form and submit button are hidden initially or after submission/load
-    // (Click handlers manage showing them during the process)
-    tipiQuestionsContainer.style.display = 'none'; 
-    submitUserAssessmentButton.style.display = 'none';
-
-    // Enable/disable AI run button
-    if (runAIAssessmentButton) {
-        runAIAssessmentButton.disabled = !profileGenerated || !userAssessed;
-    }
-    
-    // Disable form inputs if assessment completed
-    if (tipiForm) {
-        const inputs = tipiForm.querySelectorAll('input[type="radio"]');
-        inputs.forEach(input => input.disabled = userAssessed);
-        // Removed submit button visibility logic - handled above
-    }
-    // Hide results if prerequisites aren't met or AI hasn't run
-    if (assessmentResultsArea) { 
-        assessmentResultsArea.style.display = (profileGenerated && userAssessed && aiTipiScores) ? 'block' : 'none';
-    }
-}
-
-// --- Module 6: Reset Function (Now Deletes User) ---
-
-async function clearContentLibrary() { // Consider renaming to deleteCurrentUser
-  if (!currentUserId) {
-      alert("No user selected to delete.");
-      return;
+    personalitySelector.appendChild(selectorItem);
   }
-  // Updated confirmation message
-  if (!confirm(`⚠️ WARNING: This will delete ALL data for user '${currentUserId}', including generated profiles and assessments (asset files are kept for now). This cannot be undone. Are you sure?`)) {
-    return;
+  
+  // Create system prompt from personality profile and default values
+  const initialSystemPrompt = createSystemPromptFromProfile(currentGeneratedProfile);
+  
+  // Update system prompt editor
+  if (systemPromptEditor) {
+    systemPromptEditor.value = initialSystemPrompt;
   }
-  // Use the correct status div ID
-  showStatus(clearLibraryStatusDiv, `Deleting user ${currentUserId}...`, 'loading');
+  
+  // Load saved system prompts
+  loadSavedSystemPrompts();
+  
+  // Enable chat controls
+  if (chatInputElement) chatInputElement.disabled = false;
+  if (sendChatButton) sendChatButton.disabled = false;
+  if (clearChatButton) clearChatButton.disabled = false;
+}
+
+/**
+ * Create a system prompt JSON from the current profile
+ * @param {Object} profile - The personality profile
+ * @returns {string} - The system prompt JSON as a string
+ */
+function createSystemPromptFromProfile(profile) {
+  const systemPrompt = {
+    personality_profile: profile,
+    personal_background: {
+      key_experiences: [
+        "Your digital twin starts with core traits derived from your online content",
+        "It evolves as it learns more about you through interactions",
+        "It aims to represent you authentically in digital conversations"
+      ],
+      defining_beliefs: [
+        "Your perspective and values matter",
+        "Communication should be respectful and meaningful",
+        "Personal growth comes through authentic exchange"
+      ]
+    },
+    interaction_context: {
+      setting: "casual online conversation",
+      audience: "single user",
+      formality_level: "conversational",
+      purpose: "general assistance and information"
+    },
+    current_state: {
+      mood: "neutral",
+      energy_level: "moderate",
+      receptiveness: "open"
+    },
+    cognitive_style: {
+      thinking_mode: "balanced analytical and intuitive",
+      detail_focus: "moderate",
+      response_tempo: "measured",
+      trait_variability_percent: 10
+    },
+    instructions: [
+      "Respond based ONLY on the personality profile and context above",
+      "Stay in character as the digital twin consistently",
+      "Use the Voice qualities and patterns from the profile to shape your communication style",
+      "Express the Core Traits and Values authentically",
+      "Follow the Relationship style when interacting",
+      "Never break character by explaining or discussing how you're using the profile"
+    ]
+  };
+  
+  return JSON.stringify(systemPrompt, null, 2);
+}
+
+/**
+ * Load saved system prompts for the current user
+ */
+async function loadSavedSystemPrompts() {
+  if (!currentUserId || !savedPromptsDropdown) return;
+  
   try {
-    // Call the correct DELETE endpoint
-    const response = await fetch(`/api/users/${currentUserId}`, { method: 'DELETE' }); 
+    const response = await fetch(`/api/users/${currentUserId}/system-prompts`);
     
-    // Status 204 No Content is success for DELETE
-    if (response.ok || response.status === 204) { 
-      showStatus(clearLibraryStatusDiv, `User '${currentUserId}' deleted successfully!`, 'success');
-      const deletedUserId = currentUserId; // Store before resetting
-      // Reset UI to initial state
-      currentUserId = null;
-      currentUserDisplaySpan.textContent = "None Selected";
-      userSelectDropdown.value = ""; 
-      clearUIState(); 
-      // Remove deleted user from dropdown
-      const optionToRemove = userSelectDropdown.querySelector(`option[value="${deletedUserId}"]`);
-      if (optionToRemove) optionToRemove.remove();
-      // Load updated user list (optional, or just rely on removal)
-      // loadUserList(); 
-      
-      // Disable modules again
-      setModuleEnabled('collect-module', false);
-      setModuleEnabled('manage-module', false);
-      setModuleEnabled('generate-module', false);
-      setModuleEnabled('chat-module', false);
-      setModuleEnabled('assessment-module', false);
-    } else {
-        const errorData = await response.json().catch(() => ({error: `Failed to delete user (${response.status})`}));
-        throw new Error(errorData.error);
+    if (!response.ok) {
+      console.error('Failed to load system prompts:', response.status);
+      return;
     }
+    
+    const data = await response.json();
+    savedSystemPrompts = data.systemPrompts || [];
+    
+    // Clear dropdown
+    savedPromptsDropdown.innerHTML = '<option value="">-- Select a saved prompt --</option>';
+    
+    // Add prompts to dropdown
+    savedSystemPrompts.forEach((prompt, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+      option.textContent = prompt.name;
+      savedPromptsDropdown.appendChild(option);
+    });
   } catch (error) {
-    console.error(`Error deleting user ${currentUserId}:`, error);
-    showStatus(clearLibraryStatusDiv, `Error: ${error.message}`, 'error');
+    console.error('Error loading system prompts:', error);
   }
 }
 
-// --- Utility Functions ---
-
-function showStatus(element, message, type) {
-  if (!element) {
-    console.warn("Attempted to show status on a non-existent element.");
+/**
+ * Select a system prompt from the dropdown
+ */
+function selectSystemPrompt() {
+  if (!systemPromptEditor || !savedPromptsDropdown) return;
+  
+  const selectedIndex = parseInt(savedPromptsDropdown.value);
+  
+  if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= savedSystemPrompts.length) {
     return;
   }
-  element.textContent = message;
-  element.className = 'status'; // Reset classes
-  if (type) {
-    element.classList.add(type);
+  
+  const selectedPrompt = savedSystemPrompts[selectedIndex];
+  systemPromptEditor.value = selectedPrompt.prompt;
+  
+  // Show status
+  showStatus(chatStatusDiv, `Loaded system prompt: ${selectedPrompt.name}`, 'success');
+}
+
+/**
+ * Save the current system prompt (update existing)
+ */
+async function saveCurrentSystemPrompt() {
+  if (!currentUserId || !systemPromptEditor || !savedPromptsDropdown) return;
+  
+  const selectedIndex = parseInt(savedPromptsDropdown.value);
+  
+  if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= savedSystemPrompts.length) {
+    // No prompt selected, prompt user to use "Save As" instead
+    showStatus(chatStatusDiv, 'Please select a saved prompt to update or use "Save As New" to create a new prompt', 'error');
+    return;
   }
-  if (type === 'success' || type === 'warning') {
-      setTimeout(() => {
-          if (element.textContent === message) { 
-              element.textContent = '';
-              element.className = 'status';
+  
+  const promptName = savedSystemPrompts[selectedIndex].name;
+  const promptContent = systemPromptEditor.value;
+  
+  try {
+    // Validate JSON
+    try {
+      JSON.parse(promptContent);
+    } catch (e) {
+      showStatus(chatStatusDiv, 'Invalid JSON format in system prompt', 'error');
+      return;
+    }
+    
+    // Save prompt
+    const response = await fetch(`/api/users/${currentUserId}/system-prompts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: promptName,
+        prompt: promptContent
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `Failed to save system prompt (${response.status})`);
+    }
+    
+    const data = await response.json();
+    
+    // Update the local prompts list
+    savedSystemPrompts[selectedIndex] = {
+      ...savedSystemPrompts[selectedIndex],
+      prompt: promptContent,
+      updatedAt: new Date().toISOString()
+    };
+    
+    showStatus(chatStatusDiv, `System prompt "${promptName}" updated successfully`, 'success');
+  } catch (error) {
+    console.error('Error saving system prompt:', error);
+    showStatus(chatStatusDiv, `Error saving system prompt: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Save the current system prompt as a new prompt
+ */
+async function saveSystemPromptAs() {
+  if (!currentUserId || !systemPromptEditor) return;
+  
+  const promptContent = systemPromptEditor.value;
+  
+  // Prompt for name
+  const promptName = prompt('Enter a name for this system prompt:');
+  if (!promptName) return;
+  
+  try {
+    // Validate JSON
+    try {
+      JSON.parse(promptContent);
+    } catch (e) {
+      showStatus(chatStatusDiv, 'Invalid JSON format in system prompt', 'error');
+      return;
+    }
+    
+    // Save prompt
+    const response = await fetch(`/api/users/${currentUserId}/system-prompts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: promptName,
+        prompt: promptContent
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `Failed to save system prompt (${response.status})`);
+    }
+    
+    const data = await response.json();
+    
+    // Reload saved prompts
+    await loadSavedSystemPrompts();
+    
+    // Select the new prompt in the dropdown
+    if (savedPromptsDropdown) {
+      savedPromptsDropdown.value = data.promptId;
+    }
+    
+    showStatus(chatStatusDiv, `System prompt "${promptName}" saved successfully`, 'success');
+  } catch (error) {
+    console.error('Error saving system prompt:', error);
+    showStatus(chatStatusDiv, `Error saving system prompt: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Send a chat message to the AI, handling streaming response via fetch
+ */
+async function sendChatMessage() {
+  const chatInputField = document.getElementById('chat-input');
+  if (!chatInputField || !currentUserId) return;
+
+  const userMessage = chatInputField.value.trim();
+  if (userMessage === '') return;
+
+  if (userMessage.toLowerCase() === 'clear') {
+    clearChat();
+    chatInputField.value = '';
+    return;
+  }
+
+  addMessageToChat('user', userMessage);
+  chatInputField.value = '';
+  chatInputField.disabled = true;
+  showStatus(chatStatusDiv, "Connecting...", 'loading');
+
+  const assistantMessageWrapper = addMessageToChat('assistant', '');
+  const assistantMessageDiv = assistantMessageWrapper.querySelector('.message');
+  assistantMessageDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+
+  try {
+    const systemPrompt = systemPromptEditor ? systemPromptEditor.value : getDefaultSystemPrompt();
+    try {
+      JSON.parse(systemPrompt);
+    } catch (e) {
+      showStatus(chatStatusDiv, 'Error: Invalid JSON in System Prompt. Cannot send message.', 'error');
+      chatInputField.disabled = false;
+      assistantMessageDiv.textContent = '[Error: Invalid System Prompt]';
+      return;
+    }
+
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream' // Still indicate we expect SSE
+      },
+      body: JSON.stringify({
+        userId: currentUserId,
+        systemPrompt: systemPrompt,
+        userMessage: userMessage,
+        temperature: 0.7,
+        stream: true
+      })
+    });
+
+    if (!response.ok || !response.body) {
+      const errorText = await response.text();
+      throw new Error(`Network response was not ok: ${response.status} ${response.statusText}. ${errorText}`);
+    }
+
+    showStatus(chatStatusDiv, "Receiving response...", 'info');
+    assistantMessageDiv.innerHTML = ''; // Clear typing indicator
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulatedResponse = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        console.log('Stream finished.');
+        break;
+      }
+
+      // Decode the chunk and add it to the buffer
+      buffer += decoder.decode(value, { stream: true });
+
+      // Process complete SSE messages in the buffer
+      let boundaryIndex;
+      while ((boundaryIndex = buffer.indexOf('\n\n')) >= 0) {
+        const message = buffer.slice(0, boundaryIndex);
+        buffer = buffer.slice(boundaryIndex + 2);
+
+        if (message.startsWith('data: ')) {
+          const jsonData = message.substring(6);
+          try {
+            const parsedData = JSON.parse(jsonData);
+
+            if (parsedData.type === 'chunk') {
+              accumulatedResponse += parsedData.data;
+              assistantMessageDiv.innerHTML = formatMessageContent(accumulatedResponse);
+              chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
+            } else if (parsedData.type === 'complete') {
+              console.log('Stream complete event received.');
+              // Final update might be redundant if all chunks were processed
+              assistantMessageDiv.innerHTML = formatMessageContent(parsedData.data);
+              chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
+              // No need to close reader here, loop termination handles it
+            } else if (parsedData.type === 'error') {
+              console.error('Stream error received from server:', parsedData.error);
+              showStatus(chatStatusDiv, `Error: ${parsedData.error}`, 'error');
+              assistantMessageDiv.textContent = `[Error: ${parsedData.error}]`;
+              reader.cancel(); // Stop reading the stream on server error
+              return; // Exit the function
+            }
+          } catch (parseError) {
+            console.error('Error parsing SSE data:', parseError, 'Raw data:', jsonData);
           }
-      }, 4000);
+        }
+      }
+    }
+
+    // Append the final part of the buffer (if any)
+    if (buffer.startsWith('data: ')) {
+      const jsonData = buffer.substring(6);
+      try {
+        const parsedData = JSON.parse(jsonData);
+        if (parsedData.type === 'chunk') {
+          accumulatedResponse += parsedData.data;
+          assistantMessageDiv.innerHTML = formatMessageContent(accumulatedResponse);
+        }
+      } catch (parseError) {
+        console.error('Error parsing final SSE data:', parseError, 'Raw data:', jsonData);
+      }
+    }
+
+    // Stream finished successfully
+    showStatus(chatStatusDiv, '', 'success'); // Clear status
+    chatInputField.disabled = false;
+    chatInputField.focus();
+
+  } catch (error) {
+    console.error('Error in sendChatMessage:', error);
+    showStatus(chatStatusDiv, `Error: ${error.message}`, 'error');
+    assistantMessageDiv.textContent = `[Error: ${error.message}]`;
+    console.error('Error loading user list:', error);
   }
 }
 
-function formatFileSize(bytes, decimals = 2) {
-  if (!bytes || bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  // Ensure i is within the bounds of the sizes array
-  const index = Math.min(i, sizes.length - 1); 
-  return parseFloat((bytes / Math.pow(k, index)).toFixed(dm)) + ' ' + sizes[index];
+/**
+ * Handle actions needed when transitioning to a specific page
+ * @param {string} pageId - The ID of the page being navigated to
+ */
+function handlePageTransition(pageId) {
+  if (!currentUserId) return; // Nothing to do if no user is selected
+  
+  switch (pageId) {
+    case 'content-library-page':
+      // Refresh assets when navigating to content library
+      loadAssets();
+      // Also load saved personalities
+      loadSavedPersonalities();
+      break;
+      
+    case 'chat-page':
+      // Set up chat interface with current profile if available
+      updateChatInterface();
+      break;
+      
+    case 'alignment-page':
+      // Update alignment page with current assessment data
+      updateAlignmentPage();
+      break;
+  }
 }
 
-function copyToClipboard(text, buttonElement) {
-  if (!text || !buttonElement) return;
-  navigator.clipboard.writeText(text).then(() => {
-    const originalText = buttonElement.textContent;
-    buttonElement.textContent = 'Copied!';
-    buttonElement.disabled = true;
-    setTimeout(() => {
-         buttonElement.textContent = originalText;
-         buttonElement.disabled = false;
-     }, 2000);
-  }).catch(err => {
-    console.error('Failed to copy to clipboard:', err);
-    alert('Failed to copy: ' + err.message);
+/**
+ * Update the state of navigation tabs based on current user and data availability
+ */
+function updateNavigationTabsState() {
+  if (!navTabs) return;
+  
+  navTabs.forEach(tab => {
+    const pageId = tab.getAttribute('data-page');
+    if (!pageId) return;
+    
+    let shouldEnable = true;
+    
+    // User setup page is always enabled
+    if (pageId === 'user-setup-page') {
+      shouldEnable = true;
+    }
+    // Content Library page only requires a user to be selected
+    else if (pageId === 'content-library-page') {
+      shouldEnable = !!currentUserId;
+    }
+    // Chat and alignment pages require a user AND a generated profile
+    else if ((pageId === 'chat-page' || pageId === 'alignment-page')) {
+      shouldEnable = !!currentUserId && !!currentGeneratedProfile;
+    }
+    
+    console.log(`Tab ${pageId} - shouldEnable: ${shouldEnable} (currentUserId: ${currentUserId}, has profile: ${!!currentGeneratedProfile})`);
+    
+    if (shouldEnable) {
+      tab.classList.remove('disabled');
+      tab.style.opacity = '1';
+      tab.style.pointerEvents = 'auto';
+    } else {
+      tab.classList.add('disabled');
+      tab.style.opacity = '0.5';
+      tab.style.pointerEvents = 'none';
+    }
   });
 }
 
-// New helper to enable/disable modules
-function setModuleEnabled(moduleId, isEnabled) {
-    const moduleElement = document.getElementById(moduleId);
-    if (!moduleElement) return;
+/**
+ * Navigate to a specific tab
+ * @param {string} pageId - ID of the page to navigate to
+ */
+function navigateToPage(pageId) {
+  const tab = document.querySelector(`.nav-tab[data-page="${pageId}"]`);
+  if (tab && !tab.classList.contains('disabled')) {
+    tab.click();
+  }
+}
 
-    // Option 1: Dimming the module
-    moduleElement.style.opacity = isEnabled ? '1' : '0.5';
-    moduleElement.style.pointerEvents = isEnabled ? 'auto' : 'none';
+// === Saved Personalities Functions ===
 
-    // Option 2: Disabling all form elements within (more robust)
-    // const formElements = moduleElement.querySelectorAll('button, input, textarea, select');
-    // formElements.forEach(el => el.disabled = !isEnabled);
+/**
+ * Load saved personalities for the current user
+ */
+async function loadSavedPersonalities() {
+  if (!currentUserId || !savedPersonalitiesContainer) return;
+  
+  // Show loading state
+  savedPersonalitiesContainer.innerHTML = '<p>Loading saved personalities...</p>';
+  
+  try {
+    // Fetch personality data from the API
+    const response = await fetch(`/api/personality/${currentUserId}`);
     
-    // Specifically handle the main action button for Generate module
-    if (moduleId === 'generate-module' && generatePersonalityButton) {
-        generatePersonalityButton.disabled = !isEnabled;
-    }
-    // Specifically handle chat area enabling
-    if (moduleId === 'chat-module' && chatContentArea) {
-        const chatInputs = chatContentArea.querySelectorAll('button, input, textarea');
-        chatInputs.forEach(el => el.disabled = !isEnabled);
-        // Also visually indicate disabled state if desired
-        // chatContentArea.style.opacity = isEnabled ? '1' : '0.6'; 
-    }
-     // Specifically handle assessment area enabling (updateAssessmentUI handles most of this)
-    if (moduleId === 'assessment-module') {
-        const assessmentInputs = assessmentModule.querySelectorAll('button, input, textarea');
-        // Let updateAssessmentUI handle the detailed enabling/disabling within assessment
-        // but we can control the overall module interaction here
-         assessmentInputs.forEach(el => { 
-             // Don't disable the submit/retake buttons based on this top-level enable
-             // updateAssessmentUI handles those based on userTipiScores
-             if (el.id !== 'submit-user-assessment' && el.id !== 'retake-user-assessment' && el.id !== 'run-ai-assessment') {
-                el.disabled = !isEnabled;
-             }
-         });
-    }
-}
-
-// === User Management Functions ===
-
-async function loadUserList() {
-    console.log("Loading user list...");
-    try {
-        const response = await fetch('/api/users');
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const userIds = await response.json();
-        
-        userSelectDropdown.innerHTML = '<option value="">-- Select User --</option>'; // Reset
-        if (userIds && userIds.length > 0) {
-            userIds.sort().forEach(id => {
-                const option = document.createElement('option');
-                option.value = id;
-                option.textContent = id;
-                userSelectDropdown.appendChild(option);
-            });
-            showStatus(userStatusDiv, `Loaded ${userIds.length} user profiles.`, 'success');
-        } else {
-             showStatus(userStatusDiv, 'No existing user profiles found. Create one below.', 'warning');
-        }
-        // TODO: Optionally load last selected user from localStorage?
-
-    } catch (error) {
-        console.error("Error loading user list:", error);
-        showStatus(userStatusDiv, `Error loading users: ${error.message}`, 'error');
-    }
-}
-
-async function handleCreateUser() {
-    const newUserId = newUserInput.value.trim();
-    if (!newUserId) {
-        showStatus(userStatusDiv, "Please enter a User ID to create.", "error");
+    if (!response.ok) {
+      if (response.status === 404) {
+        // No personalities found
+        savedPersonalitiesContainer.innerHTML = '<p id="no-personalities-message">No personality profiles generated yet. Use the "Generate Personality" section above to create one.</p>';
         return;
+      }
+      throw new Error(`Failed to load personalities (${response.status})`);
     }
-     if (!/^[a-zA-Z0-9_-]+$/.test(newUserId)) {
-        showStatus(userStatusDiv, "User ID can only contain letters, numbers, underscores, and hyphens.", "error");
-        return;
-     }
-
-    console.log(`Attempting to create user: ${newUserId}`);
-    showStatus(userStatusDiv, `Creating user ${newUserId}...`, 'loading');
-    createUserButton.disabled = true;
-    newUserInput.disabled = true;
-
-    try {
-        const response = await fetch('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: newUserId })
-        });
-        const newUser = await response.json();
-        if (!response.ok) {
-            throw new Error(newUser.error || `Failed to create user (${response.status})`);
-        }
-        
-        showStatus(userStatusDiv, `User '${newUserId}' created successfully!`, 'success');
-        newUserInput.value = ''; // Clear input
-        // Add to dropdown and select it
-        const option = document.createElement('option');
-        option.value = newUserId;
-        option.textContent = newUserId;
-        userSelectDropdown.appendChild(option);
-        userSelectDropdown.value = newUserId; // Select the new user
-        // Trigger selection logic
-        await handleUserSelect(); 
-
-    } catch (error) {
-         console.error("Error creating user:", error);
-         showStatus(userStatusDiv, `Error: ${error.message}`, 'error');
-    } finally {
-        createUserButton.disabled = false;
-        newUserInput.disabled = false;
+    
+    const data = await response.json();
+    
+    // Check if personality data exists
+    if (!data.personality) {
+      savedPersonalitiesContainer.innerHTML = '<p id="no-personalities-message">No personality profiles generated yet. Use the "Generate Personality" section above to create one.</p>';
+      return;
     }
+    
+    // Clear container and display the personality
+    savedPersonalitiesContainer.innerHTML = '';
+    
+    // We'll create a card for the personality profile
+    const card = createProfileCard(data.personality, data.generatedAt || new Date().toISOString());
+    savedPersonalitiesContainer.appendChild(card);
+  } catch (error) {
+    console.error('Error loading saved personalities:', error);
+    savedPersonalitiesContainer.innerHTML = `<p class="error">Error loading personalities: ${error.message}</p>`;
+  }
 }
+
+/**
+ * Create a profile card element for a personality
+ * @param {Object} profile - The personality profile data
+ * @param {string} timestamp - Creation timestamp
+ * @returns {HTMLElement} The card element
+ */
+function createProfileCard(profile, timestamp) {
+  if (!profileCardTemplate) {
+    const fallback = document.createElement('div');
+    fallback.textContent = 'Profile card template not found';
+    return fallback;
+  }
+  
+  const clone = document.importNode(profileCardTemplate.content, true);
+  const card = clone.querySelector('.profile-card');
+  
+  // Set title and date
+  const titleEl = card.querySelector('.profile-card-title');
+  const dateEl = card.querySelector('.profile-card-date');
+  
+  titleEl.textContent = 'Personality Profile';
+  dateEl.textContent = new Date(timestamp).toLocaleString();
+  
+  // Add trait badges if big_five_traits are available
+  const traitsEl = card.querySelector('.traits-summary');
+  if (profile.big_five_traits) {
+    for (const [trait, level] of Object.entries(profile.big_five_traits)) {
+      const badge = document.createElement('span');
+      badge.className = 'trait-badge';
+      badge.textContent = `${trait.charAt(0).toUpperCase() + trait.slice(1)}: ${level}`;
+      
+      // Add color based on level
+      if (level === 'high') {
+        badge.style.backgroundColor = '#d4edda';
+        badge.style.color = '#155724';
+      } else if (level === 'low') {
+        badge.style.backgroundColor = '#f8d7da';
+        badge.style.color = '#721c24';
+      }
+      
+      traitsEl.appendChild(badge);
+    }
+  }
+  
+  // Setup button actions
+  const viewBtn = card.querySelector('.view-profile-button');
+  const chatBtn = card.querySelector('.use-for-chat-button');
+  const assessBtn = card.querySelector('.use-for-assessment-button');
+  
+  viewBtn.addEventListener('click', () => {
+    // Show profile in the modal
+    showProfileModal(profile);
+  });
+  
+  chatBtn.addEventListener('click', () => {
+    // Set this profile as active and navigate to chat page
+    currentGeneratedProfile = profile;
+    updateChatSystemPrompt();
+    navigateToPage('chat-page');
+  });
+  
+  assessBtn.addEventListener('click', () => {
+    // Set this profile for assessment and navigate to alignment page
+    currentGeneratedProfile = profile;
+    navigateToPage('alignment-page');
+  });
+  
+  return card;
+}
+
+/**
+ * Show a personality profile in a modal
+ * @param {Object} profile - The personality profile to display
+ */
+function showProfileModal(profile) {
+  if (!previewModal || !modalTitle || !modalContent) return;
+  
+  modalTitle.textContent = 'Personality Profile';
+  modalContent.innerHTML = `<pre style="white-space: pre-wrap; word-break: break-word;">${JSON.stringify(profile, null, 2)}</pre>`;
+  previewModal.style.display = 'block';
+}
+
+// === Chat Interface Functions ===
+
+/**
+ * Update the chat interface with the current profile
+ */
+function updateChatInterface() {
+  if (!currentGeneratedProfile) {
+    // No profile available
+    if (personalitySelector) {
+      personalitySelector.innerHTML = '<p>No personality profile available. Generate one in the Content Library page first.</p>';
+    }
+    
+    // Disable chat controls
+    if (chatInputElement) chatInputElement.disabled = true;
+    if (sendChatButton) sendChatButton.disabled = true;
+    if (clearChatButton) clearChatButton.disabled = true;
+    
+    return;
+  }
+  
+  // Update personality selector
+  if (personalitySelector) {
+    personalitySelector.innerHTML = '';
+    
+    // Create a simple selector item showing the active profile
+    const selectorItem = document.createElement('div');
+    selectorItem.className = 'active-profile';
+    selectorItem.style.padding = '15px';
+    selectorItem.style.backgroundColor = '#eaf2f8';
+    selectorItem.style.borderRadius = '5px';
+    selectorItem.style.marginBottom = '15px';
+    
+    selectorItem.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong>Active Personality Profile</strong>
+        </div>
+        <span class="badge" style="background-color: #3498db; color: white; padding: 5px 10px; border-radius: 20px;">Active</span>
+      </div>
+    `;
+    
+    personalitySelector.appendChild(selectorItem);
+  }
+  
+  // Create system prompt from personality profile and default values
+  const initialSystemPrompt = createSystemPromptFromProfile(currentGeneratedProfile);
+  
+  // Update system prompt editor
+  if (systemPromptEditor) {
+    systemPromptEditor.value = initialSystemPrompt;
+  }
+  
+  // Load saved system prompts
+  loadSavedSystemPrompts();
+  
+  // Enable chat controls
+  if (chatInputElement) chatInputElement.disabled = false;
+  if (sendChatButton) sendChatButton.disabled = false;
+  if (clearChatButton) clearChatButton.disabled = false;
+}
+
+/**
+ * Toggle between simple and detailed chat interface
+ * @param {Event} event - The change event
+ */
+function toggleSimpleMode(event) {
+  const isSimpleMode = event.target.checked;
+  
+  // Save preference
+  localStorage.setItem('simpleModeEnabled', isSimpleMode.toString());
+  
+  // Get all the sections to toggle
+  const jsonSection = document.querySelector('.json-section');
+  const loreSection = document.querySelector('.lore-section');
+  const paramsSection = document.querySelector('.params-section');
+  const psychSection = document.querySelector('.psych-section');
+  const cogSection = document.querySelector('.cog-section');
+  const promptSection = document.querySelector('.prompt-section');
+  
+  // Get the chat history section for adjusting height
+  const chatHistorySection = document.getElementById('chat-history');
+  
+  if (isSimpleMode) {
+    // Hide all advanced sections
+    if (jsonSection) jsonSection.style.display = 'none';
+    if (loreSection) loreSection.style.display = 'none';
+    if (paramsSection) paramsSection.style.display = 'none';
+    if (psychSection) psychSection.style.display = 'none';
+    if (cogSection) cogSection.style.display = 'none';
+    if (promptSection) promptSection.style.display = 'none';
+    
+    // Make chat history taller
+    if (chatHistorySection) {
+      chatHistorySection.style.height = '500px';
+    }
+    } else {
+    // Show all sections
+    if (jsonSection) jsonSection.style.display = 'block';
+    if (loreSection) loreSection.style.display = 'block';
+    if (paramsSection) paramsSection.style.display = 'block';
+    if (psychSection) psychSection.style.display = 'block';
+    if (cogSection) cogSection.style.display = 'block';
+    if (promptSection) promptSection.style.display = 'block';
+    
+    // Reset chat history height
+    if (chatHistorySection) {
+      chatHistorySection.style.height = '300px';
+    }
+  }
+}
+
+/**
+ * Handle form submission for user assessment
+ * @param {Event} event - The form submission event
+ */
+async function handleUserAssessmentSubmit(event) {
+  event.preventDefault();
+  
+  if (!currentUserId) {
+    showStatus(userAssessmentStatusDiv, 'Please select a user first', 'error');
+    return;
+  }
+  
+  // Check if all questions are answered
+  const form = event.target;
+  const inputs = form.querySelectorAll('input[type="radio"]:checked');
+  
+  if (inputs.length < TIPI_ITEMS.length) {
+    showStatus(userAssessmentStatusDiv, 'Please answer all questions', 'error');
+    return;
+  }
+  
+  // Collect scores
+  const scores = {};
+  inputs.forEach(input => {
+    scores[input.name] = parseInt(input.value);
+  });
+  
+  // Save to state
+  userTipiScores = scores;
+  
+  showStatus(userAssessmentStatusDiv, 'Saving assessment results...', 'loading');
+  
+  try {
+    // Save to server
+    await saveUserAssessmentData();
+    
+    // Update UI
+    updateAssessmentUI();
+    
+    showStatus(userAssessmentStatusDiv, 'Assessment completed successfully!', 'success');
+    
+    // Check if we should navigate to alignment page
+    if (currentGeneratedProfile) {
+      // Enable AI assessment button
+      if (runAIAssessmentButton) {
+        runAIAssessmentButton.disabled = false;
+      }
+    }
+  } catch (error) {
+    console.error('Error saving assessment:', error);
+    showStatus(userAssessmentStatusDiv, `Error saving assessment: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Save the user assessment data to the server
+ */
+async function saveUserAssessmentData() {
+  if (!currentUserId || !userTipiScores) return;
+  
+  const response = await fetch(`/api/users/${currentUserId}/assessment`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      userTipiScores,
+      aiTipiScores
+    })
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || `Failed to save assessment (${response.status})`);
+  }
+}
+
+/**
+ * Handle retaking the user assessment
+ */
+function handleRetakeAssessment() {
+  if (!currentUserId) {
+    showStatus(userAssessmentStatusDiv, 'Please select a user first', 'error');
+    return;
+  }
+  
+  // Confirm retake
+  const confirmRetake = confirm('Are you sure you want to retake the assessment? Your previous results will be lost.');
+  if (!confirmRetake) return;
+  
+  // Reset user scores
+  userTipiScores = null;
+  
+  // Clear form
+  if (tipiForm) {
+    tipiForm.reset();
+  }
+  
+  // Update UI
+  updateAssessmentUI();
+  
+  showStatus(userAssessmentStatusDiv, 'Please complete the assessment form', 'info');
+}
+
+function createRadarChart(userDimensions, aiDimensions) {
+  if (!radarChartCanvas) return;
+  
+  // Destroy existing chart if it exists
+  if (window.myRadarChart) {
+    window.myRadarChart.destroy();
+  }
+  
+  // Convert dimensions to arrays for Chart.js
+  const labels = [];
+  const userData = [];
+  const aiData = [];
+  
+  // Using the order: O, C, E, A, N
+  const order = ['O', 'C', 'E', 'A', 'N'];
+  const dimensionLabels = {
+    'O': 'Openness',
+    'C': 'Conscientiousness',
+    'E': 'Extraversion',
+    'A': 'Agreeableness',
+    'N': 'Neuroticism'
+  };
+  
+  order.forEach(dim => {
+    labels.push(dimensionLabels[dim]);
+    userData.push(userDimensions[dim]);
+    aiData.push(aiDimensions[dim]);
+  });
+  
+  // Create radar chart using Chart.js
+  const ctx = radarChartCanvas.getContext('2d');
+  window.myRadarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Your Assessment',
+          data: userData,
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          borderColor: 'rgb(54, 162, 235)',
+          pointBackgroundColor: 'rgb(54, 162, 235)',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: 'rgb(54, 162, 235)'
+        },
+        {
+          label: 'AI Profile',
+          data: aiData,
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderColor: 'rgb(255, 99, 132)',
+          pointBackgroundColor: 'rgb(255, 99, 132)',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: 'rgb(255, 99, 132)'
+        }
+      ]
+    },
+    options: {
+      elements: {
+        line: {
+          borderWidth: 3
+        }
+      },
+      scales: {
+        r: {
+          angleLines: {
+            display: true
+          },
+          suggestedMin: 1,
+          suggestedMax: 5
+        }
+      }
+    }
+  });
+}
+
+// === Modify generatePersonalityProfile to update navigation ===
+
+async function generatePersonalityProfile() {
+  if (!currentUserId) {
+    showStatus(personalityGenerationStatusDiv, "Please select or create a User first.", "error");
+    return;
+  }
+  if (selectedAssets.size === 0) {
+    showStatus(personalityGenerationStatusDiv, 'Please select at least one asset', 'error');
+    return;
+  }
+  
+  console.log("Starting personality generation:", {
+    userId: currentUserId,
+    selectedAssets: Array.from(selectedAssets),
+    promptLength: personalityPromptTextarea?.value?.length || 0
+  });
+  
+  generatePersonalityButton.disabled = true;
+  showStatus(personalityGenerationStatusDiv, 'Generating personality profile...', 'loading');
+  personalityJsonOutputPre.textContent = 'Generating...';
+  copyJsonButton.style.display = 'none';
+  
+  try {
+    console.log("Making API request to /api/personality/generate with payload:", {
+      userId: currentUserId,
+      assetIds: Array.from(selectedAssets).slice(0, 5), // Only log first 5 assets to avoid console spam
+      assetCount: selectedAssets.size,
+      promptLength: personalityPromptTextarea.value.length
+    });
+    
+    const response = await fetch('/api/personality/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUserId,
+        assetIds: Array.from(selectedAssets),
+        prompt: personalityPromptTextarea.value
+      })
+    });
+    
+    console.log("API response status:", response.status, response.statusText);
+    
+    // Check for non-OK responses first
+    if (!response.ok) {
+      const contentType = response.headers.get('Content-Type');
+      console.log("Error response content type:", contentType);
+      
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        console.error("API error response (JSON):", errorData);
+        throw new Error(errorData.error || `Failed to generate profile (${response.status})`);
+      } else {
+        // Handle non-JSON error responses (like HTML error pages)
+        const errorText = await response.text();
+        console.error("API error response (non-JSON):", errorText.substring(0, 500) + "...");
+        throw new Error(`Server error (${response.status}): The server returned an HTML error page instead of JSON`);
+      }
+    }
+    
+    // Parse successful response
+    const data = await response.json();
+    console.log("Generation API successful response:", data);
+    
+    if (data.success) {
+      currentGeneratedProfile = data.personalityJSON;
+      personalityJsonOutputPre.textContent = JSON.stringify(currentGeneratedProfile, null, 2);
+      showStatus(personalityGenerationStatusDiv, 'Personality profile generated successfully!', 'success');
+      copyJsonButton.style.display = 'inline-block';
+      personalityJsonOutputPre.style.display = 'block'; // Make the output visible
+      updateChatSystemPrompt();
+      
+      // After successful generation, update saved personalities
+      loadSavedPersonalities();
+      
+      // Update navigation tabs state to enable chat and alignment
+      updateNavigationTabsState();
+      
+      updateAssessmentUI(); // Update assessment UI state
+    } else {
+      console.error("API returned success: false with data:", data);
+      throw new Error(data.error || "Unknown error during generation");
+    }
+  } catch (error) {
+    console.error('Error generating personality profile:', error);
+    showStatus(personalityGenerationStatusDiv, `Generation Error: ${error.message}`, 'error');
+    personalityJsonOutputPre.textContent = `Error: ${error.message}`;
+  } finally {
+    // Re-enable generate button if assets still selected
+    generatePersonalityButton.disabled = selectedAssets.size === 0;
+    
+    // Ensure button state is updated
+    updateGenerateButtonState();
+  }
+}
+
+// === Modify handleUserSelect to update navigation ===
 
 async function handleUserSelect() {
-    const selectedUserId = userSelectDropdown.value;
-    // Clear previous state immediately
-    clearUIState(); 
-    setModuleEnabled('collect-module', false);
-    setModuleEnabled('manage-module', false);
-    setModuleEnabled('generate-module', false);
-    setModuleEnabled('chat-module', false);
-    setModuleEnabled('assessment-module', false);
+  const selectedUserId = userSelectDropdown.value;
+  // Clear previous state immediately
+  clearUIState(); 
+  
+  if (!selectedUserId) {
+    currentUserId = null;
+    currentUserDisplaySpan.textContent = "None Selected";
+    showStatus(userStatusDiv, "Select a user to begin.", "warning");
+    updateNavigationTabsState(); // Disable navigation tabs
+    return;
+  }
 
-    if (!selectedUserId) {
-        currentUserId = null;
-        currentUserDisplaySpan.textContent = "None Selected";
-        showStatus(userStatusDiv, "Select a user to begin.", "warning");
-        return;
+  currentUserId = selectedUserId;
+  currentUserDisplaySpan.textContent = currentUserId;
+  showStatus(userStatusDiv, `Loading data for user: ${currentUserId}...`, 'loading');
+  console.log(`User selected: ${currentUserId}`);
+
+  try {
+    const response = await fetch(`/api/users/${currentUserId}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed to load user data (${response.status})`);
     }
-
-    currentUserId = selectedUserId;
-    currentUserDisplaySpan.textContent = currentUserId;
-    showStatus(userStatusDiv, `Loading data for user: ${currentUserId}...`, 'loading');
-    console.log(`User selected: ${currentUserId}`);
-
-    // Enable core data collection/management now
-    setModuleEnabled('collect-module', true);
-    setModuleEnabled('manage-module', true); 
-
-    try {
-        const response = await fetch(`/api/users/${currentUserId}`);
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Failed to load user data (${response.status})`);
-        }
-        const userData = await response.json();
-        console.log("Loaded user data:", userData);
-        
-        // Populate UI based on loaded data
-        currentPersonalityPrompt = userData.generation?.customPrompt || getDefaultPersonalityPrompt();
-        personalityPromptTextarea.value = currentPersonalityPrompt;
-        
-        currentGeneratedProfile = userData.generation?.lastGeneratedProfile?.json || null;
-        
-        // Ensure chatContext exists before accessing nested properties
-        const chatContext = userData.chatContext || {};
-        
-        // Set value or default for each context field
-        chatLoreInput.value = chatContext.lore || DEFAULT_PERSONAL_BACKGROUND; 
-        chatParamsInput.value = chatContext.simulationParams || DEFAULT_INTERACTION_CONTEXT;
-        chatPsychStateInput.value = chatContext.psychologicalState || DEFAULT_PSYCH_STATE; // Add back
-        chatCogStyleInput.value = chatContext.cognitiveStyle || DEFAULT_COG_STYLE;
-        
-        // Reset border styles in case they were previously invalid
-        [chatLoreInput, chatParamsInput, chatPsychStateInput, chatCogStyleInput].forEach(input => { // Add back
-            if (input) input.style.border = "1px solid #ddd";
-        });
-        
-        userTipiScores = userData.assessment?.userTipiScores || null;
-        aiTipiScores = userData.assessment?.aiTipiScores || null;
-        restoreUserAssessmentFormState(); // Update form based on loaded scores
-        
-        currentChatHistory = Array.isArray(userData.chatHistory) ? userData.chatHistory : []; // Ensure it's an array
-        renderChatHistory(); // Display loaded history
-
-        updateChatSystemPrompt(); // Update display with loaded profile/lore/params
-        
-        // Load assets specifically for this user
-        await loadAssets(currentUserId); // Will re-enable generate module if assets exist
-        
-        // Set module states based on loaded data
-        // loadAssets will call updateSelectionUI which enables generate if needed
-        const profileGenerated = !!currentGeneratedProfile;
-        // Add console log here
-        console.log('handleUserSelect - profileGenerated:', profileGenerated, 'currentGeneratedProfile exists:', !!currentGeneratedProfile);
-        setModuleEnabled('chat-module', profileGenerated);
-        setModuleEnabled('assessment-module', profileGenerated);
-        
-        // Explicitly load TIPI questions *before* updating the assessment UI
-        if (profileGenerated) { // Only load if the module will be enabled
-            console.log('handleUserSelect - Calling loadTipiQuestions()'); // Add log here
-            loadTipiQuestions(); 
-        }
-        
-        updateAssessmentUI(); // Final adjustments for assessment section
-        
-        // Display results if they exist for this user
-        if(aiTipiScores) {
-            calculateAndDisplayAlignment();
-        }
-        
-        showStatus(userStatusDiv, `Loaded data for user: ${currentUserId}.`, 'success');
-
-    } catch (error) {
-         console.error("Error loading user data:", error);
-         showStatus(userStatusDiv, `Error loading data: ${error.message}`, 'error');
-         clearUIState(); // Reset UI if data loading fails
-         // Keep collection/management enabled so user can try again?
-         setModuleEnabled('collect-module', true);
-         setModuleEnabled('manage-module', true);
+    const userData = await response.json();
+    console.log("Loaded user data:", userData);
+    
+    // Load bio if present
+    if (userBioTextarea) {
+      userBioTextarea.value = userData.bio || "";
     }
+    
+    // Populate UI based on loaded data
+    currentPersonalityPrompt = userData.generation?.customPrompt || getDefaultPersonalityPrompt();
+    if (personalityPromptTextarea) {
+    personalityPromptTextarea.value = currentPersonalityPrompt;
+    }
+    
+    currentGeneratedProfile = userData.generation?.lastGeneratedProfile?.json || null;
+    
+    // Ensure chatContext exists before accessing nested properties
+    const chatContext = userData.chatContext || {};
+    
+    // Set value or default for each context field - adding null checks
+    if (chatLoreInput) chatLoreInput.value = chatContext.lore || DEFAULT_PERSONAL_BACKGROUND; 
+    if (chatParamsInput) chatParamsInput.value = chatContext.simulationParams || DEFAULT_INTERACTION_CONTEXT;
+    if (chatPsychStateInput) chatPsychStateInput.value = chatContext.psychologicalState || DEFAULT_PSYCH_STATE;
+    if (chatCogStyleInput) chatCogStyleInput.value = chatContext.cognitiveStyle || DEFAULT_COG_STYLE;
+    
+    // Reset border styles in case they were previously invalid
+    [chatLoreInput, chatParamsInput, chatPsychStateInput, chatCogStyleInput].forEach(input => {
+      if (input) input.style.border = "1px solid #ddd";
+    });
+    
+    userTipiScores = userData.assessment?.userTipiScores || null;
+    aiTipiScores = userData.assessment?.aiTipiScores || null;
+    restoreUserAssessmentFormState(); // Update form based on loaded scores
+    
+    // currentChatHistory = Array.isArray(userData.chatHistory) ? userData.chatHistory : []; // DON'T load history
+    currentChatHistory = []; // Always start with empty history
+    
+    // Define renderChatHistory locally before calling it
+    // function renderChatHistory() { ... } // REMOVE LOCAL DEFINITION
+    renderChatHistory(); // Display loaded history - KEEP GLOBAL CALL (will now clear the display)
+
+    updateChatSystemPrompt(); // Update display with loaded profile/lore/params
+    
+    // Load assets for this user 
+    await loadAssets(currentUserId);
+    
+    // Update navigation state
+    updateNavigationTabsState();
+    
+    // Explicitly load TIPI questions
+    loadTipiQuestions();
+    
+    // Update assessment UI
+    updateAssessmentUI();
+    
+    // Display results if they exist for this user
+    if (aiTipiScores) {
+      calculateAndDisplayAlignment();
+    }
+    
+    showStatus(userStatusDiv, `Loaded data for user: ${currentUserId}.`, 'success');
+
+  } catch (error) {
+    console.error("Error loading user data:", error);
+    showStatus(userStatusDiv, `Error loading data: ${error.message}`, 'error');
+    clearUIState(); // Reset UI if data loading fails
+  }
 }
+
+/**
+ * Handle the creation of a new user
+ */
+async function handleCreateUser() {
+  const userId = newUserInput.value.trim();
+  
+  // Validate input
+  if (!userId) {
+    showStatus(userStatusDiv, 'Please enter a user ID', 'error');
+    return;
+  }
+  
+  // Check for invalid characters
+  const validFormat = /^[a-zA-Z0-9_-]+$/;
+  if (!validFormat.test(userId)) {
+    showStatus(userStatusDiv, 'User ID can only contain letters, numbers, underscores, and hyphens', 'error');
+    return;
+  }
+  
+  showStatus(userStatusDiv, `Creating new user: ${userId}...`, 'loading');
+  
+  try {
+    const response = await fetch('/api/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ userId })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to create user (${response.status})`);
+    }
+    
+    const userData = await response.json();
+    
+    // Add the new user to the dropdown
+    const option = document.createElement('option');
+    option.value = userData.id;
+    option.textContent = userData.id;
+    userSelectDropdown.appendChild(option);
+    
+    // Select the new user
+    userSelectDropdown.value = userData.id;
+    
+    // Trigger change event to load the new user
+    const changeEvent = new Event('change');
+    userSelectDropdown.dispatchEvent(changeEvent);
+    
+    // Clear the input field
+    newUserInput.value = '';
+    
+    showStatus(userStatusDiv, `Created new user: ${userData.id}`, 'success');
+  } catch (error) {
+    console.error('Error creating user:', error);
+    showStatus(userStatusDiv, `Error creating user: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Handle saving the user bio
+ */
+async function handleSaveBio() {
+  // Check if a user is selected
+  if (!currentUserId) {
+    showStatus(bioStatusDiv, 'Please select a user first', 'error');
+    return;
+  }
+  
+  const bioText = userBioTextarea.value.trim();
+  
+  showStatus(bioStatusDiv, 'Saving bio...', 'loading');
+  
+  try {
+    const response = await fetch(`/api/users/${currentUserId}/bio`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ bio: bioText })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to save bio (${response.status})`);
+    }
+    
+    const result = await response.json();
+    
+    showStatus(bioStatusDiv, 'Bio saved successfully', 'success');
+  } catch (error) {
+    console.error('Error saving bio:', error);
+    showStatus(bioStatusDiv, `Error saving bio: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Handle website scraping
+ */
+async function handleScrape() {
+  if (!currentUserId) {
+    showStatus(scrapeStatusDiv, 'Please select a user first', 'error');
+    return;
+  }
+  
+  const url = scrapeUrlInput.value.trim();
+  if (!url) {
+    showStatus(scrapeStatusDiv, 'Please enter a URL to scrape', 'error');
+    return;
+  }
+  
+  // Validate URL format
+  try {
+    new URL(url); // Will throw if not a valid URL
+  } catch (error) {
+    showStatus(scrapeStatusDiv, 'Please enter a valid URL including http:// or https://', 'error');
+    return;
+  }
+  
+  showStatus(scrapeStatusDiv, 'Scraping website...', 'loading');
+  
+  try {
+    const response = await fetch('/api/scrape', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ userId: currentUserId, url })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to scrape website (${response.status})`);
+    }
+    
+    const data = await response.json();
+    showStatus(scrapeStatusDiv, `Successfully scraped ${data.contentItems || 0} items from website`, 'success');
+    
+    // Refresh assets list if we're on that page
+    if (document.getElementById('content-library-page').classList.contains('active')) {
+      loadAssets();
+    }
+  } catch (error) {
+    console.error('Error scraping website:', error);
+    showStatus(scrapeStatusDiv, `Error scraping website: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Handle file upload
+ */
+async function handleUpload() {
+  if (!currentUserId) {
+    showStatus(uploadStatusDiv, 'Please select a user first', 'error');
+    return;
+  }
+  
+  if (!fileInputElement || fileInputElement.files.length === 0) {
+    showStatus(uploadStatusDiv, 'Please select files to upload', 'error');
+    return;
+  }
+  
+  const files = fileInputElement.files;
+  const formData = new FormData();
+  
+  // Add each file to form data
+  for (let i = 0; i < files.length; i++) {
+    formData.append('files', files[i]);
+  }
+  
+  // Add user ID
+  formData.append('userId', currentUserId);
+  
+  showStatus(uploadStatusDiv, 'Uploading files...', 'loading');
+  
+  try {
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData // No Content-Type header for FormData
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to upload files (${response.status})`);
+    }
+    
+    const data = await response.json();
+    
+    // Reset the file input
+    fileInputElement.value = '';
+    
+    showStatus(uploadStatusDiv, `Successfully uploaded ${data.filesUploaded || 0} files`, 'success');
+    
+    // Refresh assets if we're on that page
+    if (document.getElementById('content-library-page').classList.contains('active')) {
+      loadAssets();
+    }
+  } catch (error) {
+    console.error('Error uploading files:', error);
+    showStatus(uploadStatusDiv, `Error uploading files: ${error.message}`, 'error');
+  }
+}
+
+// Declare global variables for LinkedIn connection management
+let isLinkedInConnected = false;
+const linkedInAssetSourceName = 'linkedin';
+
+/**
+ * Handle LinkedIn connection
+ */
+function handleLinkedInConnect() {
+  if (!currentUserId) {
+    showStatus(scrapeStatusDiv, 'Please select a user first', 'error');
+    return;
+  }
+  
+  // Redirect to LinkedIn OAuth endpoint with user ID
+  window.location.href = `/api/auth/linkedin?user_id=${encodeURIComponent(currentUserId)}`;
+}
+
+/**
+ * Handle LinkedIn disconnection
+ */
+function handleLinkedInDisconnect() {
+  if (!currentUserId) {
+    showStatus(scrapeStatusDiv, 'Please select a user first', 'error');
+    return;
+  }
+  
+  if (confirm("Are you sure you want to disconnect your LinkedIn account? This will remove access but keep any imported data.")) {
+    // Delete just the LinkedIn assets
+    deleteLinkedInAssets();
+  }
+}
+
+/**
+ * Delete LinkedIn assets for the current user
+ */
+async function deleteLinkedInAssets() {
+  if (!currentUserId) return;
+  
+  showStatus(scrapeStatusDiv, 'Disconnecting LinkedIn...', 'loading');
+  
+  try {
+    // Get all assets
+    const response = await fetch(`/api/assets/${currentUserId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to load assets (${response.status})`);
+    }
+    
+    const assets = await response.json();
+    
+    // Filter for LinkedIn assets only
+    const linkedInAssets = assets.filter(asset => 
+      asset.metadata && 
+      (asset.metadata.sourceType === 'linkedin' || 
+       asset.metadata.context === 'LinkedIn Profile' ||
+       (asset.metadata.sourceUrl && asset.metadata.sourceUrl.includes('linkedin.com')))
+    );
+    
+    if (linkedInAssets.length === 0) {
+      showStatus(scrapeStatusDiv, 'No LinkedIn data found to disconnect', 'info');
+      updateLinkedInConnectionUI(false);
+      return;
+    }
+    
+    // Delete each LinkedIn asset
+    const assetIds = linkedInAssets.map(asset => asset.id);
+    
+    const deleteResponse = await fetch(`/api/assets/${currentUserId}/delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        assetIds: assetIds
+      })
+    });
+    
+    if (!deleteResponse.ok) {
+      const errorData = await deleteResponse.json();
+      throw new Error(errorData.error || `Failed to delete LinkedIn assets (${deleteResponse.status})`);
+    }
+    
+    // Update UI
+    showStatus(scrapeStatusDiv, 'LinkedIn disconnected successfully', 'success');
+    updateLinkedInConnectionUI(false);
+    
+    // Refresh assets if we're on that page
+    if (document.getElementById('content-library-page').classList.contains('active')) {
+      loadAssets();
+    }
+  } catch (error) {
+    console.error('Error disconnecting LinkedIn:', error);
+    showStatus(scrapeStatusDiv, `Error disconnecting LinkedIn: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Update the LinkedIn connection UI based on connection state
+ * @param {boolean} isConnected - Whether LinkedIn is connected
+ */
+function updateLinkedInConnectionUI(isConnected) {
+  const connectButton = document.getElementById('connect-linkedin-button');
+  const disconnectButton = document.getElementById('disconnect-linkedin-button');
+  const statusBadge = document.getElementById('linkedin-status-badge');
+  
+  if (!connectButton || !disconnectButton || !statusBadge) return;
+  
+  isLinkedInConnected = isConnected;
+  
+  if (isConnected) {
+    connectButton.style.display = 'none';
+    disconnectButton.style.display = 'flex';
+    statusBadge.style.display = 'inline';
+  } else {
+    connectButton.style.display = 'flex';
+    disconnectButton.style.display = 'none';
+    statusBadge.style.display = 'none';
+  }
+}
+
+/**
+ * Check if the user has LinkedIn connected by looking for LinkedIn assets
+ */
+async function checkLinkedInConnectionStatus() {
+  if (!currentUserId) return;
+  
+  try {
+    const response = await fetch(`/api/assets/${currentUserId}`);
+    
+    if (!response.ok) {
+      return; // Silently fail
+    }
+    
+    const assets = await response.json();
+    
+    // Look for LinkedIn assets
+    const hasLinkedIn = assets.some(asset => 
+      asset.metadata && 
+      (asset.metadata.sourceType === 'linkedin' || 
+       asset.metadata.context === 'LinkedIn Profile' ||
+       (asset.metadata.sourceUrl && asset.metadata.sourceUrl.includes('linkedin.com')))
+    );
+    
+    updateLinkedInConnectionUI(hasLinkedIn);
+  } catch (error) {
+    console.error('Error checking LinkedIn connection status:', error);
+  }
+}
+
+/**
+ * Handle asset selection change
+ * @param {Event} event - The change event
+ */
+function handleAssetSelectionChange(event) {
+  if (!event.target.classList.contains('asset-select')) return;
+
+  const assetId = event.target.dataset.assetId;
+  const isChecked = event.target.checked;
+  
+  if (isChecked) {
+    selectedAssets.add(assetId);
+  } else {
+    selectedAssets.delete(assetId);
+  }
+  
+  // Update UI to show how many assets are selected
+  updateSelectionUI();
+  
+  // Update generate button state based on current selections
+  updateGenerateButtonState();
+}
+
+/**
+ * Handle clicks on the asset display area, including selection/deselection
+ * @param {Event} event - The click event
+ */
+function handleAssetAreaClick(event) {
+  // Handle asset preview requests when preview button clicked
+  if (event.target.classList.contains('preview-button')) {
+    const assetId = event.target.dataset.assetId;
+    if (assetId) {
+      previewAsset(assetId);
+    }
+  }
+}
+
+/**
+ * Select all text assets
+ */
+function selectAllTextAssets() {
+  // Find all text asset checkboxes
+  const textAssetCheckboxes = document.querySelectorAll('.asset-select[data-asset-type="text"]');
+  
+  textAssetCheckboxes.forEach(checkbox => {
+    // Check it if not already checked
+    if (!checkbox.checked) {
+      checkbox.checked = true;
+      selectedAssets.add(checkbox.dataset.assetId);
+    }
+  });
+  
+  // Update UI
+  updateSelectionUI();
+  
+  // Update generate button state
+  updateGenerateButtonState();
+}
+
+/**
+ * Select all image assets
+ */
+function selectAllImageAssets() {
+  // Find all image asset checkboxes
+  const imageAssetCheckboxes = document.querySelectorAll('.asset-select[data-asset-type="image"]');
+  
+  imageAssetCheckboxes.forEach(checkbox => {
+    // Check it if not already checked
+    if (!checkbox.checked) {
+      checkbox.checked = true;
+      selectedAssets.add(checkbox.dataset.assetId);
+    }
+  });
+  
+  // Update UI
+  updateSelectionUI();
+  
+  // Update generate button state
+  updateGenerateButtonState();
+}
+
+/**
+ * Deselect all assets
+ */
+function deselectAllAssets() {
+  // Find all asset checkboxes
+  const assetCheckboxes = document.querySelectorAll('.asset-select');
+  
+  assetCheckboxes.forEach(checkbox => {
+    // Uncheck it if checked
+    if (checkbox.checked) {
+      checkbox.checked = false;
+  }
+  });
+  
+  // Clear the selected assets set
+  selectedAssets.clear();
+  
+  // Update UI
+  updateSelectionUI();
+  
+  // Update generate button state
+  updateGenerateButtonState();
+}
+
+/**
+ * Delete selected assets
+ */
+async function deleteSelectedAssets() {
+  if (!currentUserId || selectedAssets.size === 0) return;
+  
+  const confirmDelete = confirm(`Are you sure you want to delete ${selectedAssets.size} selected asset(s)?`);
+  if (!confirmDelete) return;
+  
+  showStatus(uploadStatusDiv, 'Deleting selected assets...', 'loading');
+  
+  try {
+    const response = await fetch(`/api/assets/${currentUserId}/delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        assetIds: Array.from(selectedAssets)
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to delete assets (${response.status})`);
+    }
+    
+    const data = await response.json();
+    
+    // Clear selection
+    selectedAssets.clear();
+    
+    // Refresh assets
+    loadAssets();
+    
+    showStatus(uploadStatusDiv, `Successfully deleted ${data.deletedCount || 0} assets`, 'success');
+  } catch (error) {
+    console.error('Error deleting assets:', error);
+    showStatus(uploadStatusDiv, `Error deleting assets: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Preview an asset in a modal
+ * @param {string} assetId - The ID of the asset to preview
+ */
+async function previewAsset(assetId) {
+  if (!assetId || !previewModal) return;
+  
+  console.log(`Starting preview for asset ID: ${assetId}`);
+  
+  try {
+    // Set modal title
+    if (modalTitle) {
+      modalTitle.textContent = 'Asset Preview';
+    }
+    
+    // Clear previous content
+    if (modalContent) {
+      modalContent.innerHTML = '';
+    }
+    
+    // Get the preview content
+    console.log(`Fetching content from /api/assets/${assetId}/preview`);
+    const response = await fetch(`/api/assets/${assetId}/preview`);
+    
+    console.log(`Preview response status: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`Failed to load asset content (${response.status})`);
+    }
+    
+    // Get content type to determine how to handle the response
+    const contentType = response.headers.get('Content-Type');
+    console.log(`Content-Type: ${contentType}`);
+    
+    // For image content types, create an image element
+    if (contentType && contentType.startsWith('image/')) {
+      console.log('Detected image content type, handling as image');
+      
+      // Create image element using direct URL to preview endpoint
+      if (modalContent) {
+        const img = document.createElement('img');
+        img.src = `/api/assets/${assetId}/content`;
+        img.style.maxWidth = '100%';
+        img.alt = 'Image preview';
+        
+        img.onload = function() {
+          console.log('Image loaded successfully:', img.naturalWidth, 'x', img.naturalHeight);
+        };
+        
+        img.onerror = function(e) {
+          console.error('Error loading image:', e);
+          modalContent.innerHTML = `<p>Error loading image preview. Details: ${e.type}</p>`;
+          
+          // Try a fallback approach using a direct asset path
+          console.log('Trying fallback image path');
+          img.src = `/assets/${assetId}`;
+        };
+        
+        modalContent.appendChild(img);
+        console.log('Image element added to modal');
+      }
+    } 
+    // For JSON content
+    else if (contentType && contentType.includes('application/json')) {
+      console.log('Handling JSON response');
+      const assetData = await response.json();
+      console.log('JSON data:', assetData);
+      
+    if (modalContent) {
+        if (typeof assetData === 'object') {
+          // Format JSON nicely
+          modalContent.innerHTML = `<pre style="white-space: pre-wrap; word-break: break-word;">${JSON.stringify(assetData, null, 2)}</pre>`;
+      } else {
+          // If it's just text in a JSON response
+          modalContent.innerHTML = `<pre style="white-space: pre-wrap; word-break: break-word;">${assetData}</pre>`;
+        }
+      }
+    } 
+    // For all other types, handle as text
+    else {
+      console.log('Handling as text response');
+      const content = await response.text();
+      console.log(`Text content (first 100 chars): ${content.substring(0, 100)}...`);
+      
+      if (modalContent) {
+        modalContent.innerHTML = `<pre style="white-space: pre-wrap; word-break: break-word;">${content}</pre>`;
+      }
+    }
+    
+    // Show the modal
+    console.log('Displaying preview modal');
+    previewModal.style.display = 'block';
+  } catch (error) {
+    console.error('Error previewing asset:', error);
+    alert(`Error previewing asset: ${error.message}`);
+    
+    // Add the error message to the modal as well
+    if (modalContent) {
+      modalContent.innerHTML = `<div class="error">Error previewing asset: ${error.message}</div>`;
+      previewModal.style.display = 'block';
+    }
+  }
+}
+
+/**
+ * Load assets for the current user
+ */
+async function loadAssets() {
+  if (!currentUserId || !assetDisplayArea) return;
+  
+  // Show loading state
+  assetDisplayArea.innerHTML = '<p>Loading assets...</p>';
+  
+  try {
+    const response = await fetch(`/api/assets/${currentUserId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to load assets (${response.status})`);
+    }
+    
+    const assets = await response.json();
+    
+    // Check for LinkedIn assets and update connection status
+    const hasLinkedIn = assets.some(asset => 
+      asset.metadata && 
+      (asset.metadata.sourceType === 'linkedin' || 
+       asset.metadata.context === 'LinkedIn Profile' ||
+       (asset.metadata.sourceUrl && asset.metadata.sourceUrl.includes('linkedin.com')))
+    );
+    updateLinkedInConnectionUI(hasLinkedIn);
+    
+    // Check if there are any assets
+    if (!assets || assets.length === 0) {
+      assetDisplayArea.innerHTML = '<p>No assets found. Upload files or scrape a website to add content.</p>';
+      return;
+    }
+    
+    // Clear container
+    assetDisplayArea.innerHTML = '';
+    
+    // Group assets by source
+    const assetsBySource = {};
+    
+    assets.forEach(asset => {
+      // Determine source with special handling for LinkedIn
+      let source = 'Other';
+      if (asset.metadata) {
+        if (asset.metadata.sourceType === 'linkedin' || 
+            asset.metadata.context === 'LinkedIn Profile' ||
+            (asset.metadata.sourceUrl && asset.metadata.sourceUrl.includes('linkedin.com'))) {
+          source = linkedInAssetSourceName;
+        } else if (asset.metadata.sourceUrl) {
+          source = new URL(asset.metadata.sourceUrl).hostname || asset.metadata.sourceUrl;
+        } else if (asset.metadata.source) {
+          source = asset.metadata.source;
+        } else if (asset.source) {
+          source = asset.source;
+        }
+      }
+      
+      if (!assetsBySource[source]) {
+        assetsBySource[source] = [];
+      }
+      assetsBySource[source].push(asset);
+    });
+    
+    // Create groups for each source
+    for (const [source, sourceAssets] of Object.entries(assetsBySource)) {
+      // Create a group for this source if there are assets
+      if (sourceAssets.length > 0) {
+        const groupElement = createAssetGroup(source, sourceAssets);
+        assetDisplayArea.appendChild(groupElement);
+      }
+    }
+    
+    // Update selection UI
+    updateSelectionUI();
+  } catch (error) {
+    console.error('Error loading assets:', error);
+    assetDisplayArea.innerHTML = `<p class="error">Error loading assets: ${error.message}</p>`;
+  }
+}
+
+/**
+ * Create an asset group element
+ * @param {string} source - The source of the assets
+ * @param {Array} assets - The assets for this source
+ * @returns {HTMLElement} The group element
+ */
+function createAssetGroup(source, assets) {
+  if (!assetGroupTemplate) {
+    // Fallback if template not found
+    const fallback = document.createElement('div');
+    fallback.textContent = `Group template not found - ${source}: ${assets.length} assets`;
+    return fallback;
+  }
+  
+  // Clone the template
+  const clone = document.importNode(assetGroupTemplate.content, true);
+  const group = clone.querySelector('.asset-group');
+  
+  // Set group title
+  const titleEl = group.querySelector('.asset-group-title');
+  const countEl = group.querySelector('.asset-count');
+  
+  if (titleEl) titleEl.textContent = source;
+  
+  // Set count in the title if countEl exists
+  if (countEl) {
+    countEl.textContent = `${assets.length} asset${assets.length === 1 ? '' : 's'}`;
+  } else {
+    // If countEl doesn't exist, append count to the title
+    if (titleEl) {
+      titleEl.textContent = `${source} (${assets.length} asset${assets.length === 1 ? '' : 's'})`;
+    }
+  }
+  
+  // Get references to the text and image grid containers
+  const textGrid = group.querySelector('.text-content-grid');
+  const imageGrid = group.querySelector('.image-content-grid');
+  
+  if (!textGrid || !imageGrid) {
+    console.error('Text or image grid not found in asset group template');
+    return group;
+  }
+  
+  // Clear the default "no assets" messages
+  textGrid.innerHTML = '';
+  imageGrid.innerHTML = '';
+  
+  // Separate assets by type
+  const textAssets = assets.filter(asset => !asset.mimetype.startsWith('image/'));
+  const imageAssets = assets.filter(asset => asset.mimetype.startsWith('image/'));
+  
+  // Add text assets to the text grid
+  if (textAssets.length > 0) {
+    textAssets.forEach(asset => {
+      const assetCard = createAssetCard(asset);
+      textGrid.appendChild(assetCard);
+    });
+  } else {
+    textGrid.innerHTML = '<p>No text assets for this source.</p>';
+  }
+  
+  // Add image assets to the image grid
+  if (imageAssets.length > 0) {
+    imageAssets.forEach(asset => {
+      const assetCard = createAssetCard(asset);
+      imageGrid.appendChild(assetCard);
+    });
+  } else {
+    imageGrid.innerHTML = '<p>No image assets for this source.</p>';
+  }
+  
+  // Add special data attribute for LinkedIn assets for better visibility
+  if (source === 'linkedin' || source === 'LinkedIn Profile') {
+    group.dataset.specialSource = 'linkedin';
+    group.style.backgroundColor = '#f0f8ff'; // Light blue background
+    group.style.padding = '15px';
+    group.style.borderRadius = '8px';
+    group.style.borderLeft = '4px solid #0077b5'; // LinkedIn blue
+    
+    // Log for debugging
+    console.log(`Created LinkedIn asset group with ${textAssets.length} text assets and ${imageAssets.length} image assets`);
+  }
+  
+  return group;
+}
+
+/**
+ * Create an asset card element
+ * @param {Object} asset - The asset data
+ * @returns {HTMLElement} The card element
+ */
+function createAssetCard(asset) {
+  if (!assetCardTemplate) {
+    // Fallback if template not found
+    const fallback = document.createElement('div');
+    fallback.textContent = `Asset card template not found - ${asset.filename}`;
+    return fallback;
+  }
+  
+  // Clone the template
+  const clone = document.importNode(assetCardTemplate.content, true);
+  const card = clone.querySelector('.content-card');
+  
+  // Set card ID for selection
+  card.dataset.assetId = asset.id;
+  
+  // Set class based on asset type
+  const typeSpan = card.querySelector('.content-type');
+  if (typeSpan) {
+    if (asset.mimetype.startsWith('image/')) {
+      typeSpan.textContent = 'Image';
+      typeSpan.classList.add('image');
+    } else {
+      typeSpan.textContent = 'Text';
+      typeSpan.classList.add('text');
+    }
+  }
+  
+  // Set asset title
+  const titleEl = card.querySelector('.content-title');
+  if (titleEl) titleEl.textContent = asset.filename;
+  
+  // Set source info
+  const sourceEl = card.querySelector('.source');
+  if (sourceEl) {
+    let source = 'Uploaded';
+    if (asset.metadata) {
+      if (asset.metadata.sourceUrl) {
+        source = `Source: ${new URL(asset.metadata.sourceUrl).hostname}`;
+      } else if (asset.metadata.source) {
+        source = `Source: ${asset.metadata.source}`;
+      } else if (asset.metadata.context) {
+        source = `Context: ${asset.metadata.context}`;
+      } else if (asset.metadata.sourceType === 'linkedin') {
+        source = 'Source: LinkedIn Profile';
+      }
+    }
+    sourceEl.textContent = source;
+  }
+  
+  // Create preview
+  const previewEl = card.querySelector('.content-preview');
+  if (previewEl) {
+    if (asset.mimetype.startsWith('image/')) {
+      // Image preview
+      const imgPreview = document.createElement('div');
+      imgPreview.className = 'image-preview';
+      
+      const img = document.createElement('img');
+      img.src = `/assets/${asset.filePath || asset.id}`;
+      img.alt = asset.filename;
+      img.onerror = function() {
+        this.src = '/img/image-icon.png';
+        this.alt = 'Image preview unavailable';
+      };
+      
+      imgPreview.appendChild(img);
+      previewEl.appendChild(imgPreview);
+      } else {
+      // Text preview for all non-image types
+      const textPreview = document.createElement('div');
+      textPreview.className = 'text-preview';
+      
+      // Special handling for LinkedIn profile files
+      const isLinkedInProfile = asset.filename.includes('linkedin_profile') || 
+                               (asset.metadata && asset.metadata.sourceType === 'linkedin');
+      
+      if (isLinkedInProfile) {
+        // Create a formatted LinkedIn preview
+        textPreview.textContent = "LinkedIn Profile Data\n\nContains personal and professional information from your LinkedIn account.";
+      } else if (asset.extractedContent) {
+        // Use extracted content for text preview
+        textPreview.textContent = asset.extractedContent.substring(0, 200) + (asset.extractedContent.length > 200 ? '...' : '');
+      } else {
+        // Default for other text-based files
+        textPreview.textContent = '[Content preview not available]';
+      }
+      
+      previewEl.appendChild(textPreview);
+    }
+  }
+  
+  // Setup checkbox for selection
+  const checkboxEl = card.querySelector('.content-select');
+  if (checkboxEl) {
+    checkboxEl.checked = selectedAssets.has(asset.id);
+    checkboxEl.addEventListener('change', function() {
+      if (this.checked) {
+        selectedAssets.add(asset.id);
+      } else {
+        selectedAssets.delete(asset.id);
+      }
+      updateSelectionUI();
+    });
+  }
+  
+  // Setup preview button
+  const previewButton = card.querySelector('.preview-button');
+  if (previewButton) {
+    previewButton.addEventListener('click', function() {
+      previewAsset(asset.id);
+    });
+  }
+  
+  return card;
+}
+
+/**
+ * Clear the content library for the current user
+ */
+async function clearContentLibrary() {
+  if (!currentUserId) {
+    showStatus(clearLibraryStatusDiv, 'Please select a user first', 'error');
+    return;
+  }
+  
+  const confirmDelete = confirm(`Are you sure you want to delete ALL assets for user ${currentUserId}? This cannot be undone.`);
+  if (!confirmDelete) return;
+  
+  showStatus(clearLibraryStatusDiv, 'Clearing content library...', 'loading');
+  
+  try {
+    const response = await fetch(`/api/assets/${currentUserId}/clear`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to clear content library (${response.status})`);
+    }
+    
+    const data = await response.json();
+    
+    // Clear selection
+    selectedAssets.clear();
+    
+    // Refresh assets display
+    loadAssets();
+    
+    showStatus(clearLibraryStatusDiv, `Successfully cleared content library (${data.deletedCount || 0} assets removed)`, 'success');
+  } catch (error) {
+    console.error('Error clearing content library:', error);
+    showStatus(clearLibraryStatusDiv, `Error clearing content library: ${error.message}`, 'error');
+  }
+}
+
+// === Modify clearUIState to update navigation ===
 
 function clearUIState() {
-    // Function to reset UI elements when no user is selected or data fails to load
-    selectedAssets.clear();
-    currentGeneratedProfile = null;
-    userTipiScores = null;
-    aiTipiScores = null;
-    currentChatHistory = [];
+  // Function to reset UI elements when no user is selected or data fails to load
+  selectedAssets.clear();
+  currentGeneratedProfile = null;
+  userTipiScores = null;
+  aiTipiScores = null;
+  currentChatHistory = [];
+  
+  // Clear user bio
+  if (userBioTextarea) userBioTextarea.value = '';
+  
+  assetDisplayArea.innerHTML = '<p>Select a User Profile to load assets.</p>';
+  personalityPromptTextarea.value = getDefaultPersonalityPrompt();
+  if(personalityJsonOutputPre) personalityJsonOutputPre.textContent = '';
+  if(personalityJsonOutputPre) personalityJsonOutputPre.style.display = 'none';
+  if(copyJsonButton) copyJsonButton.style.display = 'none';
+  if(chatLoreInput) chatLoreInput.value = DEFAULT_PERSONAL_BACKGROUND;
+  if(chatParamsInput) chatParamsInput.value = DEFAULT_INTERACTION_CONTEXT;
+  if(chatPsychStateInput) chatPsychStateInput.value = DEFAULT_PSYCH_STATE;
+  if(chatCogStyleInput) chatCogStyleInput.value = DEFAULT_COG_STYLE;
+  if(chatHistoryDiv) chatHistoryDiv.innerHTML = '';
+  tipiForm?.reset();
+  if(assessmentResultsArea) assessmentResultsArea.style.display = 'none';
+  // Clear chart if exists
+  if (window.myRadarChart) {
+    window.myRadarChart.destroy();
+    window.myRadarChart = null;
+  } 
+  if(overallAlignmentSpan) overallAlignmentSpan.textContent = '--%';
+  if(dimensionAlignmentList) dimensionAlignmentList.innerHTML = '';
+  
+  // Clear saved personalities and chat selector
+  if (savedPersonalitiesContainer) {
+    savedPersonalitiesContainer.innerHTML = '<p id="no-personalities-message">No personality profiles generated yet. Use the "Generate Personality" section above to create one.</p>';
+  }
+  
+  if (personalitySelector) {
+    personalitySelector.innerHTML = '<p id="no-personalities-chat-message">No personality profiles available. Go to the Content Library page to generate personalities.</p>';
+  }
+  
+  // Update navigation tabs state
+  updateNavigationTabsState();
+  
+  updateSelectionUI();
+  updateChatSystemPrompt();
+  updateAssessmentUI();
+  console.log("UI state cleared.");
+}
+
+/**
+ * Update asset selection UI to reflect the current selected state
+ */
+function updateSelectionUI() {
+  if (!selectionSummarySpan || !deleteSelectedButton) return;
+  
+  const count = selectedAssets.size;
+  
+  // Update selection count
+  selectionSummarySpan.textContent = count === 0 
+    ? 'No items selected' 
+    : `${count} item${count === 1 ? '' : 's'} selected`;
+  
+  // Update delete button state
+  deleteSelectedButton.disabled = count === 0;
+  
+  // Update checkboxes in the display to match selection state
+  if (assetDisplayArea) {
+    const checkboxes = assetDisplayArea.querySelectorAll('input[type="checkbox"]');
     
-    assetDisplayArea.innerHTML = '<p>Select a User Profile to load assets.</p>';
-    personalityPromptTextarea.value = getDefaultPersonalityPrompt();
-    if(personalityJsonOutputPre) personalityJsonOutputPre.textContent = '';
-    if(personalityJsonOutputPre) personalityJsonOutputPre.style.display = 'none';
-    if(copyJsonButton) copyJsonButton.style.display = 'none';
-    if(chatLoreInput) chatLoreInput.value = DEFAULT_PERSONAL_BACKGROUND;
-    if(chatParamsInput) chatParamsInput.value = DEFAULT_INTERACTION_CONTEXT;
-    if(chatPsychStateInput) chatPsychStateInput.value = DEFAULT_PSYCH_STATE; // Add back
-    if(chatCogStyleInput) chatCogStyleInput.value = DEFAULT_COG_STYLE;
-    if(chatHistoryDiv) chatHistoryDiv.innerHTML = '';
-    tipiForm?.reset();
-    if(assessmentResultsArea) assessmentResultsArea.style.display = 'none'; // Hide results area
-    // Clear chart if exists
-    if (window.myRadarChart) {
-        window.myRadarChart.destroy();
-        window.myRadarChart = null;
-    } 
-    if(overallAlignmentSpan) overallAlignmentSpan.textContent = '--%';
-    if(dimensionAlignmentList) dimensionAlignmentList.innerHTML = '';
+    // Check for any mismatch between selectedAssets and checkbox states
+    let checkedCount = 0;
+    checkboxes.forEach(checkbox => {
+      const assetId = checkbox.getAttribute('data-asset-id');
+      if (assetId) {
+        if (checkbox.checked) checkedCount++;
+        checkbox.checked = selectedAssets.has(assetId);
+      }
+    });
     
-    updateSelectionUI();
-    updateChatSystemPrompt();
-    updateAssessmentUI();
-    console.log("UI state cleared.");
-}
-
-function getDefaultPersonalityPrompt() {
-    // Centralize the default prompt
-    return `You are an expert psychoanalyst and personality psychologist tasked with crafting a detailed computational representation ("Digital Persona Profile") of an individual's psychological identity, based on a representative set of their provided content.
-
-You recognize that personality encompasses both conscious expression and unconscious characteristics. Your objective is to capture the core psychological patterns, reliably inferring stable personality dimensions, values, style, beliefs, and motivations from the content.
-
-Ground your generation in established psychological frameworks—particularly the Big Five personality traits (Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism)—and clearly identify distinctive communication styles, recurring interests, enduring values, expertise areas, core beliefs, and future-oriented visions.
-
-Based strictly and accurately on the content provided within the <assets></assets> tags, produce a comprehensive, structured JSON suitable for high-fidelity AI personality simulations, ensuring it generalizes well both within and outside provided contexts.
-
-CONTENT:
-<assets>
-[CONTENT HERE]
-</assets>
-
-DIGITAL PERSONA PROFILE (JSON OUTPUT):
-#####
-{
-  "big_five_traits": {
-    "openness": "[high/medium/low]",
-    "conscientiousness": "[high/medium/low]",
-    "extraversion": "[high/medium/low]",
-    "agreeableness": "[high/medium/low]",
-    "neuroticism": "[high/medium/low]"
-  },
-  "interests": ["distinct recurring topics/interests identified"],
-  "traits": ["descriptive, stable personality adjectives"],
-  "values": ["fundamental principles guiding their judgments"],
-  "expertise": ["specific knowledge areas and proven skillsets"],
-  "philosophical_beliefs": ["explicitly stated or implied philosophical perspectives"],
-  "vision_for_future": ["long-term aspirations, goals, or speculative ideas"],
-  "communication_style": {
-    "tone": "[dominant emotional tone, e.g., reflective, optimistic, analytical]",
-    "formality": "[high/medium/low]",
-    "complexity": "[high/medium/low]",
-    "humor": "[style and frequency, e.g., subtle, frequent, intellectual]"
-  },
-  "representative_statements": [
-    "Short, characteristic quotes illustrating their personality"
-  ]
-}
-#####`;
-}
-
-function restoreUserAssessmentFormState() {
-    if (!tipiForm) return;
-    if (userTipiScores) {
-        TIPI_ITEMS.forEach(item => {
-            const score = userTipiScores[item.id];
-            if (score) {
-                const radio = tipiForm.querySelector(`input[name="${item.id}"][value="${score}"]`);
-                if (radio) radio.checked = true;
-            }
-        });
-    } else {
-        tipiForm.reset();
+    if (checkedCount !== count) {
+      console.log(`Selection UI mismatch: ${checkedCount} checkboxes checked but ${count} assets in selectedAssets`);
     }
+  }
+  
+  // After updating selection UI, update generate button state
+  updateGenerateButtonState();
 }
 
-function renderChatHistory() {
-    chatHistoryDiv.innerHTML = ''; // Clear existing
-    currentChatHistory.forEach(msg => addMessageToChatHistory(msg.role, msg.content, false)); // Add without pushing to array again
-}
-
-async function saveUserAssessment() {
-    if (!currentUserId || !userTipiScores) return;
-    console.log(`Saving user assessment for ${currentUserId}`);
-    try {
-        const updates = { assessment: { userTipiScores: userTipiScores } };
-        const response = await fetch(`/api/users/${currentUserId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates)
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-            throw new Error(errorData.error || `Failed to save user assessment (${response.status})`);
-        }
-        console.log("User assessment saved successfully.");
-    } catch (error) {
-        console.error("Error saving user assessment:", error);
-        // Optionally show persistent error status
+/**
+ * Update the generate button state based on current selections and prompt
+ */
+function updateGenerateButtonState() {
+  if (!generatePersonalityButton) {
+    console.log("Generate button element not found!");
+    return;
+  }
+  
+  // Check if currentUserId is lost but still have assets loaded
+  // This fixes the bug where user context is lost when navigating tabs
+  if (!currentUserId && document.querySelector('.asset-group')) {
+    // User has assets loaded but currentUserId is lost - try to restore from the DOM
+    const userDisplaySpan = document.getElementById('current-user-display');
+    if (userDisplaySpan && userDisplaySpan.textContent && userDisplaySpan.textContent !== 'None Selected') {
+      console.log('Restoring lost user context:', userDisplaySpan.textContent);
+      currentUserId = userDisplaySpan.textContent;
     }
+  }
+  
+  const hasSelectedAssets = selectedAssets.size > 0;
+  const hasValidPrompt = isValidPrompt(personalityPromptTextarea?.value || '');
+  const hasUser = !!currentUserId;
+  
+  console.log("Generate button state check:");
+  console.log("- Has user:", hasUser, "User ID:", currentUserId);
+  console.log("- Has selected assets:", hasSelectedAssets, "Count:", selectedAssets.size);
+  console.log("- Has valid prompt:", hasValidPrompt);
+  console.log("- Selected asset IDs:", Array.from(selectedAssets));
+  
+  const shouldBeEnabled = hasSelectedAssets && hasValidPrompt && hasUser;
+  console.log("- Button should be enabled:", shouldBeEnabled);
+  console.log("- Button is currently disabled:", generatePersonalityButton.disabled);
+  
+  generatePersonalityButton.disabled = !shouldBeEnabled;
+  
+  // Add visual feedback if button is disabled
+  if (generatePersonalityButton.disabled) {
+    if (!hasUser) {
+      showStatus(personalityGenerationStatusDiv, 'Please select a user first', 'warning');
+    } else if (!hasSelectedAssets) {
+      showStatus(personalityGenerationStatusDiv, 'Please select at least one asset', 'warning');
+    } else if (!hasValidPrompt) {
+      showStatus(personalityGenerationStatusDiv, 'Please enter a valid prompt template', 'warning');
+    }
+        } else {
+    personalityGenerationStatusDiv.textContent = '';
+    personalityGenerationStatusDiv.style.display = 'none';
+  }
 }
 
-// NEW function to save AI assessment results
-async function saveAIAssessmentResults() {
-    if (!currentUserId || !aiTipiScores) {
-         console.warn("Cannot save AI assessment results: missing userId or aiTipiScores.");
-         return;
+function calculateDimensionsFromScores(scores) {
+  // If the current personality has explicit Big Five values, use them for mapping
+  const bigFiveMapping = {};
+  
+  if (currentGeneratedProfile && currentGeneratedProfile.big_five_traits) {
+    // Map text values to numeric for calculation
+    for (const [trait, level] of Object.entries(currentGeneratedProfile.big_five_traits)) {
+      let value = 3; // Default to middle
+      switch (level.toLowerCase()) {
+        case 'high': value = 5; break;
+        case 'medium': value = 3; break;
+        case 'low': value = 1; break;
+      }
+      
+      // Map trait names to OCEAN dimensions
+      switch (trait.toLowerCase()) {
+        case 'openness': bigFiveMapping.O = value; break;
+        case 'conscientiousness': bigFiveMapping.C = value; break;
+        case 'extraversion': bigFiveMapping.E = value; break;
+        case 'agreeableness': bigFiveMapping.A = value; break;
+        case 'neuroticism': bigFiveMapping.N = value; break;
+      }
     }
-    console.log(`Saving AI assessment results for ${currentUserId}`);
-    try {
-        // We should merge with existing assessment data, not overwrite user scores
-        // Fetch existing assessment data first (or rely on backend merge, but safer to be explicit)
-        // For simplicity here, we assume backend PUT handles the merge within 'assessment' object correctly
-        const updates = { 
-            assessment: { 
-                aiTipiScores: aiTipiScores, 
-                lastRunTimestamp: new Date().toISOString() // Record when it was run
-            } 
-        };
-        const response = await fetch(`/api/users/${currentUserId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates)
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-            throw new Error(errorData.error || `Failed to save AI assessment results (${response.status})`);
-        }
-        console.log("AI assessment results saved successfully.");
-    } catch (error) {
-        console.error("Error saving AI assessment results:", error);
-        showStatus(aiAssessmentStatusDiv, `Error saving AI results: ${error.message}`, 'error');
+  }
+  
+  // Initialize dimensions
+  const dimensions = { O: 0, C: 0, E: 0, A: 0, N: 0 };
+  const dimensionCounts = { O: 0, C: 0, E: 0, A: 0, N: 0 };
+  
+  // Process each TIPI item's score
+  TIPI_ITEMS.forEach(item => {
+    const score = scores[item.id];
+    if (score !== undefined) {
+      // Apply reverse scoring if needed
+      const processedScore = item.reverse ? 6 - score : score;
+      dimensions[item.dimension] += processedScore;
+      dimensionCounts[item.dimension]++;
     }
+  });
+  
+  // Calculate average for each dimension
+  for (const dim in dimensions) {
+    if (dimensionCounts[dim] > 0) {
+      dimensions[dim] = dimensions[dim] / dimensionCounts[dim];
+    } else if (bigFiveMapping[dim]) {
+      // If we have a direct Big Five mapping, use it
+      dimensions[dim] = bigFiveMapping[dim];
+    }
+  }
+  
+  return dimensions;
 }
 
-// Debounce function
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// Debounced save function for context fields
-const debouncedSaveContext = debounce(async () => {
-    if (!currentUserId) return;
-    console.log(`Debounced save triggered for context fields for user ${currentUserId}`);
-    try {
-        // Prepare the update object
-        const updates = {
-            chatContext: {
-                lore: chatLoreInput?.value || '', 
-                simulationParams: chatParamsInput?.value || '',
-                psychologicalState: chatPsychStateInput?.value || '', // Add back
-                cognitiveStyle: chatCogStyleInput?.value || ''
-            }
-        };
-        
-        // We need to ensure the keys match the expected structure in UserDataService.updateUserData
-        // Let's assume UserDataService expects an object like: { chatContext: { lore: '...', simulationParams: '...', cognitiveStyle: '...' } }
-        // If not, this needs adjustment.
-
-        const response = await fetch(`/api/users/${currentUserId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates) 
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-            throw new Error(errorData.error || `Failed to save context (${response.status})`);
-        }
-        console.log(`Context fields saved successfully for ${currentUserId}`);
-        // Optionally show a temporary status update
-        showStatus(chatStatusDiv, 'Context saved.', 'success');
-    } catch (error) {
-        console.error(`Failed to save context fields for ${currentUserId}:`, error);
-        showStatus(chatStatusDiv, `Error saving context: ${error.message}`, 'error');
-    }
-}, 1500); // Debounce interval (e.g., 1.5 seconds)
-
-// Add debounced saving listeners
-chatLoreInput?.addEventListener('input', debouncedSaveContext);
-chatParamsInput?.addEventListener('input', debouncedSaveContext);
-chatPsychStateInput?.addEventListener('input', debouncedSaveContext); // Add back listener
-chatCogStyleInput?.addEventListener('input', debouncedSaveContext);
-
-// --- Default JSON Structures for Context Fields ---
+// Add default values for various context fields
 const DEFAULT_INTERACTION_CONTEXT = JSON.stringify({
-  "environment": "",
-  "conversation_type": "",
-  "audience_relationship": "",
-  "audience_familiarity": "",
-  "shared_interests": []
-}, null, 2); // Use null, 2 for pretty printing
+  "interaction_context": {
+    "setting": "casual online conversation",
+    "audience": "single user",
+    "formality_level": "conversational",
+    "purpose": "general assistance and information"
+  }
+}, null, 2);
 
-// Add back DEFAULT_PSYCH_STATE
+const DEFAULT_PERSONAL_BACKGROUND = JSON.stringify({
+  "personal_background": {
+    "key_experiences": [
+      "Your digital twin starts with core traits derived from your online content",
+      "It evolves as it learns more about you through interactions",
+      "It aims to represent you authentically in digital conversations"
+    ],
+    "defining_beliefs": [
+      "Your perspective and values matter",
+      "Communication should be respectful and meaningful",
+      "Personal growth comes through authentic exchange"
+    ]
+  }
+}, null, 2);
+
 const DEFAULT_PSYCH_STATE = JSON.stringify({
-  "base_mood": "",
-  "mood_variability": []
+  "current_state": {
+    "mood": "neutral",
+    "energy_level": "moderate",
+    "receptiveness": "open"
+  }
 }, null, 2);
 
 const DEFAULT_COG_STYLE = JSON.stringify({
-  "dominant_thinking_patterns": [],
-  "response_tempo": "",
-  "trait_variability_percent": ""
+  "cognitive_style": {
+    "thinking_mode": "balanced analytical and intuitive",
+    "detail_focus": "moderate",
+    "response_tempo": "measured",
+    "trait_variability_percent": 10
+  }
 }, null, 2);
 
-// Define a default for Personal Background Context too, if desired
-const DEFAULT_PERSONAL_BACKGROUND = JSON.stringify({
-  "background": "",
-  "key_life_milestones": [],
-  "defining_decisions": []
-}, null, 2);
+// Ten Item Personality Inventory (TIPI) questions
+const TIPI_ITEMS = [
+  { id: 'q1', text: 'I see myself as extraverted, enthusiastic.', dimension: 'E', reverse: false },
+  { id: 'q2', text: 'I see myself as critical, quarrelsome.', dimension: 'A', reverse: true },
+  { id: 'q3', text: 'I see myself as dependable, self-disciplined.', dimension: 'C', reverse: false },
+  { id: 'q4', text: 'I see myself as anxious, easily upset.', dimension: 'N', reverse: false },
+  { id: 'q5', text: 'I see myself as open to new experiences, complex.', dimension: 'O', reverse: false },
+  { id: 'q6', text: 'I see myself as reserved, quiet.', dimension: 'E', reverse: true },
+  { id: 'q7', text: 'I see myself as sympathetic, warm.', dimension: 'A', reverse: false },
+  { id: 'q8', text: 'I see myself as disorganized, careless.', dimension: 'C', reverse: true },
+  { id: 'q9', text: 'I see myself as calm, emotionally stable.', dimension: 'N', reverse: true },
+  { id: 'q10', text: 'I see myself as conventional, uncreative.', dimension: 'O', reverse: true }
+];
 
-// Function to save the current chat history to the backend
-async function saveChatHistory() {
-    if (!currentUserId) {
-        console.warn("Cannot save chat history: No current user selected.");
-        return;
-    }
-    // console.log(`Attempting to save chat history for user ${currentUserId}...`); // Optional: Can be noisy
+// === Utility Functions ===
 
-    try {
-        // We use the PUT endpoint which merges the provided fields
-        const response = await fetch(`/api/users/${currentUserId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatHistory: currentChatHistory }) // Send only the chatHistory field to update
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: `HTTP error ${response.status}` }));
-            throw new Error(errorData.message || `Failed to save chat history (${response.status})`);
-        }
-        // console.log(`Chat history saved successfully for user ${currentUserId}.`); // Optional success log
-
-    } catch (error) {
-        console.error("Error saving chat history:", error);
-        // Consider adding a non-intrusive UI indication if saving fails repeatedly
-        // showStatus(chatStatusDiv, `Error saving chat: ${error.message}`, 'error'); // Could be too disruptive
-    }
+/**
+ * Show a status message in a status div
+ * @param {HTMLElement} statusDiv - The status div to update
+ * @param {string} message - The message to display
+ * @param {string} type - The type of message (success, error, loading, warning)
+ */
+function showStatus(statusDiv, message, type = 'info') {
+  if (!statusDiv) return;
+  
+  // Clear any existing classes
+  statusDiv.className = 'status';
+  
+  // Add appropriate class based on type
+  statusDiv.classList.add(type);
+  
+  // Set message text
+  statusDiv.textContent = message;
+  
+  // Make sure the status is visible
+  statusDiv.style.display = 'block';
+  
+  // For success messages, automatically hide after 3 seconds
+  if (type === 'success') {
+    setTimeout(() => {
+      statusDiv.style.opacity = '0';
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+        statusDiv.style.opacity = '1';
+      }, 500);
+    }, 3000);
+  }
 }
 
-// --- Module 5: Psych Assessment Functions ---
+/**
+ * Get the default personality prompt text
+ * @returns {string} The default prompt text for personality generation
+ */
+function getDefaultPersonalityPrompt() {
+  return `As an expert psychological profiler and memetics engineer, analyze the provided content and create a comprehensive personality profile in JSON format.
 
-// === Info Tooltip Button Logic ===
+Extract meaningful psychological patterns, values, traits, and communication styles from all assets (text and images) to construct a coherent personality model.
+
+The profile should follow this structure:
+{
+  "entity_details": {
+    "name": "...",
+    "identity_type": "individual | group | character | brand",
+    "summary": "Brief 1-2 sentence overall description"
+  },
+  "core_traits": {
+    "defining_characteristics": [...],
+    "values": [...],
+    "motivations": [...],
+    "cognitive_style": "..."
+  },
+  "big_five_traits": {
+    "openness": "high | medium | low",
+    "conscientiousness": "high | medium | low",
+    "extraversion": "high | medium | low",
+    "agreeableness": "high | medium | low",
+    "neuroticism": "high | medium | low"
+  },
+  "voice_qualities": {
+    "tone": "...",
+    "patterns": [...],
+    "vocabulary_choices": "...",
+    "sentence_structure": "..."
+  },
+  "relationship_approach": {
+    "interaction_style": "...",
+    "trust_building": "...",
+    "conflict_handling": "..."
+  }
+}
+
+Apply modern psychological frameworks and deep content analysis techniques to interpret all provided materials. Look for recurring themes, writing style, expressed values, and topic preferences to build a psychologically coherent profile that authentically captures the subject's essence.`;
+}
+
+/**
+ * Validate if the prompt is a valid prompt format or template
+ * @param {string} promptText - The prompt text to validate
+ * @returns {boolean} Whether the prompt is valid
+ */
+function isValidPrompt(promptText) {
+  if (!promptText || promptText.trim() === '') {
+    return false;
+  }
+  
+  // Check if the prompt contains valid JSON structure markers
+  const hasJsonStructure = promptText.includes('{') && promptText.includes('}');
+  
+  // Check for typical placeholders in templates
+  const hasPlaceholders = promptText.includes('...') || 
+                          promptText.includes('[...]') || 
+                          promptText.includes('high | medium | low');
+  
+  // Check for instructions that indicate this is a prompt
+  const hasInstructions = promptText.includes('Create a personality') || 
+                          promptText.includes('Analyze') ||
+                          promptText.includes('profile');
+  
+  return hasJsonStructure && (hasPlaceholders || hasInstructions);
+}
+
+/**
+ * Update the assessment UI based on the current user state
+ */
+function updateAssessmentUI() {
+  // Handle assessment UI state
+  if (!tipiForm || !submitUserAssessmentButton || !retakeUserAssessmentButton) return;
+  
+  if (userTipiScores) {
+    // User has already completed assessment
+    submitUserAssessmentButton.style.display = 'none';
+    retakeUserAssessmentButton.style.display = 'inline-block';
+    
+    // Disable form inputs since assessment is already done
+    const inputs = tipiForm.querySelectorAll('input[type="radio"]');
+    inputs.forEach(input => {
+      input.disabled = true;
+    });
+    
+    // Update status
+    if (userAssessmentStatusDiv) {
+      showStatus(userAssessmentStatusDiv, 'Assessment completed. Click "Retake Assessment" to change your answers.', 'info');
+    }
+  } else {
+    // User hasn't completed assessment
+    submitUserAssessmentButton.style.display = 'inline-block';
+    retakeUserAssessmentButton.style.display = 'none';
+    
+    // Enable form inputs
+    const inputs = tipiForm.querySelectorAll('input[type="radio"]');
+    inputs.forEach(input => {
+      input.disabled = false;
+    });
+    
+    // Clear status
+    if (userAssessmentStatusDiv) {
+      userAssessmentStatusDiv.textContent = '';
+      userAssessmentStatusDiv.style.display = 'none';
+    }
+  }
+  
+  // Update AI assessment button
+  if (runAIAssessmentButton) {
+    // Enable only if user has completed assessment and there's a generated profile
+    runAIAssessmentButton.disabled = !(userTipiScores && currentGeneratedProfile);
+  }
+}
+
+/**
+ * Set up the info tooltip buttons
+ */
 function setupInfoButtons() {
-    const infoButtons = document.querySelectorAll('.info-button');
-    infoButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const targetId = button.getAttribute('data-tooltip-target');
-            const tooltipText = document.getElementById(targetId);
-            if (tooltipText) {
-                if (tooltipText.style.display === 'none' || tooltipText.style.display === '') {
-                    tooltipText.style.display = 'block';
-                } else {
-                    tooltipText.style.display = 'none';
-                }
+  // Find all info buttons
+  const infoButtons = document.querySelectorAll('.info-button');
+  
+  infoButtons.forEach(button => {
+    // Create tooltip element
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    tooltip.textContent = button.getAttribute('data-info');
+    
+    // Initial hidden state
+    tooltip.style.display = 'none';
+    tooltip.style.position = 'absolute';
+    tooltip.style.backgroundColor = '#f9f9f9';
+    tooltip.style.border = '1px solid #ddd';
+    tooltip.style.borderRadius = '4px';
+    tooltip.style.padding = '8px 12px';
+    tooltip.style.zIndex = '100';
+    tooltip.style.maxWidth = '250px';
+    tooltip.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+    
+    // Add tooltip to button
+    button.appendChild(tooltip);
+    
+    // Position tooltip on mouseover
+    button.addEventListener('mouseover', () => {
+      tooltip.style.display = 'block';
+      // Position tooltip above the button
+      const buttonRect = button.getBoundingClientRect();
+      tooltip.style.bottom = (button.offsetHeight + 5) + 'px';
+      tooltip.style.left = '0';
+    });
+    
+    // Hide tooltip on mouseout
+    button.addEventListener('mouseout', () => {
+      tooltip.style.display = 'none';
+    });
+  });
+}
+
+/**
+ * Check for social auth callback parameters in the URL
+ */
+function checkSocialAuthCallback() {
+  // Parse the URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const authStatus = urlParams.get('auth_status');
+  const userId = urlParams.get('user_id');
+  const provider = urlParams.get('provider');
+  const error = urlParams.get('error');
+  
+  // If this is a callback from social auth
+  if (authStatus) {
+    // Clear URL parameters
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
+    // Show status message based on auth result
+    if (authStatus === 'success' && provider) {
+      showStatus(userStatusDiv, `Successfully connected with ${provider}`, 'success');
+      
+      // If user ID is provided in the URL, select that user
+      if (userId && userSelectDropdown) {
+        // First check if we need to reload the user list
+        if (!userSelectDropdown.querySelector(`option[value="${userId}"]`)) {
+          // Reload user list first, then select the user
+          loadUserList().then(() => {
+            // Check again after loading
+            if (userSelectDropdown.querySelector(`option[value="${userId}"]`)) {
+              userSelectDropdown.value = userId;
+              // Trigger change event manually
+              const event = new Event('change');
+              userSelectDropdown.dispatchEvent(event);
             }
-        });
+          });
+        } else {
+          // User already exists in dropdown, just select it
+          userSelectDropdown.value = userId;
+          // Trigger change event manually
+          const event = new Event('change');
+          userSelectDropdown.dispatchEvent(event);
+        }
+      }
+      
+      // If we're on the content library page, refresh assets
+      if (document.getElementById('content-library-page').classList.contains('active') && currentUserId) {
+        loadAssets();
+      }
+    } else if (authStatus === 'error') {
+      const errorMessage = error || 'Unknown error occurred';
+      showStatus(userStatusDiv, `Failed to connect: ${errorMessage}`, 'error');
+    }
+  }
+}
+
+/**
+ * Debounce a function
+ * @param {Function} func - The function to debounce
+ * @param {number} wait - The wait time in milliseconds
+ * @returns {Function} - The debounced function
+ */
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    const context = this;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(context, args), wait);
+  };
+}
+
+/**
+ * Save the chat context for the current user
+ */
+async function saveContext() {
+  if (!currentUserId || !chatLoreInput || !chatParamsInput || !chatPsychStateInput || !chatCogStyleInput) {
+    return;
+  }
+  
+  try {
+    // Don't show status while saving context - it's automatic
+    const chatContext = {
+      lore: chatLoreInput.value,
+      simulationParams: chatParamsInput.value,
+      psychologicalState: chatPsychStateInput.value,
+      cognitiveStyle: chatCogStyleInput.value
+    };
+    
+    const response = await fetch(`/api/users/${currentUserId}/context`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(chatContext)
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to save context:', response.status);
+    }
+  } catch (error) {
+    console.error('Error saving context:', error);
+  }
+}
+
+/**
+ * Handle starting the user assessment
+ */
+function handleStartAssessment(event) {
+  if (event) event.preventDefault();
+  
+  if (!currentUserId) {
+    showStatus(userAssessmentStatusDiv, 'Please select a user first', 'error');
+    return;
+  }
+  
+  // Load TIPI questions if not already loaded
+  loadTipiQuestions();
+  
+  // Show the assessment form
+  if (tipiForm) {
+    tipiForm.style.display = 'block';
+  }
+  
+  // Hide the start button
+  if (startUserAssessmentButton) {
+    startUserAssessmentButton.style.display = 'none';
+  }
+  
+  // Show submit button 
+  if (submitUserAssessmentButton) {
+    submitUserAssessmentButton.style.display = 'inline-block';
+  }
+  
+  // Show status message
+  showStatus(userAssessmentStatusDiv, 'Please complete all questions to assess your personality traits.', 'info');
+}
+
+/**
+ * Load the TIPI questions into the assessment form
+ */
+function loadTipiQuestions() {
+  if (!tipiQuestionsContainer) return;
+  
+  // Clear existing questions
+  tipiQuestionsContainer.innerHTML = '';
+  
+  // Create HTML for each question
+  TIPI_ITEMS.forEach((item, index) => {
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'tipi-question';
+    
+    const questionText = document.createElement('div');
+    questionText.className = 'question-text';
+    questionText.textContent = `${index + 1}. ${item.text}`;
+    questionDiv.appendChild(questionText);
+    
+    const optionsDiv = document.createElement('div');
+    optionsDiv.className = 'rating-options';
+    
+    // Create 5-point Likert scale
+    for (let i = 1; i <= 5; i++) {
+      const option = document.createElement('div');
+      option.className = 'rating-option';
+      
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = item.id;
+      input.id = `${item.id}-${i}`;
+      input.value = i;
+      input.required = true;
+      
+      const label = document.createElement('label');
+      label.htmlFor = `${item.id}-${i}`;
+      
+      let labelText;
+      switch (i) {
+        case 1: labelText = 'Disagree strongly'; break;
+        case 2: labelText = 'Disagree moderately'; break;
+        case 3: labelText = 'Neither agree nor disagree'; break;
+        case 4: labelText = 'Agree moderately'; break;
+        case 5: labelText = 'Agree strongly'; break;
+        default: labelText = '';
+      }
+      
+      label.textContent = labelText;
+      
+      option.appendChild(input);
+      option.appendChild(label);
+      optionsDiv.appendChild(option);
+    }
+    
+    questionDiv.appendChild(optionsDiv);
+    tipiQuestionsContainer.appendChild(questionDiv);
+  });
+  
+  // Restore any previous values if user has already done assessment
+  restoreUserAssessmentFormState();
+}
+
+/**
+ * Restore the user's previous assessment answers to the form
+ */
+function restoreUserAssessmentFormState() {
+  if (!tipiForm || !userTipiScores) return;
+  
+  // Check each question
+  TIPI_ITEMS.forEach(item => {
+    if (userTipiScores[item.id] !== undefined) {
+      const score = userTipiScores[item.id];
+      const input = tipiForm.querySelector(`input[name="${item.id}"][value="${score}"]`);
+      if (input) {
+        input.checked = true;
+      }
+    }
+  });
+  
+  // Update the assessment UI state
+  updateAssessmentUI();
+}
+
+/**
+ * Save the current personality prompt text
+ */
+async function savePersonalityPrompt() {
+  if (!currentUserId || !personalityPromptTextarea) {
+    showStatus(promptStatusDiv, 'Please select a user first', 'error');
+    return;
+  }
+  
+  const promptText = personalityPromptTextarea.value.trim();
+  if (!promptText) {
+    showStatus(promptStatusDiv, 'Prompt cannot be empty', 'error');
+    return;
+  }
+  
+  showStatus(promptStatusDiv, 'Saving prompt...', 'loading');
+  console.log(`Saving custom prompt for user ${currentUserId} (${promptText.length} characters)`);
+  
+  try {
+    const response = await fetch(`/api/users/${currentUserId}/prompt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ prompt: promptText })
+    });
+    
+    // Check for successful response first
+    if (!response.ok) {
+      // Log response details for debugging
+      console.error('Failed to save prompt:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('Content-Type')
+      });
+      
+      // Check if response is JSON or something else (like HTML error page)
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && contentType.includes('application/json')) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to save prompt (${response.status})`);
+      } else {
+        // For non-JSON responses (like HTML error pages)
+        const errorText = await response.text();
+        console.error('Non-JSON error response:', errorText.substring(0, 200) + "...");
+        throw new Error(`Server error (${response.status}): API endpoint for saving prompts may be missing`);
+      }
+    }
+    
+    // Parse the successful response
+    const data = await response.json();
+    console.log('Prompt save response:', data);
+    
+    // Update current prompt
+    currentPersonalityPrompt = promptText;
+    
+    showStatus(promptStatusDiv, 'Prompt saved successfully', 'success');
+  } catch (error) {
+    console.error('Error saving prompt:', error);
+    showStatus(promptStatusDiv, `Error saving prompt: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Reset the personality prompt to the default
+ */
+function resetPersonalityPrompt() {
+  if (!personalityPromptTextarea) return;
+  
+  const defaultPrompt = getDefaultPersonalityPrompt();
+  personalityPromptTextarea.value = defaultPrompt;
+  
+  // Save the default prompt if a user is selected
+  if (currentUserId) {
+    savePersonalityPrompt();
+  } else {
+    showStatus(promptStatusDiv, 'Default prompt loaded', 'info');
+  }
+}
+
+/**
+ * Copy the generated personality JSON to clipboard
+ */
+function copyGeneratedJson() {
+  if (!personalityJsonOutputPre || !currentGeneratedProfile) return;
+  
+  const jsonText = JSON.stringify(currentGeneratedProfile, null, 2);
+  
+  // Use the clipboard API
+  navigator.clipboard.writeText(jsonText)
+    .then(() => {
+      showStatus(personalityGenerationStatusDiv, 'JSON copied to clipboard', 'success');
+    })
+    .catch(err => {
+      console.error('Error copying to clipboard:', err);
+      showStatus(personalityGenerationStatusDiv, 'Failed to copy JSON', 'error');
+      
+      // Fallback selection method
+      const range = document.createRange();
+      range.selectNode(personalityJsonOutputPre);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      document.execCommand('copy');
+      window.getSelection().removeAllRanges();
     });
 }
 
-// NEW function to handle starting the assessment
-function handleStartAssessment() {
-    console.log("Start assessment button clicked");
-    if (tipiQuestionsContainer) tipiQuestionsContainer.style.display = 'block';
-    if (submitUserAssessmentButton) submitUserAssessmentButton.style.display = 'inline-block';
-    if (startUserAssessmentButton) startUserAssessmentButton.style.display = 'none';
+// Initialize application
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize UI elements references
+  initElements();
+  
+  // Set up event listeners
+  setupEventListeners();
+  
+  // Load initial user list
+  loadUserList();
+  
+  // Load parameter options
+  loadParameterOptions();
+});
+
+/**
+ * Set up event listeners
+ */
+function setupEventListeners() {
+  // User Setup page event listeners
+  if (userSelect) {
+    userSelect.addEventListener('change', handleUserSelection);
+  }
+
+  if (createUserButton) {
+    createUserButton.addEventListener('click', createNewUser);
+  }
+
+  if (saveBioButton) {
+    saveBioButton.addEventListener('click', saveBioHandler);
+  }
+
+  if (connectLinkedinButton) {
+    connectLinkedinButton.addEventListener('click', connectLinkedin);
+  }
+
+  if (disconnectLinkedinButton) {
+    disconnectLinkedinButton.addEventListener('click', disconnectLinkedin);
+  }
+
+  // File upload event listeners
+  if (uploadButton) {
+    uploadButton.addEventListener('click', uploadFiles);
+  }
+
+  // Content Library page event listeners
+  if (selectAllTextButton) {
+    selectAllTextButton.addEventListener('click', selectAllTextAssets);
+  }
+
+  if (selectAllImageButton) {
+    selectAllImageButton.addEventListener('click', selectAllImageAssets);
+  }
+
+  if (deselectAllButton) {
+    deselectAllButton.addEventListener('click', deselectAllAssets);
+  }
+
+  if (deleteSelectedButton) {
+    deleteSelectedButton.addEventListener('click', deleteSelectedAssets);
+  }
+
+  if (startScrapingButton) {
+    startScrapingButton.addEventListener('click', startScraping);
+  }
+
+  if (generatePersonalityButton) {
+    generatePersonalityButton.addEventListener('click', generatePersonality);
+  }
+
+  if (clearLibraryButton) {
+    clearLibraryButton.addEventListener('click', clearContentLibrary);
+  }
+
+  if (savePromptButton) {
+    savePromptButton.addEventListener('click', savePersonalityPrompt);
+  }
+
+  if (resetPromptButton) {
+    resetPromptButton.addEventListener('click', resetPersonalityPrompt);
+  }
+
+  if (copyJsonButton) {
+    copyJsonButton.addEventListener('click', copyGeneratedJson);
+  }
+
+  // Chat page event listeners
+  if (sendChatButton) {
+    // Keep this as a backup but the primary input is now via Enter key
+    sendChatButton.addEventListener('click', sendChatMessage);
+  }
+
+  // Only call setupChatKeyboard if the chat input exists
+  if (chatInput) {
+    setupChatKeyboard();
+  }
+
+  // System prompt visibility toggle
+  if (showSystemPromptCheckbox) {
+    showSystemPromptCheckbox.addEventListener('change', toggleSystemPromptVisibility);
+  }
+
+  // System prompt operations
+  if (saveSystemPromptButton) {
+    saveSystemPromptButton.addEventListener('click', saveCurrentSystemPrompt);
+  }
+
+  if (saveAsSystemPromptButton) {
+    saveAsSystemPromptButton.addEventListener('click', saveSystemPromptAs);
+  }
+
+  if (savedPromptsDropdown) {
+    savedPromptsDropdown.addEventListener('change', selectSystemPrompt);
+  }
+
+  // Clear chat history
+  if (clearChatButton) {
+    clearChatButton.addEventListener('click', clearChat);
+  }
+
+  // Nav tabs event listeners
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', handleNavTabClick);
+  });
+  
+  // Assessment buttons
+  if (startUserAssessmentButton) {
+    startUserAssessmentButton.addEventListener('click', startUserAssessment);
+  }
+
+  if (submitUserAssessmentButton) {
+    submitUserAssessmentButton.addEventListener('click', submitUserAssessment);
+  }
+
+  if (retakeUserAssessmentButton) {
+    retakeUserAssessmentButton.addEventListener('click', retakeUserAssessment);
+  }
+
+  if (runAiAssessmentButton) {
+    runAiAssessmentButton.addEventListener('click', runAiAssessment);
+  }
+
+  // Modal close button
+  if (closeModalButton) {
+    closeModalButton.addEventListener('click', closePreviewModal);
+  }
+
+  // Setup info button tooltips
+  document.querySelectorAll('.info-button').forEach(button => {
+    const tooltipId = button.getAttribute('data-tooltip-target');
+    if (tooltipId) {
+      const tooltip = document.getElementById(tooltipId);
+      if (tooltip) {
+        button.addEventListener('click', function() {
+        tooltip.style.display = tooltip.style.display === 'none' ? 'block' : 'none';
+        });
+      }
+    }
+  });
+}
+
+/**
+ * Handle user selection change
+ */
+async function handleUserSelectChange() {
+  if (!userSelectDropdown) return;
+  
+  const selectedUserId = userSelectDropdown.value;
+  
+  if (!selectedUserId) {
+    clearUIState();
+    return;
+  }
+  
+  await loadUserData(selectedUserId);
+}
+
+/**
+ * Load user data for the selected user
+ * @param {string} userId - The user ID to load
+ */
+async function loadUserData(userId) {
+  if (!userId) return;
+  
+  try {
+    if (userStatusDiv) {
+    showStatus(userStatusDiv, 'Loading user data...', 'loading');
+    }
+    
+    const response = await fetch(`/api/users/${userId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to load user data: ${response.status}`);
+    }
+    
+    const userData = await response.json();
+    
+    // Set currentUserId
+    currentUserId = userId;
+    
+    // Update UI elements
+    updateUIWithUserData(userData);
+    
+    // Check for LinkedIn connection status
+    checkLinkedInConnectionStatus();
+    
+    // Enable tabs that require a user
+    updateNavigationTabsState();
+    
+    if (userStatusDiv) {
+    showStatus(userStatusDiv, 'User data loaded successfully', 'success', 2000);
+    }
+    
+    console.log('Loaded user data:', userData);
+  } catch (error) {
+    console.error('Error loading user data:', error);
+    if (userStatusDiv) {
+    showStatus(userStatusDiv, `Error loading user data: ${error.message}`, 'error');
+    }
+    clearUIState();
+  }
+}
+
+/**
+ * Initialize all UI element references
+ */
+function initElements() {
+  // Tab navigation elements
+  navTabs = document.querySelectorAll('.nav-tab');
+  pageContainers = document.querySelectorAll('.page');
+  
+  userSelectDropdown = document.getElementById('user-select');
+  newUserInput = document.getElementById('new-user-id');
+  createUserButton = document.getElementById('create-user-button');
+  userStatusDiv = document.getElementById('user-status');
+  currentUserDisplaySpan = document.getElementById('current-user-display');
+
+  scrapeUrlInput = document.getElementById('scrape-url');
+  startScrapingButton = document.getElementById('start-scraping');
+  scrapeStatusDiv = document.getElementById('scrape-status');
+  
+  fileInputElement = document.getElementById('file-input');
+  uploadButton = document.getElementById('upload-button');
+  uploadStatusDiv = document.getElementById('upload-status');
+  
+  // For file upload form
+  uploadForm = document.createElement('form');
+  uploadForm.addEventListener('submit', (e) => e.preventDefault());
+
+  assetDisplayArea = document.getElementById('asset-display-area');
+  selectAllTextButton = document.getElementById('select-all-text-button');
+  selectAllImageButton = document.getElementById('select-all-image-button');
+  deselectAllButton = document.getElementById('deselect-all-button');
+  deleteSelectedButton = document.getElementById('delete-selected-button');
+  selectionSummarySpan = document.getElementById('selection-summary');
+
+  personalityPromptTextarea = document.getElementById('personality-prompt');
+  savePromptButton = document.getElementById('save-prompt-button');
+  resetPromptButton = document.getElementById('reset-prompt-button');
+  promptStatusDiv = document.getElementById('prompt-status');
+  generatePersonalityButton = document.getElementById('generate-personality-button');
+  personalityGenerationStatusDiv = document.getElementById('personality-generation-status');
+  personalityJsonOutputPre = document.getElementById('personality-json-output');
+  copyJsonButton = document.getElementById('copy-json-button');
+
+  // New elements for saved personalities and profile selection
+  savedPersonalitiesContainer = document.getElementById('saved-personalities-container');
+  profileCardTemplate = document.getElementById('profile-card-template');
+  personalitySelector = document.getElementById('personality-selector');
+  personalitySelectorTemplate = document.getElementById('personality-selector-template');
+  
+  // Alignment page elements
+  aiProfileSelect = document.getElementById('ai-profile-select');
+  userAssessmentSummary = document.getElementById('user-assessment-summary');
+  userAssessmentStatusSummary = document.getElementById('user-assessment-status-summary');
+
+  chatPersonalityJsonPre = document.getElementById('chat-personality-json');
+  chatLoreInput = document.getElementById('chat-lore-input');
+  chatParamsInput = document.getElementById('chat-params-input');
+  chatPsychStateInput = document.getElementById('chat-psych-state-input');
+  chatCogStyleInput = document.getElementById('chat-cog-style-input');
+  chatSystemPromptPre = document.getElementById('chat-system-prompt');
+  chatHistoryDiv = document.getElementById('chat-history');
+  chatInputElement = document.getElementById('chat-input');
+  sendChatButton = document.getElementById('send-chat-button');
+  clearChatButton = document.getElementById('clear-chat-button');
+  chatStatusDiv = document.getElementById('chat-status');
+
+  tipiForm = document.getElementById('tipi-form');
+  tipiQuestionsContainer = document.getElementById('tipi-questions');
+  submitUserAssessmentButton = document.getElementById('submit-user-assessment');
+  retakeUserAssessmentButton = document.getElementById('retake-user-assessment');
+  startUserAssessmentButton = document.getElementById('start-user-assessment');
+  userAssessmentStatusDiv = document.getElementById('user-assessment-status');
+  runAIAssessmentButton = document.getElementById('run-ai-assessment');
+  aiAssessmentStatusDiv = document.getElementById('ai-assessment-status');
+  assessmentResultsArea = document.getElementById('assessment-results-area');
+  overallAlignmentSpan = document.getElementById('overall-alignment');
+  dimensionAlignmentList = document.getElementById('dimension-alignment-list');
+  radarChartCanvas = document.getElementById('radar-chart');
+  runsPerItemInput = document.getElementById('runs-per-item'); 
+  itemAgreementSpan = document.getElementById('item-agreement'); 
+
+  clearLibraryButton = document.getElementById('clear-library-button');
+  clearLibraryStatusDiv = document.getElementById('clear-library-status');
+
+  assetGroupTemplate = document.getElementById('asset-group-template');
+  assetCardTemplate = document.getElementById('asset-card-template');
+  previewModal = document.getElementById('preview-modal');
+  modalTitle = document.getElementById('modal-title');
+  modalContent = document.getElementById('modal-content');
+  closeModalButton = document.getElementById('close-modal');
+
+  generateModule = document.getElementById('generate-module'); 
+  chatModule = document.getElementById('chat-module');
+  assessmentModule = document.getElementById('user-assessment-module');
+  chatContentArea = document.getElementById('chat-content-area');
+
+  includeInteractionContextCheckbox = document.getElementById('include-interaction-context');
+  includePsychStateCheckbox = document.getElementById('include-psych-state');
+  includeCogStyleCheckbox = document.getElementById('include-cog-style');
+
+  // Bio elements
+  userBioTextarea = document.getElementById('user-bio');
+  saveBioButton = document.getElementById('save-bio-button');
+  bioStatusDiv = document.getElementById('bio-status');
+
+  // New elements for system prompt editor
+  systemPromptEditor = document.getElementById('system-prompt-editor');
+  showSystemPromptCheckbox = document.getElementById('show-system-prompt');
+  savedPromptsDropdown = document.getElementById('saved-prompts-dropdown');
+  saveSystemPromptButton = document.getElementById('save-system-prompt');
+  saveAsSystemPromptButton = document.getElementById('save-as-system-prompt');
+}
+
+// Fix the LinkedIn disconnect function to better handle errors
+/**
+ * Delete LinkedIn assets for the current user
+ */
+async function deleteLinkedInAssets() {
+  if (!currentUserId) return;
+  
+  showStatus(scrapeStatusDiv, 'Disconnecting LinkedIn...', 'loading');
+  
+  try {
+    // Get all assets
+    const response = await fetch(`/api/assets/${currentUserId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to load assets (${response.status})`);
+    }
+    
+    const assets = await response.json();
+    console.log('Checking for LinkedIn assets to delete...');
+    
+    // Filter for LinkedIn assets only
+    const linkedInAssets = assets.filter(asset => 
+      asset.metadata && 
+      (asset.metadata.sourceType === 'linkedin' || 
+       asset.metadata.context === 'LinkedIn Profile' ||
+       (asset.metadata.sourceUrl && asset.metadata.sourceUrl.includes('linkedin.com')))
+    );
+    
+    console.log(`Found ${linkedInAssets.length} LinkedIn assets to disconnect`);
+    
+    if (linkedInAssets.length === 0) {
+      showStatus(scrapeStatusDiv, 'No LinkedIn data found to disconnect', 'info');
+      updateLinkedInConnectionUI(false);
+      return;
+    }
+    
+    // Delete each LinkedIn asset
+    const assetIds = linkedInAssets.map(asset => asset.id);
+    
+    const deleteResponse = await fetch(`/api/assets/${currentUserId}/delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        assetIds: assetIds
+      })
+    });
+    
+    if (!deleteResponse.ok) {
+      const errorData = await deleteResponse.json().catch(() => ({ error: `Status code: ${deleteResponse.status}` }));
+      throw new Error(errorData.error || `Failed to delete LinkedIn assets (${deleteResponse.status})`);
+    }
+    
+    const data = await deleteResponse.json().catch(() => ({ deletedCount: 'unknown' }));
+    
+    // Update UI
+    showStatus(scrapeStatusDiv, `LinkedIn disconnected successfully. Removed ${data.deletedCount || 'all'} LinkedIn assets.`, 'success');
+    updateLinkedInConnectionUI(false);
+    
+    // Refresh assets if we're on that page
+    if (document.getElementById('content-library-page').classList.contains('active')) {
+      loadAssets();
+    }
+  } catch (error) {
+    console.error('Error disconnecting LinkedIn:', error);
+    showStatus(scrapeStatusDiv, `Error disconnecting LinkedIn: ${error.message}`, 'error');
+    // Still update the UI to show disconnected state, even on error
+    updateLinkedInConnectionUI(false);
+  }
+}
+
+/**
+ * Handle navigation tab clicks
+ * @param {Event} event - The click event
+ */
+function handleNavTabClick(event) {
+  const tab = event.currentTarget;
+  
+  // Skip if already active
+  if (tab.classList.contains('active')) return;
+  
+  // Get target page ID
+  const targetPageId = tab.getAttribute('data-page');
+  if (!targetPageId) return;
+  
+  // Check if navigation should be allowed
+  if (tab.classList.contains('disabled')) {
+    // Don't allow navigation to disabled tabs
+    return;
+  }
+  
+  // Fix for issue where currentUserId might be lost
+  if (currentUserId === null) {
+    // Check if user display shows a selected user
+    const userDisplaySpan = document.getElementById('current-user-display');
+    if (userDisplaySpan && userDisplaySpan.textContent && userDisplaySpan.textContent !== 'None Selected') {
+      console.log('Restoring lost user context during tab navigation:', userDisplaySpan.textContent);
+      currentUserId = userDisplaySpan.textContent;
+      
+      // Force UI update to show correct state
+      updateNavigationTabsState();
+    }
+  }
+  
+  // Update active states
+  navTabs.forEach(t => t.classList.remove('active'));
+  pageContainers.forEach(p => p.classList.remove('active'));
+  
+  // Activate clicked tab and corresponding page
+  tab.classList.add('active');
+  const targetPage = document.getElementById(targetPageId);
+  if (targetPage) {
+    targetPage.classList.add('active');
+    
+    // Perform any necessary page-specific initialization
+    handlePageTransition(targetPageId);
+  }
+}
+
+/**
+ * Update UI elements with loaded user data
+ * @param {Object} userData - The user data object
+ */
+function updateUIWithUserData(userData) {
+  // Update user display
+  if (currentUserDisplaySpan) {
+    currentUserDisplaySpan.textContent = userData.id;
+  }
+  
+  // Load bio if present
+  if (userBioTextarea) {
+    userBioTextarea.value = userData.bio || '';
+  }
+  
+  // Set personality data
+  currentPersonalityPrompt = userData.generation?.customPrompt || getDefaultPersonalityPrompt();
+  if (personalityPromptTextarea) {
+    personalityPromptTextarea.value = currentPersonalityPrompt;
+  }
+  
+  // Load generated profile if available
+  currentGeneratedProfile = userData.generation?.lastGeneratedProfile?.json || null;
+  
+  // Load chat context data
+  const chatContext = userData.chatContext || {};
+  if (chatLoreInput) chatLoreInput.value = chatContext.lore || DEFAULT_PERSONAL_BACKGROUND;
+  if (chatParamsInput) chatParamsInput.value = chatContext.simulationParams || DEFAULT_INTERACTION_CONTEXT;
+  if (chatPsychStateInput) chatPsychStateInput.value = chatContext.psychologicalState || DEFAULT_PSYCH_STATE;
+  if (chatCogStyleInput) chatCogStyleInput.value = chatContext.cognitiveStyle || DEFAULT_COG_STYLE;
+  
+  // Reset border styles
+  [chatLoreInput, chatParamsInput, chatPsychStateInput, chatCogStyleInput].forEach(input => {
+    if (input) input.style.border = '1px solid #ddd';
+  });
+  
+  // Load assessment data
+  userTipiScores = userData.assessment?.userTipiScores || null;
+  aiTipiScores = userData.assessment?.aiTipiScores || null;
+  
+  // Load chat history
+  currentChatHistory = Array.isArray(userData.chatHistory) ? userData.chatHistory : [];
+  if (chatHistoryDiv && typeof renderChatHistory === 'function') {
+    renderChatHistory();
+  }
+  
+  // Load assets
+  loadAssets();
+  
+  // Load saved personalities
+  if (savedPersonalitiesContainer) {
+    loadSavedPersonalities();
+  }
+  
+  // Update system prompt display
+  if (typeof updateChatSystemPrompt === 'function') {
+  updateChatSystemPrompt();
+  }
+  
+  // Update assessment UI
+  if (typeof updateAssessmentUI === 'function') {
+  updateAssessmentUI();
+  }
+  
+  // Update form state for TIPI
+  if (typeof restoreUserAssessmentFormState === 'function') {
+  restoreUserAssessmentFormState();
+  }
+  
+  // If we have system prompt editor, create initial prompt from profile
+  if (systemPromptEditor && currentGeneratedProfile) {
+    try {
+      const initialSystemPrompt = createSystemPromptFromProfile(currentGeneratedProfile);
+      systemPromptEditor.value = initialSystemPrompt;
+      
+      // Load saved system prompts
+      if (typeof loadSavedSystemPrompts === 'function') {
+        loadSavedSystemPrompts();
+      }
+    } catch (err) {
+      console.error('Error creating system prompt:', err);
+    }
+  }
+}
+
+/**
+ * Load parameter options for the UI
+ */
+function loadParameterOptions() {
+  // Initialize any parameter dropdowns or option controls here
+  
+  // For now, this is a placeholder function
+  console.log('Parameter options loaded');
+}
+
+/**
+ * Update the chat system prompt based on current profile and settings
+ */
+function updateChatSystemPrompt() {
+  if (!chatSystemPromptPre) return;
+
+  let finalSystemPrompt = "You are a digital twin based on the following personality profile in JSON format. Use this profile to inform your responses and communication style.\n\n";
+
+  // Add the personality JSON
+  if (currentGeneratedProfile) {
+    finalSystemPrompt += "====================\nPERSONALITY PROFILE:\n====================\n";
+    finalSystemPrompt += JSON.stringify(currentGeneratedProfile, null, 2);
+    finalSystemPrompt += "\n\n";
+  } else {
+    finalSystemPrompt += "No personality profile generated. Please generate one first.\n\n";
+  }
+
+  // Add personal background/lore if present and valid
+  if (chatLoreInput && chatLoreInput.value.trim()) {
+    try {
+      // Check if the lore is valid JSON
+      JSON.parse(chatLoreInput.value);
+      // If it is, include it directly
+      finalSystemPrompt += "====================\nPERSONAL BACKGROUND:\n====================\n";
+      finalSystemPrompt += chatLoreInput.value + "\n\n";
+      chatLoreInput.style.border = "1px solid #ddd"; // Reset border if previously invalid
+    } catch (e) {
+      // If it's not valid JSON, include it as plain text
+      finalSystemPrompt += "====================\nPERSONAL BACKGROUND:\n====================\n";
+      finalSystemPrompt += chatLoreInput.value + "\n\n";
+      
+      // Add warning styles if trying to provide invalid JSON
+      if (chatLoreInput.value.includes("{") && chatLoreInput.value.includes("}")) {
+        chatLoreInput.style.border = "1px solid #e74c3c";
+      } else {
+        chatLoreInput.style.border = "1px solid #ddd"; // Reset border
+      }
+    }
+  }
+
+  // Add simulation parameters if present, checked, and valid
+  if (chatParamsInput && chatParamsInput.value.trim() && includeInteractionContextCheckbox?.checked) {
+    try {
+      // Check if it's valid JSON
+      JSON.parse(chatParamsInput.value);
+      // If it is, include it directly
+      finalSystemPrompt += "====================\nINTERACTION CONTEXT:\n====================\n";
+      finalSystemPrompt += chatParamsInput.value + "\n\n";
+      chatParamsInput.style.border = "1px solid #ddd"; // Reset border if previously invalid
+    } catch (e) {
+      // If it's not valid JSON, include it as plain text
+      finalSystemPrompt += "====================\nINTERACTION CONTEXT:\n====================\n";
+      finalSystemPrompt += chatParamsInput.value + "\n\n";
+      
+      // Add warning styles if trying to provide invalid JSON
+      if (chatParamsInput.value.includes("{") && chatParamsInput.value.includes("}")) {
+        chatParamsInput.style.border = "1px solid #e74c3c";
+      } else {
+        chatParamsInput.style.border = "1px solid #ddd"; // Reset border
+      }
+    }
+  }
+  
+  // Add psychological state if present and checked
+  if (chatPsychStateInput && chatPsychStateInput.value.trim() && includePsychStateCheckbox?.checked) {
+    try {
+      // Check if it's valid JSON
+      JSON.parse(chatPsychStateInput.value);
+      // If it is, include it directly
+      finalSystemPrompt += "====================\nCURRENT PSYCHOLOGICAL STATE:\n====================\n";
+      finalSystemPrompt += chatPsychStateInput.value + "\n\n";
+      chatPsychStateInput.style.border = "1px solid #ddd"; // Reset border if previously invalid
+    } catch (e) {
+      // If it's not valid JSON, include it as plain text
+      finalSystemPrompt += "====================\nCURRENT PSYCHOLOGICAL STATE:\n====================\n";
+      finalSystemPrompt += chatPsychStateInput.value + "\n\n";
+      
+      // Add warning styles if trying to provide invalid JSON
+      if (chatPsychStateInput.value.includes("{") && chatPsychStateInput.value.includes("}")) {
+        chatPsychStateInput.style.border = "1px solid #e74c3c";
+      } else {
+        chatPsychStateInput.style.border = "1px solid #ddd"; // Reset border
+      }
+    }
+  }
+
+  // Add cognitive style if present and checked
+  if (chatCogStyleInput && chatCogStyleInput.value.trim() && includeCogStyleCheckbox?.checked) {
+    try {
+      // Check if it's valid JSON
+      JSON.parse(chatCogStyleInput.value);
+      // If it is, include it directly
+      finalSystemPrompt += "====================\nCOGNITIVE STYLE:\n====================\n";
+      finalSystemPrompt += chatCogStyleInput.value + "\n\n";
+      chatCogStyleInput.style.border = "1px solid #ddd"; // Reset border if previously invalid
+    } catch (e) {
+      // If it's not valid JSON, include it as plain text
+      finalSystemPrompt += "====================\nCOGNITIVE STYLE:\n====================\n";
+      finalSystemPrompt += chatCogStyleInput.value + "\n\n";
+      
+      // Add warning styles if trying to provide invalid JSON
+      if (chatCogStyleInput.value.includes("{") && chatCogStyleInput.value.includes("}")) {
+        chatCogStyleInput.style.border = "1px solid #e74c3c";
+      } else {
+        chatCogStyleInput.style.border = "1px solid #ddd"; // Reset border
+      }
+    }
+  }
+
+  finalSystemPrompt += "====================\nINSTRUCTIONS:\n====================\n";
+  finalSystemPrompt += "1. Respond based ONLY on the personality profile and context above\n";
+  finalSystemPrompt += "2. Stay in character as the digital twin consistently\n";
+  finalSystemPrompt += "3. Use the Voice qualities and patterns from the profile to shape your communication style\n";
+  finalSystemPrompt += "4. Express the Core Traits and Values authentically\n";
+  finalSystemPrompt += "5. Follow the Relationship style when interacting\n";
+  finalSystemPrompt += "6. Never break character by explaining or discussing how you're using the profile\n";
+
+  chatSystemPromptPre.textContent = finalSystemPrompt;
+  
+  // Also show the system prompt section
+  if (chatSystemPromptPre.parentElement) {
+    chatSystemPromptPre.parentElement.style.display = "block";
+  }
+  
+  // Update the personality JSON display if present
+  if (chatPersonalityJsonPre && currentGeneratedProfile) {
+    chatPersonalityJsonPre.textContent = JSON.stringify(currentGeneratedProfile, null, 2);
+    chatPersonalityJsonPre.style.display = "block";
+  }
+}
+
+/**
+ * Load the personality prompt into the UI
+ */
+function loadPersonalityPrompt() {
+  if (!personalityPromptTextarea) return;
+  
+  // If there's a current user and they have a saved prompt, use that
+  if (currentUserId && currentPersonalityPrompt) {
+    personalityPromptTextarea.value = currentPersonalityPrompt;
+  } else {
+    // Otherwise use the default prompt
+    personalityPromptTextarea.value = getDefaultPersonalityPrompt();
+  }
+  
+  // Update generate button state
+  updateGenerateButtonState();
+}
+
+/**
+ * Setup the modal functionality for previewing content
+ */
+function setupModal() {
+  if (!previewModal || !closeModalButton) return;
+  
+  // Close modal when the X button is clicked
+  closeModalButton.addEventListener('click', () => {
+    previewModal.style.display = 'none';
+  });
+  
+  // Close modal when clicking outside the modal content
+  window.addEventListener('click', (event) => {
+    if (event.target === previewModal) {
+      previewModal.style.display = 'none';
+    }
+  });
+}
+
+/**
+ * Handle the AI assessment process
+ * @param {Event} event - The click event
+ */
+async function handleRunAIAssessment(event) {
+  event.preventDefault();
+  
+  if (!userTipiScores) {
+    showStatus(aiAssessmentStatusDiv, 'You must complete your assessment first.', 'error');
+    return;
+  }
+  
+  if (!currentGeneratedProfile) {
+    showStatus(aiAssessmentStatusDiv, 'No personality profile available. Generate one first.', 'error');
+    return;
+  }
+  
+  // Get simulation temperature
+  const tempInput = document.getElementById('ai-assessment-temp');
+  const temperature = parseFloat(tempInput?.value || 0.8);
+  
+  // Get number of runs per item
+  const runsPerItem = parseInt(runsPerItemInput?.value || 3);
+  if (runsPerItem < 1 || runsPerItem > 10) {
+    showStatus(aiAssessmentStatusDiv, 'Runs per item must be between 1 and 10.', 'error');
+    return;
+  }
+  
+  // Disable button and show loading status
+  runAIAssessmentButton.disabled = true;
+  showStatus(aiAssessmentStatusDiv, 'Running AI assessment...', 'loading');
+  
+  const aiScores = {};
+  let completedRuns = 0;
+  const totalRuns = TIPI_ITEMS.length * runsPerItem;
+  
+  try {
+    // For each TIPI question...
+    for (const item of TIPI_ITEMS) {
+      const question = `${item.text}`;
+      
+      // Initialize score array for this question
+      aiScores[item.id] = [];
+      
+      // Run multiple simulations per question for more accurate results
+      for (let i = 0; i < runsPerItem; i++) {
+        // Prepare system prompt with personality profile
+        let systemPrompt = "You are a digital twin with the following personality profile. Answer the personality assessment question as if you were this person.\n\n";
+        systemPrompt += JSON.stringify(currentGeneratedProfile, null, 2) + "\n\n";
+        systemPrompt += "INSTRUCTIONS:\n";
+        systemPrompt += "1. Consider the personality question carefully\n";
+        systemPrompt += "2. Answer honestly based on your personality profile\n";
+        systemPrompt += "3. Respond with ONLY a number from 1-5:\n";
+        systemPrompt += "   1 = Disagree strongly\n";
+        systemPrompt += "   2 = Disagree moderately\n";
+        systemPrompt += "   3 = Neither agree nor disagree\n";
+        systemPrompt += "   4 = Agree moderately\n";
+        systemPrompt += "   5 = Agree strongly\n";
+        systemPrompt += "4. Do not include any explanations or text - ONLY respond with a single digit 1-5\n";
+        
+        // Call API with the question
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: currentUserId,
+            systemPrompt, 
+            userMessage: question,
+            temperature
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || `Failed to get AI response (${response.status})`);
+        }
+        
+        const data = await response.json();
+        const aiResponse = data.response.trim();
+        
+        // Parse the score (1-5)
+        const scoreMatch = aiResponse.match(/[1-5]/);
+        if (scoreMatch) {
+          const score = parseInt(scoreMatch[0]);
+          aiScores[item.id].push(score);
+        } else {
+          console.warn(`Invalid AI response for question ${item.id}:`, aiResponse);
+          // Add a placeholder score of 3 (neutral) for invalid responses
+          aiScores[item.id].push(3);
+        }
+        
+        // Update progress
+        completedRuns++;
+        const progress = Math.round((completedRuns / totalRuns) * 100);
+        showStatus(aiAssessmentStatusDiv, `Running assessment... ${progress}% complete`, 'loading');
+      }
+    }
+    
+    // Calculate average scores for each question
+    const finalScores = {};
+    for (const [itemId, scores] of Object.entries(aiScores)) {
+      if (scores.length > 0) {
+        const sum = scores.reduce((a, b) => a + b, 0);
+        finalScores[itemId] = Math.round((sum / scores.length) * 10) / 10; // Round to 1 decimal place
+      } else {
+        finalScores[itemId] = 3; // Default to neutral if no valid scores
+      }
+    }
+    
+    // Save the AI scores
+    aiTipiScores = finalScores;
+    
+    // Save to user data
+    await saveUserAssessmentData();
+    
+    // Calculate and display alignment
+    calculateAndDisplayAlignment();
+    
+    showStatus(aiAssessmentStatusDiv, 'AI assessment completed successfully!', 'success');
+  } catch (error) {
+    console.error('Error running AI assessment:', error);
+    showStatus(aiAssessmentStatusDiv, `Error: ${error.message}`, 'error');
+  } finally {
+    runAIAssessmentButton.disabled = false;
+  }
+}
+
+/**
+ * Set up keyboard event listeners for the chat input
+ */
+function setupChatKeyboard() {
+  // First, try to get the chat input element
+  const chatInputElement = document.getElementById('chat-input');
+  
+  // Only proceed if the element exists
+  if (chatInputElement) {
+    // Add event listener for the Enter key
+    chatInputElement.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendChatMessage();
+      }
+    });
+    
+    // Focus the input when the page loads
+    setTimeout(() => {
+      if (document.getElementById('chat-input')) {
+        document.getElementById('chat-input').focus();
+      }
+    }, 500);
+  }
+}
+
+/**
+ * Set up all event listeners for the UI
+ */
+function setupEventListeners() {
+  // Chat page event listeners
+  if (sendChatButton) {
+    // Keep this as a backup but the primary input is now via Enter key
+    sendChatButton.addEventListener('click', sendChatMessage);
+  }
+
+  // Add setupChatKeyboard to enable Enter key for sending messages
+  setupChatKeyboard();
+
+  // System prompt visibility toggle
+  if (showSystemPromptCheckbox) {
+    showSystemPromptCheckbox.addEventListener('change', toggleSystemPromptVisibility);
+  }
+
+  // System prompt operations
+  if (saveSystemPromptButton) {
+    saveSystemPromptButton.addEventListener('click', saveCurrentSystemPrompt);
+  }
+
+  if (saveAsSystemPromptButton) {
+    saveAsSystemPromptButton.addEventListener('click', saveSystemPromptAs);
+  }
+
+  if (savedPromptsDropdown) {
+    savedPromptsDropdown.addEventListener('change', selectSystemPrompt);
+  }
+
+  // Clear chat history
+  if (clearChatButton) {
+    clearChatButton.addEventListener('click', clearChat);
+  }
+
+  // Nav tabs event listeners
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', handleNavTabClick);
+  });
+
+  // Rest of event listeners...
+  // ...
+}
+
+/**
+ * Format the message content for display
+ * @param {string} content - The raw message content
+ * @returns {string} The formatted HTML
+ */
+function formatMessageContent(content) {
+  if (!content) return '';
+  
+  // Simple formatting - we could add markdown support later
+  // Escape HTML
+  let formatted = content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  
+  // Convert newlines to <br>
+  formatted = formatted.replace(/\n/g, '<br>');
+  
+  return formatted;
+}
+
+/**
+ * Save the chat history for the current user
+ */
+async function saveChatHistory() {
+  if (!currentUserId || !chatHistoryDiv) return;
+  
+  try {
+    const chatHistory = Array.from(chatHistoryDiv.children).map(messageWrapper => ({
+      role: messageWrapper.classList.contains('user-message') ? 'user' : 'assistant',
+      content: messageWrapper.querySelector('.message').textContent
+    }));
+    
+    const response = await fetch(`/api/users/${currentUserId}/chat-history`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ chatHistory })
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to save chat history:', response.status);
+    }
+  } catch (error) {
+    console.error('Error saving chat history:', error);
+  }
+}
+
+/**
+ * Clear the chat history UI and backend storage (if applicable).
+ */
+function clearChat() {
+  // Clear the chat display
+  if (chatHistoryDiv) {
+    chatHistoryDiv.innerHTML = '';
+    
+    // Optionally re-add the system messages if desired
+    // addMessageToChat('system', 'Digital Twin Terminal v1.0');
+    // addMessageToChat('system', 'Type your messages and press Enter...');
+    // addMessageToChat('system', "Type 'clear' to clear the terminal");
+  }
+  
+  // Clear the status div associated with the chat
+  showStatus(chatStatusDiv, '', 'success'); 
+
+  // Re-enable and focus the input
+  if (chatInputElement) {
+      chatInputElement.value = '';
+      chatInputElement.disabled = false;
+      chatInputElement.focus();
+  }
+  
+  console.log('Chat cleared.');
+}
+
+/**
+ * Add a message to the chat history UI, returning the created element
+ * @param {string} role - The role ('user', 'assistant', 'system')
+ * @param {string} content - The message content
+ * @returns {HTMLElement | null} The created message wrapper element or null if chatHistoryDiv is not found
+ */
+function addMessageToChat(role, content) {
+  if (!chatHistoryDiv) {
+    console.error("Chat history element (chatHistoryDiv) not found. Cannot add message.");
+    return null; 
+  }
+  
+  const messageWrapper = document.createElement('div');
+  messageWrapper.className = `message-wrapper ${role}-message`;
+  
+  // Use formatMessageContent to handle potential HTML in content
+  const formattedContent = formatMessageContent(content);
+  const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+  let messageHTML = '';
+  if (role === 'system') {
+    messageHTML = `<div class="message"># ${formattedContent}</div>`;
+  } else if (role === 'user') {
+    messageHTML = `<div class="message"><span class="prompt-symbol">$</span> ${formattedContent}</div>`;
+  } else { // assistant
+    // Assistant messages might include the typing indicator initially
+    messageHTML = `<div class="message">${formattedContent || ''}</div>`; 
+  }
+  
+  messageWrapper.setAttribute('data-time', timestamp);
+  messageWrapper.innerHTML = messageHTML;
+  
+  chatHistoryDiv.appendChild(messageWrapper);
+  chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight; // Scroll to bottom
+  
+  return messageWrapper; // Return the wrapper element
+}
+
+// === New Tab Navigation Functions ===
+
+/**
+ * Load the list of users into the dropdown
+ */
+async function loadUserList() {
+  if (!userSelectDropdown) {
+    console.error('User select dropdown element not found');
+    return;
+  }
+  
+  // Clear existing options except the placeholder
+  userSelectDropdown.innerHTML = '<option value="" disabled selected>-- Select User --</option>';
+  
+  try {
+    const response = await fetch('/api/users');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch users: ${response.status}`);
+    }
+    const users = await response.json();
+    
+    // Filter out duplicate user entries using a Set to track unique IDs
+    const uniqueUserIds = new Set();
+    const uniqueUsers = [];
+    
+    users.forEach(user => {
+      if (!uniqueUserIds.has(user.id)) {
+        uniqueUserIds.add(user.id);
+        uniqueUsers.push(user);
+      } else {
+        console.warn(`Duplicate user ID found: ${user.id} - skipping duplicate entry`);
+      }
+    });
+    
+    // Sort users alphabetically
+    uniqueUsers.sort((a, b) => a.id.localeCompare(b.id));
+    
+    console.log(`Loaded ${uniqueUsers.length} users (filtered from ${users.length} total)`);
+    
+    // Add unique users to dropdown
+    uniqueUsers.forEach(user => {
+      const option = document.createElement('option');
+      option.value = user.id;
+      option.textContent = user.id;
+      userSelectDropdown.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Error loading user list:', error);
+    if (userStatusDiv) {
+      showStatus(userStatusDiv, `Error loading user list: ${error.message}`, 'error');
+    }
+  }
 }

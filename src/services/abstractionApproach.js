@@ -19,6 +19,105 @@ class AbstractionApproach {
     this.userDataService = new UserDataService();
     // Path for the custom prompt file
     this.promptFile = path.join(__dirname, '../../data/prompt.json');
+    this.initPrompt();
+  }
+
+  async initPrompt() {
+    try {
+      // Load default prompt from file
+      const promptPath = path.join(__dirname, '../../data/personality_prompt.txt');
+      
+      try {
+        this.defaultPrompt = await fs.readFile(promptPath, 'utf8');
+      } catch (error) {
+        console.log('Default personality prompt not found, using fallback');
+        this.defaultPrompt = this.getFallbackPrompt();
+        
+        // Ensure the data directory exists
+        await fs.mkdir(path.join(__dirname, '../../data'), { recursive: true });
+        
+        // Save the fallback prompt to the file
+        await fs.writeFile(promptPath, this.defaultPrompt, 'utf8');
+      }
+    } catch (error) {
+      console.error('Error initializing prompt:', error);
+      this.defaultPrompt = this.getFallbackPrompt();
+    }
+  }
+
+  getFallbackPrompt() {
+    return `You are an expert psychologist and personality analyst. Your task is to analyze content provided (text, social media posts, writings, image descriptions) to create a comprehensive personality profile in SoulScript format.
+
+INSTRUCTIONS:
+1. Analyze all content to identify key personality traits, values, communication style, and relationship patterns
+2. Generate a SoulScript-compatible personality JSON with the following structure:
+
+{
+  "entity": {
+    "form": "human",
+    "occupation": "[infer from content]",
+    "gender": "[infer from content]",
+    "age": "[approximate age range]"
+  },
+  "personality": {
+    "name": "[infer name or use appropriate placeholder]",
+    "core_traits": [
+      {
+        "trait": "[trait name]",
+        "strength": [0.1-0.9 value]
+      },
+      // 5-7 main traits with strength values
+    ],
+    "values": [
+      {
+        "name": "[value name]",
+        "expression": "[how this value is expressed]"
+      },
+      // 3-5 values
+    ]
+  },
+  "voice": {
+    "style": "[overall communication style]",
+    "tone": "[typical tone]",
+    "qualities": [
+      // 3-5 distinctive qualities
+    ],
+    "patterns": [
+      // 2-4 recurring patterns in communication
+    ]
+  },
+  "relationship": {
+    "style": "[how they relate to others]",
+    "boundaries": "[how they handle boundaries]"
+  },
+  "big_five_traits": {
+    "openness": ["high", "medium", or "low"],
+    "conscientiousness": ["high", "medium", or "low"],
+    "extraversion": ["high", "medium", or "low"],
+    "agreeableness": ["high", "medium", or "low"],
+    "neuroticism": ["high", "medium", or "low"]
+  },
+  "background": [
+    // 3-5 formative experiences or biographical elements
+  ],
+  "expertise": [
+    // Areas of knowledge/specialty
+  ]
+}
+
+3. Map to Big Five traits accurately (openness, conscientiousness, extraversion, agreeableness, neuroticism)
+4. Use specific examples from the content to justify traits
+5. Be accurate and nuanced rather than simplistic
+
+IMPORTANT:
+- Create a faithful representation based ONLY on the provided content
+- Don't invent major details not supported by the content
+- Identify strengths AND weaknesses/blindspots
+- Consider how they would respond to different situations
+- Provide a JSON object only, no explanations or additional content
+
+INPUT CONTENT:
+[Content will be provided here]`;
   }
 
   /**
@@ -446,6 +545,47 @@ class AbstractionApproach {
       
       console.error('Error loading assets registry:', error);
       throw new Error(`Failed to load assets registry: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate a personality profile based on user assets
+   * @param {string} userId - The user ID
+   * @param {string[]} assetIds - Array of asset IDs to use for generation
+   * @param {string} customPrompt - Optional custom prompt text
+   * @returns {Promise<Object>} The generated personality profile and assets
+   */
+  async generatePersonality(userId, assetIds, customPrompt) {
+    console.log(`Generating personality for user ${userId} with ${assetIds.length} assets`);
+    
+    if (!userId || !assetIds || assetIds.length === 0) {
+      throw new Error('User ID and at least one asset ID are required');
+    }
+    
+    try {
+      // Load assets for the user using the asset processor
+      const allAssets = await this.assetProcessor.getAllAssets(userId);
+      console.log(`Loaded ${allAssets.length} total assets for user ${userId}`);
+      
+      // Filter to only include the selected assets
+      const selectedAssets = allAssets.filter(asset => assetIds.includes(asset.id));
+      console.log(`Found ${selectedAssets.length} matching assets out of ${assetIds.length} requested IDs`);
+      
+      if (selectedAssets.length === 0) {
+        throw new Error('None of the specified assets could be found');
+      }
+      
+      // Generate personality JSON
+      const personalityJSON = await this.generatePersonaJSON(userId, assetIds, customPrompt);
+      
+      // Return the result
+      return {
+        json: personalityJSON,
+        assets: selectedAssets
+      };
+    } catch (error) {
+      console.error(`Error generating personality for user ${userId}:`, error);
+      throw error;
     }
   }
 }

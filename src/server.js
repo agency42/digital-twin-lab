@@ -5,6 +5,8 @@ const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs').promises;
+const crypto = require('crypto');
+const cookieParser = require('cookie-parser');
 
 // Import our service modules
 const AssetProcessor = require('./services/assetProcessor');
@@ -17,6 +19,7 @@ const UserDataService = require('./services/userDataService');
 const createAssetRouter = require('./routes/assetRoutes');
 const createPersonalityRouter = require('./routes/personalityRoutes');
 const createUserRouter = require('./routes/userRoutes');
+const createOAuthRouter = require('./routes/oauthRoutes');
 
 // Initialize the app
 const app = express();
@@ -44,6 +47,7 @@ const ensureDirectories = async () => {
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); // Add cookie parser middleware
 app.use(fileUpload({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max file size
   useTempFiles: true,
@@ -195,6 +199,51 @@ app.use('/api/assets', createAssetRouter(assetProcessor, claudeAPI));
 // Mount personality routes
 app.use('/api/personality', createPersonalityRouter(abstractionApproach));
 
+// Mount OAuth routes
+app.use('/api/oauth', createOAuthRouter());
+
+// Direct LinkedIn authentication endpoint
+app.get('/api/auth/linkedin', (req, res) => {
+  try {
+    const userId = req.query.user_id;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing required query parameter: user_id' });
+    }
+
+    // Generate state parameter for security
+    const state = crypto.randomBytes(16).toString('hex');
+    
+    // Store state in a cookie for validation on callback
+    res.cookie('linkedin_auth_state', state, { 
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 15 * 60 * 1000 // 15 minutes
+    });
+    
+    // Store user ID in a cookie for retrieval on callback
+    res.cookie('linkedin_auth_user_id', userId, { 
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 15 * 60 * 1000 // 15 minutes
+    });
+    
+    // Construct LinkedIn authorization URL
+    const authUrl = new URL('https://www.linkedin.com/oauth/v2/authorization');
+    authUrl.searchParams.append('response_type', 'code');
+    authUrl.searchParams.append('client_id', process.env.LINKEDIN_CLIENT_ID);
+    authUrl.searchParams.append('redirect_uri', process.env.LINKEDIN_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/oauth/linkedin/callback`);
+    authUrl.searchParams.append('state', state);
+    authUrl.searchParams.append('scope', 'openid profile email');
+    
+    // Redirect user to LinkedIn authorization page
+    return res.redirect(authUrl.toString());
+  } catch (error) {
+    console.error('Error initiating LinkedIn OAuth:', error);
+    return res.status(500).json({ error: `Failed to initiate LinkedIn authorization: ${error.message}` });
+  }
+});
+
 // --- Standalone Routes (To be potentially moved) ---
 
 // File upload endpoint
@@ -320,92 +369,258 @@ app.get('/api/scrape/status', async (req, res) => {
   }
 });
 
-// Chat endpoint (Refactored)
+// Chat endpoint (Refactored for SSE)
 app.post('/api/chat', async (req, res) => {
   try {
-    // ** Get userId, systemPrompt, userMessage, temperature from request body **
-    const { userId, systemPrompt, userMessage, temperature = 0.7 } = req.body; // Default temp if not provided
+    const { userId, systemPrompt, userMessage, temperature = 0.7, stream = true } = req.body; 
 
     if (!userId) {
-         return res.status(400).json({ error: 'Missing required field: userId' });
+      return res.status(400).json({ error: 'Missing required field: userId' });
     }
-    // System prompt is now required from the client
     if (!systemPrompt) { 
-        return res.status(400).json({ error: 'Missing required field: systemPrompt' });
+      return res.status(400).json({ error: 'Missing required field: systemPrompt' });
     }
     if (!userMessage) {
       return res.status(400).json({ error: 'Missing required field: userMessage' });
     }
 
-    // Load user data primarily to get chat history and save updates
     const userData = await userDataService.getUserData(userId);
     if (!userData) {
-        return res.status(404).json({ error: `User '${userId}' not found.` });
+      return res.status(404).json({ error: `User '${userId}' not found.` });
     }
     
-    // --- System Prompt is now provided by the client --- 
-    // The complex construction logic below is REMOVED
-    /*
-    let finalSystemPrompt = "You are the digital twin. Use the following context to inform your responses.\n";
-    finalSystemPrompt += "====================\nPERSONALITY PROFILE:\n====================\n";
-    const profileJson = userData.generation?.lastGeneratedProfile?.json;
-    finalSystemPrompt += profileJson ? JSON.stringify(profileJson, null, 2) : "(Not Generated)";
-    finalSystemPrompt += "\n\n";
-
-    const lore = userData.chatContext?.lore;
-    if (lore) {
-        finalSystemPrompt += "====================\nLORE / BACKGROUND:\n====================\n";
-        finalSystemPrompt += `${lore}\n\n`; 
-    }
-    const params = userData.chatContext?.simulationParams;
-    if (params) {
-        finalSystemPrompt += "========================\nSIMULATION PARAMETERS:\n========================\n";
-        finalSystemPrompt += `${params}\n\n`; 
-    }
-    finalSystemPrompt += "====================\nINSTRUCTIONS:\n====================\n";
-    finalSystemPrompt += "Respond to the user\'s message based *only* on the Personality Profile, Lore, and Simulation Parameters provided above. Maintain the persona consistently.";
-    */
-    // --- End System Prompt Construction ---
-
-    // Prepare messages including history
-    // For assessment, the client might choose to send only the user message without history
-    const messageHistory = Array.isArray(userData.chatHistory) ? userData.chatHistory : []; // Ensure it's an array before spreading
+    // const messageHistory = Array.isArray(userData.chatHistory) ? userData.chatHistory : []; // Don't load history
     const messagesToSend = [
-        ...messageHistory, // Include past messages
+        // ...messageHistory, // Don't include history
         { role: 'user', content: userMessage }
     ];
     
-    // Keep message history length manageable (apply before sending to API)
-    const maxApiHistory = 40; // Limit context sent to API (adjust as needed)
-    if (messagesToSend.length > maxApiHistory) {
-        messagesToSend.splice(0, messagesToSend.length - maxApiHistory);
+    // const maxApiHistory = 40; // History length limit no longer needed
+    // if (messagesToSend.length > maxApiHistory) {
+    //     messagesToSend.splice(0, messagesToSend.length - maxApiHistory);
+    // }
+
+    console.log(`Chat request for user ${userId}. System prompt length: ${systemPrompt.length}. Temperature: ${temperature}. History length: 0. Stream: ${stream}`); // History always 0
+
+    // --- Handle Streaming vs Non-Streaming --- 
+    if (stream) {
+      // Set headers for Server-Sent Events (SSE)
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders(); // Flush the headers to establish the connection
+
+      let fullResponseText = '';
+      
+      try {
+        const streamResponse = await claudeAPI.generateCompletion(messagesToSend, { 
+            system: systemPrompt,
+            temperature: parseFloat(temperature),
+            stream: true // Explicitly request stream
+        });
+
+        for await (const event of streamResponse) {
+          if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+            const textChunk = event.delta.text;
+            fullResponseText += textChunk;
+            res.write(`data: ${JSON.stringify({ type: 'chunk', data: textChunk })}\n\n`); 
+          } else if (event.type === 'message_stop') {
+            res.write(`data: ${JSON.stringify({ type: 'complete', data: fullResponseText })}\n\n`); 
+            res.end();
+            break;
+          }
+        }
+        
+        // --- REMOVE HISTORY SAVING --- 
+        // const updatedHistory = messageHistory.concat([
+        //   { role: 'user', content: userMessage },
+        //   { role: 'assistant', content: fullResponseText }
+        // ]);
+        // const maxStoredHistory = 50;
+        // if (updatedHistory.length > maxStoredHistory) {
+        //     updatedHistory.splice(0, updatedHistory.length - maxStoredHistory);
+        // }
+        // await userDataService.updateUserData(userId, { chatHistory: updatedHistory });
+        // console.log('Chat history saved after successful stream.');
+        console.log('Stream complete. History not saved.');
+
+      } catch (streamError) {
+        console.error('Error during Claude stream processing:', streamError);
+        // Attempt to send an error event to the client before closing
+        if (!res.writableEnded) {
+          try {
+            res.write(`data: ${JSON.stringify({ type: 'error', error: streamError.message || 'Stream processing error' })}\n\n`);
+            res.end();
+          } catch (sendError) {
+            console.error('Error sending stream error to client:', sendError);
+          }
+        }
+      }
+
+    } else {
+      // --- Non-Streaming Logic --- 
+      const responseText = await claudeAPI.generateCompletion(messagesToSend, { 
+          system: systemPrompt,
+          temperature: parseFloat(temperature),
+          stream: false // Explicitly request non-stream
+      });
+
+      // --- REMOVE HISTORY SAVING --- 
+      // const updatedHistory = messageHistory.concat([
+      //     { role: 'user', content: userMessage },
+      //     { role: 'assistant', content: responseText }
+      // ]);
+      // const maxStoredHistory = 50;
+      // if (updatedHistory.length > maxStoredHistory) {
+      //     updatedHistory.splice(0, updatedHistory.length - maxStoredHistory);
+      // }
+      // await userDataService.updateUserData(userId, { chatHistory: updatedHistory });
+      console.log('Non-stream response generated. History not saved.');
+
+      res.status(200).json({ response: responseText });
     }
-
-    console.log(`Chat request for user ${userId}. System prompt length: ${systemPrompt.length}. Temperature: ${temperature}. History length: ${messageHistory.length}`);
-
-    // Call Claude API with provided system prompt, history, and temperature
-    const responseText = await claudeAPI.generateCompletion(messagesToSend, { 
-        system: systemPrompt,
-        temperature: parseFloat(temperature) // Ensure temperature is a number
-    });
-
-    // ** Save chat history (append user message and response) **
-    const updatedHistory = messageHistory.concat([ // Append to original history
-        { role: 'user', content: userMessage },
-        { role: 'assistant', content: responseText }
-    ]);
-    // Keep stored history length manageable (apply after getting response)
-    const maxStoredHistory = 50; 
-    if (updatedHistory.length > maxStoredHistory) {
-        updatedHistory.splice(0, updatedHistory.length - maxStoredHistory);
-    }
-    await userDataService.updateUserData(userId, { chatHistory: updatedHistory });
-
-    res.status(200).json({ response: responseText });
 
   } catch (error) {
     console.error('Error in chat endpoint:', error);
-    res.status(500).json({ error: error.message || 'An error occurred during chat generation.' });
+    // Ensure response is sent if headers haven't been flushed for SSE
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message || 'An error occurred during chat processing.' });
+    }
+    // If headers were sent (SSE), the error might have been handled in the stream catch block
+  }
+});
+
+// Add chat history endpoint for saving/loading
+app.post('/api/users/:userId/chat', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { history } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    if (!Array.isArray(history)) {
+      return res.status(400).json({ error: 'Chat history must be an array' });
+    }
+    
+    // Get user data
+    const userData = await userDataService.getUserData(userId);
+    if (!userData) {
+      return res.status(404).json({ error: `User '${userId}' not found` });
+    }
+    
+    // Update chat history
+    await userDataService.updateUserData(userId, { chatHistory: history });
+    
+    res.status(200).json({ success: true, message: 'Chat history updated successfully' });
+  } catch (error) {
+    console.error('Error updating chat history:', error);
+    res.status(500).json({ error: 'Failed to update chat history' });
+  }
+});
+
+// Get chat history endpoint
+app.get('/api/users/:userId/chat', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Get user data
+    const userData = await userDataService.getUserData(userId);
+    if (!userData) {
+      return res.status(404).json({ error: `User '${userId}' not found` });
+    }
+    
+    const chatHistory = Array.isArray(userData.chatHistory) ? userData.chatHistory : [];
+    
+    res.status(200).json({ chatHistory });
+  } catch (error) {
+    console.error('Error getting chat history:', error);
+    res.status(500).json({ error: 'Failed to get chat history' });
+  }
+});
+
+// Save system prompt endpoint
+app.post('/api/users/:userId/system-prompts', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, prompt } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Prompt name is required' });
+    }
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'System prompt is required' });
+    }
+    
+    // Get user data
+    const userData = await userDataService.getUserData(userId);
+    if (!userData) {
+      return res.status(404).json({ error: `User '${userId}' not found` });
+    }
+    
+    // Initialize systemPrompts array if it doesn't exist
+    if (!userData.systemPrompts) {
+      userData.systemPrompts = [];
+    }
+    
+    // Check if prompt with this name already exists
+    const existingIndex = userData.systemPrompts.findIndex(p => p.name === name);
+    
+    if (existingIndex >= 0) {
+      // Update existing prompt
+      userData.systemPrompts[existingIndex] = {
+        name,
+        prompt,
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      // Add new prompt
+      userData.systemPrompts.push({
+        name,
+        prompt,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+    
+    // Save updated user data
+    await userDataService.updateUserData(userId, { systemPrompts: userData.systemPrompts });
+    
+    res.status(200).json({ 
+      success: true, 
+      message: `System prompt '${name}' saved successfully`,
+      promptId: existingIndex >= 0 ? existingIndex : userData.systemPrompts.length - 1
+    });
+  } catch (error) {
+    console.error('Error saving system prompt:', error);
+    res.status(500).json({ error: 'Failed to save system prompt' });
+  }
+});
+
+// Get system prompts endpoint
+app.get('/api/users/:userId/system-prompts', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Get user data
+    const userData = await userDataService.getUserData(userId);
+    if (!userData) {
+      return res.status(404).json({ error: `User '${userId}' not found` });
+    }
+    
+    // Return system prompts or empty array
+    const systemPrompts = userData.systemPrompts || [];
+    
+    res.status(200).json({ systemPrompts });
+  } catch (error) {
+    console.error('Error getting system prompts:', error);
+    res.status(500).json({ error: 'Failed to get system prompts' });
   }
 });
 

@@ -44,6 +44,34 @@ function createAssetRouter(assetProcessor, claudeAPI) {
     }
   });
 
+  // GET /api/assets/:userId - Get assets for a specific user
+  router.get('/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+      
+      // Get all assets for this user
+      const userAssets = await assetProcessor.getAllAssets(userId);
+      
+      // Return assets as a flat array (client-side can group if needed)
+      res.status(200).json(userAssets.map(asset => {
+        // Ensure filepaths use forward slashes for consistency
+        const safeFilePath = asset.filePath ? asset.filePath.replace(/\\/g, '/') : '';
+        return {
+          ...asset,
+          assetUrl: safeFilePath ? `/assets/${safeFilePath}` : null
+        };
+      }));
+      
+    } catch (error) {
+      console.error(`Error getting assets for user ${req.params.userId}:`, error);
+      res.status(500).json({ error: 'Failed to retrieve user assets', details: error.message });
+    }
+  });
+
   // Get contents for multiple assets
   // NOTE: This endpoint was previously /api/assets/embeddings but no longer deals with embeddings.
   router.post('/contents', async (req, res) => {
@@ -155,8 +183,10 @@ function createAssetRouter(assetProcessor, claudeAPI) {
   router.get('/:assetId/content', async (req, res) => {
     try {
       const { assetId } = req.params;
+      console.log(`[ASSET CONTENT] Request for asset ID: ${assetId}`);
       
       if (!assetId) {
+        console.log('[ASSET CONTENT] Missing assetId parameter');
         return res.status(400).json({ error: 'Missing required assetId parameter' });
       }
       
@@ -166,13 +196,16 @@ function createAssetRouter(assetProcessor, claudeAPI) {
       let assets = [];
       
       try {
+        console.log(`[ASSET CONTENT] Reading assets registry file: ${assetsRegistryFile}`);
         const assetsData = await fs.readFile(assetsRegistryFile, 'utf-8');
         assets = JSON.parse(assetsData);
+        console.log(`[ASSET CONTENT] Found ${assets.length} total assets in registry`);
       } catch (error) {
         if (error.code === 'ENOENT') {
+          console.error('[ASSET CONTENT] Assets registry file not found');
           return res.status(404).json({ error: 'No assets found' });
         }
-        console.error('Error reading assets registry file:', error);
+        console.error('[ASSET CONTENT] Error reading assets registry file:', error);
         throw error;
       }
       
@@ -180,19 +213,31 @@ function createAssetRouter(assetProcessor, claudeAPI) {
       const asset = assets.find(asset => asset.id === assetId);
       
       if (!asset) {
+        console.log(`[ASSET CONTENT] Asset with ID ${assetId} not found in registry`);
         return res.status(404).json({ error: 'Asset not found' });
       }
+      
+      console.log(`[ASSET CONTENT] Found asset: ${assetId}, Type: ${asset.mimetype}, Filename: ${asset.filename}`);
       
       // Get the file path
       // TODO: Need robust path construction, possibly move to AssetProcessor
       const assetPath = path.join(__dirname, '../../data/assets', asset.filePath);
-      console.log(`Attempting to serve asset: ${assetId}, Path: ${assetPath}`);
+      console.log(`[ASSET CONTENT] Attempting to serve asset: ${assetId}, Full path: ${assetPath}`);
+      
+      // Write to a log file to ensure we see these logs
+      try {
+        const logMessage = `${new Date().toISOString()} - Asset request: ${assetId}, Path: ${assetPath}, Mimetype: ${asset.mimetype}\n`;
+        await fs.appendFile(path.join(__dirname, '../../data/assets/logs/asset_requests.log'), logMessage);
+      } catch (logErr) {
+        console.error('[ASSET CONTENT] Error writing to log file:', logErr);
+      }
       
       // Check if file exists before attempting to serve it
       try {
         await fs.access(assetPath);
+        console.log(`[ASSET CONTENT] File exists at path: ${assetPath}`);
       } catch (error) {
-        console.error(`File not found at path: ${assetPath}`, error);
+        console.error(`[ASSET CONTENT] File not found at path: ${assetPath}`, error);
         return res.status(404).json({ error: `File not found: ${assetPath}` });
       }
       
@@ -200,41 +245,68 @@ function createAssetRouter(assetProcessor, claudeAPI) {
       if (asset.mimetype === 'text/plain' || asset.mimetype === 'application/json') {
         // For text files, send the content
         try {
+          console.log(`[ASSET CONTENT] Reading text file: ${assetPath}`);
           const content = await fs.readFile(assetPath, 'utf-8');
+          console.log(`[ASSET CONTENT] Successfully read text file, content length: ${content.length}`);
           res.setHeader('Content-Type', asset.mimetype);
           return res.send(content);
         } catch (error) {
-          console.error(`Error reading text file: ${assetPath}`, error);
+          console.error(`[ASSET CONTENT] Error reading text file: ${assetPath}`, error);
           return res.status(500).json({ error: `Error reading file: ${error.message}` });
         }
       } 
       else if (asset.mimetype.startsWith('image/')) {
         // For images, stream the file
         try {
-          console.log(`Serving image file: ${assetPath} with mimetype: ${asset.mimetype}`);
+          console.log(`[ASSET CONTENT] Serving image file: ${assetPath} with mimetype: ${asset.mimetype}`);
+          
+          // Check file size for logging
+          try {
+            const stats = await fs.stat(assetPath);
+            console.log(`[ASSET CONTENT] Image file size: ${stats.size} bytes`);
+          } catch (statErr) {
+            console.error(`[ASSET CONTENT] Error checking file size: ${assetPath}`, statErr);
+          }
+          
           res.setHeader('Content-Type', asset.mimetype);
+          console.log(`[ASSET CONTENT] Set Content-Type header to: ${asset.mimetype}`);
+          
+          // Log the first few bytes for debugging binary content issues
+          try {
+            const fileHandle = await fs.open(assetPath, 'r');
+            const buffer = Buffer.alloc(32); // Read first 32 bytes
+            await fileHandle.read(buffer, 0, 32, 0);
+            await fileHandle.close();
+            console.log(`[ASSET CONTENT] First bytes of file: ${buffer.toString('hex')}`);
+          } catch (readErr) {
+            console.error(`[ASSET CONTENT] Error reading first bytes of file: ${assetPath}`, readErr);
+          }
+          
           return res.sendFile(assetPath, (err) => {
             if (err) {
-              console.error(`Error sending file: ${assetPath}`, err);
+              console.error(`[ASSET CONTENT] Error sending file: ${assetPath}`, err);
               // Avoid sending status 500 if headers already sent
               if (!res.headersSent) {
                 res.status(500).send({ error: `Error sending file: ${err.message}` });
               }
+            } else {
+              console.log(`[ASSET CONTENT] Successfully sent file: ${assetPath}`);
             }
           });
         } catch (error) {
-          console.error(`Error serving image file: ${assetPath}`, error);
+          console.error(`[ASSET CONTENT] Error serving image file: ${assetPath}`, error);
            if (!res.headersSent) {
              return res.status(500).json({ error: `Error serving image: ${error.message}` });
            }
         }
       }
       else {
+        console.log(`[ASSET CONTENT] Unsupported file type: ${asset.mimetype}`);
         // For other types
         return res.status(400).json({ error: `Unsupported file type: ${asset.mimetype}` });
       }
     } catch (error) {
-      console.error('Error getting asset content:', error);
+      console.error('[ASSET CONTENT] Error getting asset content:', error);
        if (!res.headersSent) {
          res.status(500).json({ error: error.message });
        }
@@ -602,6 +674,97 @@ function createAssetRouter(assetProcessor, claudeAPI) {
       }
     } catch (error) {
       console.error(`Error deleting asset ${req.params.assetId}:`, error);
+      res.status(500).json({ success: false, error: 'An unexpected error occurred during deletion.' });
+    }
+  });
+
+  // Clear all assets for a user
+  router.post('/:userId/clear', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+      
+      console.log(`Attempting to clear all assets for user: ${userId}`);
+      
+      // Get all assets for this user
+      const userAssets = await assetProcessor.getAllAssets(userId);
+      console.log(`Found ${userAssets.length} assets to delete for user ${userId}`);
+      
+      // Delete each asset
+      let deletedCount = 0;
+      let failedCount = 0;
+      
+      for (const asset of userAssets) {
+        try {
+          const deleted = await assetProcessor.deleteAsset(asset.id);
+          if (deleted) {
+            deletedCount++;
+          } else {
+            failedCount++;
+          }
+        } catch (error) {
+          console.error(`Error deleting asset ${asset.id}:`, error);
+          failedCount++;
+        }
+      }
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: `Deleted ${deletedCount} assets for user ${userId}${failedCount > 0 ? ` (${failedCount} failed)` : ''}`,
+        deletedCount,
+        failedCount
+      });
+    } catch (error) {
+      console.error(`Error clearing assets for user ${req.params.userId}:`, error);
+      res.status(500).json({ success: false, error: 'An unexpected error occurred during asset clearing.' });
+    }
+  });
+
+  // POST to delete multiple assets
+  router.post('/:userId/delete', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { assetIds } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+      
+      if (!assetIds || !Array.isArray(assetIds) || assetIds.length === 0) {
+        return res.status(400).json({ error: 'Asset IDs array is required' });
+      }
+      
+      console.log(`Attempting to delete ${assetIds.length} assets for user ${userId}`);
+      
+      // Delete each asset
+      let deletedCount = 0;
+      let failedCount = 0;
+      
+      for (const assetId of assetIds) {
+        try {
+          const deleted = await assetProcessor.deleteAsset(assetId);
+          if (deleted) {
+            deletedCount++;
+          } else {
+            failedCount++;
+          }
+        } catch (error) {
+          console.error(`Error deleting asset ${assetId}:`, error);
+          failedCount++;
+        }
+      }
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: `Deleted ${deletedCount} assets${failedCount > 0 ? ` (${failedCount} failed)` : ''}`,
+        deletedCount,
+        failedCount
+      });
+    } catch (error) {
+      console.error(`Error deleting assets for user ${req.params.userId}:`, error);
       res.status(500).json({ success: false, error: 'An unexpected error occurred during deletion.' });
     }
   });

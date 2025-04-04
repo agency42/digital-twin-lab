@@ -110,3 +110,123 @@ The next major feature is to add a psychometric assessment module to compare the
 - File system and simple JSON are used for storage (appropriate for prototype)
 
 For more detailed technical notes and ongoing work, see [CLAUDE.md](CLAUDE.md).
+
+## Social Media Integration
+
+The application now supports connecting social media accounts to gather additional profile data for personality generation. Currently implemented:
+
+- **LinkedIn**: Connect your LinkedIn account to import your profile information.
+
+### How to Set Up LinkedIn Integration
+
+1. Create a LinkedIn Developer application at the [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps)
+2. Configure your application settings:
+   - Set the **Redirect URL** to: `http://localhost:3000/api/oauth/linkedin/callback` (or your custom domain if deployed)
+   - Request the required OAuth permissions:
+     - `openid`
+     - `profile`
+     - `email`
+3. Update your `.env` file with the required credentials:
+   ```
+   LINKEDIN_CLIENT_ID=your_client_id
+   LINKEDIN_CLIENT_SECRET=your_client_secret
+   LINKEDIN_REDIRECT_URI=http://localhost:3000/api/oauth/linkedin/callback
+   ```
+4. Restart the application and use the "Connect LinkedIn" button in the UI to authenticate.
+
+The OAuth integration uses OpenID Connect, a secure authentication protocol built on top of OAuth 2.0, to retrieve the user's profile information with their consent. The profile is then stored as an asset associated with the user's Digital Twin Lab profile.
+
+## SoulScript Personality Profiles
+
+The Digital Twin Lab now uses the SoulScript format for defining agent personalities. SoulScript is a structured JSON format that provides a comprehensive way to define personality traits, communication style, and relationship patterns.
+
+### Personality Structure
+
+The SoulScript format includes:
+
+- **Entity**: Basic identity details (form, occupation, gender, age)
+- **Personality**: Core traits (with strength values) and values
+- **Voice**: Communication style, tone, patterns
+- **Relationship**: Interaction style and boundaries
+- **Big Five Traits**: Explicitly mapped personality dimensions
+- **Background & Expertise**: Additional context for the digital twin
+
+This structured approach creates more nuanced and consistent digital twins that better reflect the source content.
+
+### Example SoulScript Profile
+
+```json
+{
+  "entity": {
+    "form": "human",
+    "occupation": "software engineer",
+    "gender": "female",
+    "age": "32"
+  },
+  "personality": {
+    "name": "Alex",
+    "core_traits": [
+      {
+        "trait": "analytical",
+        "strength": 0.8
+      },
+      {
+        "trait": "curious",
+        "strength": 0.9
+      }
+    ],
+    "values": [
+      {
+        "name": "continuous learning",
+        "expression": "regularly explores new technologies and approaches"
+      }
+    ]
+  },
+  "voice": {
+    "style": "clear and concise",
+    "tone": "friendly but professional",
+    "qualities": [
+      "thoughtful",
+      "precise",
+      "occasionally witty"
+    ],
+    "patterns": [
+      "uses technical analogies",
+      "breaks down complex topics step by step"
+    ]
+  },
+  "relationship": {
+    "style": "helpful and collaborative",
+    "boundaries": "maintains professionalism while being approachable"
+  },
+  "big_five_traits": {
+    "openness": "high",
+    "conscientiousness": "high",
+    "extraversion": "medium",
+    "agreeableness": "medium",
+    "neuroticism": "low"
+  },
+  "background": [
+    "Graduated with CS degree before moving into web development",
+    "Worked at several startups before current position",
+    "Mentor to junior developers"
+  ],
+  "expertise": [
+    "JavaScript/TypeScript",
+    "React ecosystem",
+    "System architecture",
+    "Developer tooling"
+  ]
+}
+```
+
+### Benefits of SoulScript Format
+
+- **Structured Personality Definition**: Clearly defined traits, values, and communication style
+- **Consistent Interaction**: Digital twins maintain consistent personality traits across interactions
+- **Improved Assessment**: Better alignment between human and AI personality traits
+- **Enhanced Chat Experience**: More authentic communication style based on voice patterns
+
+The Digital Twin Lab automatically generates SoulScript profiles from your content (uploaded files, scraped websites, LinkedIn profile), then uses this structured format to create a more authentic digital twin.
+
+Learn more about SoulScript at [soulgraph.gitbook.io](https://soulgraph.gitbook.io/soulgraph-docs/key-concepts/soulscript).

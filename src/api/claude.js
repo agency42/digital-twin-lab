@@ -1,5 +1,48 @@
 const Anthropic = require('@anthropic-ai/sdk');
 
+// Helper to stringify complex objects for logging, handling circular refs and limiting depth
+function safeLogStringify(obj, depth = 5) { // Added depth limit
+  const cache = new Set();
+  let level = 0;
+  return JSON.stringify(obj, (key, value) => {
+    // Basic type handling first
+    if (typeof value === 'bigint') {
+        return value.toString() + 'n'; // Stringify BigInts
+    }
+    if (typeof value === 'function') {
+        return '[Function]';
+    }
+    if (value instanceof Error) {
+        return { message: value.message, stack: value.stack?.split('\n').slice(0, 5).join('\n') + '...' }; // Basic error info
+    }
+
+    // Handle objects and circular refs
+    if (typeof value === 'object' && value !== null) {
+      if (cache.has(value)) {
+        // Circular reference found
+        return '[Circular]';
+      }
+      // Check depth
+      if (level >= depth) {
+        return '[Max Depth Reached]';
+      }
+      // Store value in our collection
+      cache.add(value);
+      level++; // Increment level for nested objects
+    }
+    
+    // Limit string length for large content
+    if (typeof value === 'string' && value.length > 1000) { // Increased truncation limit slightly
+      return `${value.substring(0, 1000)}...[truncated length ${value.length}]`;
+    }
+    // Limit base64 image data length
+    if (key === 'data' && typeof value === 'string' && value.length > 100 && value.startsWith('data:image')) {
+        return `${value.substring(0, 50)}...[base64 image data truncated length ${value.length}]`;
+    }
+    return value;
+  }, 2); // Indent with 2 spaces for readability
+}
+
 class ClaudeAPI {
   constructor() {
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -13,7 +56,7 @@ class ClaudeAPI {
       });
       
       // Log the client structure for debugging
-      console.log('Anthropic client initialized with properties:', Object.keys(this.client).join(', '));
+      console.log('Anthropic client initialized.'); // Simplified init log
       
       // Set model and retry settings
       this.model = 'claude-3-opus-20240229'; // Using a compatible model
@@ -27,141 +70,84 @@ class ClaudeAPI {
 
   /**
    * Generate a completion (response) from Claude, supporting multimodal input.
-   * @param {string | Array<object>} promptOrMessages - The prompt text string OR the structured messages payload (e.g., [{ role: 'user', content: [...] }]).
-   * @param {object} options - Additional options (system, temperature, maxTokens).
-   * @returns {Promise<string>} The generated completion text.
+   * Handles both regular and streaming requests.
+   * @param {string | Array<object>} promptOrMessages - The prompt text string OR the structured messages payload.
+   * @param {object} options - Additional options (system, temperature, maxTokens, stream).
+   * @returns {Promise<string | AsyncIterable<object>>} The generated completion text OR an async iterable for streaming.
    */
   async generateCompletion(promptOrMessages, options = {}) {
     const systemPrompt = options.system || 'You are a helpful assistant.';
     const temperature = options.temperature || 0.7;
-    const maxTokens = options.maxTokens || options.max_tokens || 4096; // Allow overriding via options
+    const maxTokens = options.maxTokens || options.max_tokens || 4096; 
+    const stream = options.stream || false; // Default to non-streaming
     
     // Determine message structure based on input type
     let messagesPayload;
     if (typeof promptOrMessages === 'string') {
-      // Simple text prompt
-      messagesPayload = [
-        { role: 'user', content: promptOrMessages }
-      ];
+      messagesPayload = [{ role: 'user', content: promptOrMessages }];
     } else if (Array.isArray(promptOrMessages) && promptOrMessages.length > 0 && promptOrMessages[0].role && promptOrMessages[0].content) {
-      // Assume it's the structured messages payload (like from AbstractionApproach)
       messagesPayload = promptOrMessages;
     } else {
       throw new Error('Invalid input: generateCompletion requires a prompt string or a valid messages array.');
     }
 
-    return this.withExponentialBackoff(async () => {
-      console.log('Sending request to Claude API...'); 
-      
-      try {
-        // Check if any messages contain images
-        const hasImages = messagesPayload.some(msg => 
-          Array.isArray(msg.content) && 
-          msg.content.some(item => item.type === 'image')
-        );
-        
-        if (hasImages) {
-          console.log('Request includes image content using Anthropic multimodal API');
-        }
-        
-        // Create the request payload
-        const params = {
-          model: this.model,
-          max_tokens: maxTokens,
-          temperature: temperature,
-          system: systemPrompt,
-          messages: messagesPayload
-        };
-        
-        // First, log the structure of the client to better understand it
-        console.log('Client structure:', {
-          hasMessages: !!this.client.messages,
-          hasMessagesCreate: !!(this.client.messages && typeof this.client.messages.create === 'function'),
-          hasCompletions: !!this.client.completions,
-          hasCompletionsCreate: !!(this.client.completions && typeof this.client.completions.create === 'function')
-        });
-        
-        // Use a fallback approach - first check if we can use the new messages API directly
-        let response;
-        
-        if (this.client.messages && typeof this.client.messages.create === 'function') {
-          console.log('Using client.messages.create method');
-          response = await this.client.messages.create(params);
-        } 
-        // Try alternative approaches if not available
-        else if (typeof this.client.createMessage === 'function') {
-          console.log('Using client.createMessage method');
-          response = await this.client.createMessage(params);
-        }
-        else if (this.client.completions && typeof this.client.completions.create === 'function') {
-          console.log('Falling back to completions API');
-          // Convert the messages format to completions format
-          const prompt = `${systemPrompt}\n\n${messagesPayload.map(m => 
-            `${m.role === 'user' ? 'Human' : 'Assistant'}: ${
-              Array.isArray(m.content) 
-                ? m.content.filter(c => c.type === 'text').map(c => c.text).join('\n')
-                : m.content
-            }`
-          ).join('\n')}\n\nAssistant: `;
-          
-          const completionParams = {
-            prompt,
-            model: this.model,
-            max_tokens_to_sample: maxTokens,
-            temperature
-          };
-          
-          response = await this.client.completions.create(completionParams);
-          
-          // Format the response like the messages API would
-          return response.completion;
-        }
-        else {
-          console.log('Using raw fetch API call as last resort');
-          // As a last resort, use the fetch API directly
-          const baseUrl = this.client.baseURL || 'https://api.anthropic.com';
-          const apiKey = this.client.apiKey || process.env.ANTHROPIC_API_KEY;
-          
-          const fetchResponse = await fetch(`${baseUrl}/v1/messages`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify(params)
-          });
-          
-          if (!fetchResponse.ok) {
-            const errorData = await fetchResponse.json();
-            throw new Error(`API request failed: ${fetchResponse.status} ${JSON.stringify(errorData)}`);
-          }
-          
-          response = await fetchResponse.json();
-        }
-        
-        console.log('Received response from Claude API');
-        
-        // Extract the text content from the response
-        if (response.completion) {
-          // If using the completions API
-          return response.completion;
-        } else if (response.content && Array.isArray(response.content)) {
-          // For messages API
-          const textContent = response.content.find(item => item.type === 'text');
-          if (!textContent || !textContent.text) {
-            throw new Error('No text content found in Claude API response');
-          }
-          return textContent.text;
+    // --- Enhanced Logging --- 
+    console.log(`\n--- ClaudeAPI: generateCompletion (Stream: ${stream}) ---`);
+    const logParams = {
+        model: this.model,
+        temperature: temperature,
+        max_tokens: maxTokens,
+        systemPrompt: systemPrompt, // Log full system prompt
+        messages: messagesPayload // Log full message payload
+    };
+    console.log(`Request Params:\n${safeLogStringify(logParams)}`);
+    // --- End Enhanced Logging ---
+    
+    // We won't use exponential backoff wrapper directly here for streaming clarity
+    // Retries need to be handled differently for streams if needed
+    try {
+      const params = {
+        model: this.model,
+        max_tokens: maxTokens,
+        temperature: temperature,
+        system: systemPrompt,
+        messages: messagesPayload,
+        stream: stream // Pass the stream option
+      };
+
+      if (this.client.messages && typeof this.client.messages.create === 'function') {
+        const response = await this.client.messages.create(params);
+
+        if (stream) {
+          console.log('Claude API: Returning stream.');
+          // Caller needs to handle the stream
+          return response; 
         } else {
-          console.error('Unexpected response structure:', response);
-          throw new Error('Invalid response structure from Claude API');
+          // Handle non-streaming response
+          if (response.content && Array.isArray(response.content)) {
+            const textContent = response.content.find(item => item.type === 'text');
+            if (!textContent || !textContent.text) {
+              throw new Error('No text content found in Claude API response');
+            }
+            const responseText = textContent.text;
+            console.log(`Claude Response (Full):\n${responseText}`); // Log full non-streamed response
+            console.log(`--- End generateCompletion (Non-Stream) ---`);
+            return responseText;
+          } else {
+            console.error('Unexpected non-stream response structure:', response);
+            throw new Error('Invalid non-stream response structure from Claude API');
+          }
         }
-      } catch (error) {
-        console.error('Error in Claude API request:', error);
-        throw error;
+      } else {
+        throw new Error('Anthropic client does not support messages.create method.');
+        // Note: Fallbacks to completions or raw fetch are harder to adapt for streaming 
+        // and are removed for simplicity in this streaming refactor.
       }
-    });
+    } catch (error) {
+      console.error('Error in Claude API request (generateCompletion):', error);
+      console.log(`--- End generateCompletion (Error) ---`);
+      throw error; // Re-throw after logging
+    }
   }
   
   /**
@@ -178,6 +164,18 @@ class ClaudeAPI {
       'Be thorough and descriptive with high imagery, as this will be used to generate a personality.';
     const temperature = options.temperature || 0.5;
     const maxTokens = options.maxTokens || 4096;
+
+    // --- Logging --- 
+    console.log(`\n--- ClaudeAPI: generateImageDescription ---`);
+    const logParams = {
+        imagePath: imagePath,
+        model: this.model,
+        temperature: temperature,
+        max_tokens: maxTokens,
+        systemPrompt: systemPrompt,
+    };
+    console.log(`Request Params (excluding image data):\n${safeLogStringify(logParams)}`);
+    // --- End Logging ---
     
     return this.withExponentialBackoff(async () => {
       try {
@@ -201,7 +199,7 @@ class ClaudeAPI {
                   source: {
                     type: 'base64',
                     media_type: mimeType,
-                    data: base64Image
+                    data: base64Image // Base64 data will be truncated by safeLogStringify
                   }
                 },
                 {
@@ -212,40 +210,20 @@ class ClaudeAPI {
             }
           ]
         };
-        
-        // Make the API call - using the same fallback approach as in generateCompletion
-        console.log(`Generating image description for ${imagePath}`);
+
+        console.log(`Messages Payload (structure only):\n${safeLogStringify(params.messages.map(msg => ({
+            role: msg.role,
+            content_types: Array.isArray(msg.content) ? msg.content.map(c => c.type) : typeof msg.content,
+        })))}`);
         
         let response;
         
         if (this.client.messages && typeof this.client.messages.create === 'function') {
-          console.log('Using client.messages.create method');
           response = await this.client.messages.create(params);
         } else {
-          console.log('Using raw fetch API call for image description');
-          // Use the fetch API directly
-          const baseUrl = this.client.baseURL || 'https://api.anthropic.com';
-          const apiKey = this.client.apiKey || process.env.ANTHROPIC_API_KEY;
-          
-          const fetchResponse = await fetch(`${baseUrl}/v1/messages`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify(params)
-          });
-          
-          if (!fetchResponse.ok) {
-            const errorData = await fetchResponse.json();
-            throw new Error(`API request failed: ${fetchResponse.status} ${JSON.stringify(errorData)}`);
-          }
-          
-          response = await fetchResponse.json();
+          throw new Error('Anthropic client does not support messages.create method for images.');
+          // Fallback removed for simplicity
         }
-        
-        console.log('Received response from Claude API for image description');
         
         // Extract text from response
         if (!response.content || !Array.isArray(response.content)) {
@@ -256,10 +234,15 @@ class ClaudeAPI {
         if (!textContent || !textContent.text) {
           throw new Error('No text content found in Claude API response');
         }
+        const responseText = textContent.text;
         
-        return textContent.text;
+        console.log(`Claude Response (Full):\n${responseText}`);
+        console.log(`--- End generateImageDescription ---`);
+        return responseText;
+
       } catch (error) {
         console.error(`Error generating image description:`, error);
+        console.log(`--- End generateImageDescription (Error) ---`);
         throw error;
       }
     });
@@ -301,6 +284,19 @@ class ClaudeAPI {
     OUTPUT FORMAT:
     Return ONLY valid JSON with no additional explanation or text.
     `;
+
+    // --- Logging ---
+    console.log(`\n--- ClaudeAPI: generatePersonality ---`);
+    const logParams = {
+        model: this.model,
+        temperature: temperature,
+        max_tokens: maxTokens,
+        systemPrompt: systemPrompt,
+        promptLength: prompt.length, // Log prompt length instead of full prompt
+        contentCount: contents.length,
+    };
+    console.log(`Request Params:\n${safeLogStringify(logParams)}`);
+    // --- End Logging ---
     
     return this.withExponentialBackoff(async () => {
       try {
@@ -314,58 +310,23 @@ class ClaudeAPI {
             { role: 'user', content: prompt }
           ]
         };
-        
-        // Make the API call using the same fallback approach
-        console.log('Generating personality profile');
+
+        console.log(`Messages Payload (structure only):\n${safeLogStringify(params.messages.map(msg => ({
+            role: msg.role,
+            content_type: typeof msg.content,
+            content_length: typeof msg.content === 'string' ? msg.content.length : 'N/A'
+        })))}`);
         
         let response;
         
         if (this.client.messages && typeof this.client.messages.create === 'function') {
-          console.log('Using client.messages.create method');
           response = await this.client.messages.create(params);
-        } else if (this.client.completions && typeof this.client.completions.create === 'function') {
-          console.log('Falling back to completions API');
-          // Convert to completions format
-          const completionPrompt = `${systemPrompt}\n\nHuman: ${prompt}\n\nAssistant: `;
-          
-          const completionParams = {
-            prompt: completionPrompt,
-            model: this.model,
-            max_tokens_to_sample: maxTokens,
-            temperature
-          };
-          
-          const completionResponse = await this.client.completions.create(completionParams);
-          
-          // Convert completion response to expected format
-          return this.parseJSONFromText(completionResponse.completion);
         } else {
-          console.log('Using raw fetch API call');
-          // Use the fetch API directly
-          const baseUrl = this.client.baseURL || 'https://api.anthropic.com';
-          const apiKey = this.client.apiKey || process.env.ANTHROPIC_API_KEY;
-          
-          const fetchResponse = await fetch(`${baseUrl}/v1/messages`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify(params)
-          });
-          
-          if (!fetchResponse.ok) {
-            const errorData = await fetchResponse.json();
-            throw new Error(`API request failed: ${fetchResponse.status} ${JSON.stringify(errorData)}`);
-          }
-          
-          response = await fetchResponse.json();
+          throw new Error('Anthropic client does not support messages.create method for personality generation.');
+          // Fallback removed for simplicity
         }
         
-        console.log('Received response from Claude API for personality generation');
-        
-        // Parse the response
+        // Extract text content
         if (!response.content || !Array.isArray(response.content)) {
           throw new Error('Invalid response structure from Claude API');
         }
@@ -374,11 +335,17 @@ class ClaudeAPI {
         if (!textContent || !textContent.text) {
           throw new Error('No text content found in Claude API response');
         }
-        
+        const responseText = textContent.text;
+
         // Parse the response as JSON
-        return this.parseJSONFromText(textContent.text);
+        const parsedJson = this.parseJSONFromText(responseText); // Logs raw response on failure
+        console.log(`Claude Response (Full JSON):\n${safeLogStringify(parsedJson)}`);
+        console.log(`--- End generatePersonality ---`);
+        return parsedJson;
+
       } catch (error) {
         console.error('Error in personality generation:', error);
+        console.log(`--- End generatePersonality (Error) ---`);
         throw error;
       }
     });
@@ -393,14 +360,15 @@ class ClaudeAPI {
     try {
       // Clean the response to ensure it's valid JSON
       const cleanedResponse = text.trim()
-        .replace(/^```json\n?/g, '')
-        .replace(/^```\n?/g, '')
-        .replace(/```$/g, '')
+        .replace(/^```json\n?/g, '') // Handle ```json prefix
+        .replace(/^```\n?/g, '')    // Handle ``` prefix
+        .replace(/```$/g, '')     // Handle ``` suffix
         .trim();
         
       return JSON.parse(cleanedResponse);
     } catch (error) {
       console.error('Failed to parse JSON from text:', error);
+      console.error('Raw text received for parsing:', text); // Log the raw text on parse failure
       return {
         error: 'Failed to parse JSON',
         rawResponse: text
@@ -409,7 +377,7 @@ class ClaudeAPI {
   }
 
   /**
-   * Implements exponential backoff for API calls
+   * Implements exponential backoff for API calls (only used for non-streaming methods now)
    * @param {Function} apiCall - The API call function to execute
    * @returns {Promise<any>} The result of the API call
    */
@@ -422,15 +390,17 @@ class ClaudeAPI {
         return await apiCall();
       } catch (error) {
         retries++;
-        const isRateLimitError = error.status === 429;
-        const isServerError = error.status >= 500 && error.status < 600;
+        // Attempt to access status safely
+        const status = error?.status || error?.response?.status;
+        const isRateLimitError = status === 429;
+        const isServerError = status >= 500 && status < 600;
         
         if ((isRateLimitError || isServerError) && retries <= this.maxRetries) {
-          console.log(`API request failed with ${error.status}. Retrying in ${delay/1000} seconds... (Attempt ${retries}/${this.maxRetries})`);
+          console.warn(`API request failed with status ${status || 'unknown'}. Retrying in ${delay/1000} seconds... (Attempt ${retries}/${this.maxRetries})`);
           await new Promise(resolve => setTimeout(resolve, delay));
           delay *= 2; // Exponential backoff
         } else {
-          console.error('API request failed:', error);
+          // Error already logged in the calling function's catch block
           throw error;
         }
       }
@@ -443,8 +413,7 @@ class ClaudeAPI {
    * @returns {number} Estimated token count
    */
   estimateTokenCount(text) {
-    // Very rough approximation based on whitespace-split words
-    // In production, you'd use a proper tokenizer like GPT-3 uses
+    if (!text) return 0;
     return Math.ceil(text.split(/\s+/).length * 1.3);
   }
   

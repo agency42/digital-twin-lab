@@ -1,22 +1,22 @@
 {
   "inProgress": false,
-  "startTime": 1743559346921,
-  "url": "https://jerry.diy",
-  "userId": "jerry",
-  "originalUserId": "jerry",
-  "pagesVisited": 2,
-  "imagesFound": 1,
-  "textAssetsCreated": 1,
-  "lastUpdated": 1743559347944,
+  "startTime": 1743803538479,
+  "url": "https://shoshin.blog",
+  "userId": "ken_v1",
+  "originalUserId": "ken_v1",
+  "pagesVisited": 11,
+  "imagesFound": 10,
+  "textAssetsCreated": 10,
+  "lastUpdated": 1743803541597,
   "status": "completed",
   "summary": {
-    "baseUrl": "https://jerry.diy",
-    "pagesVisited": 2,
-    "imagesFound": 1,
-    "textAssetsCreated": 2,
-    "duration": "1.02 seconds",
-    "userId": "jerry",
-    "originalUserId": "jerry"
+    "baseUrl": "https://shoshin.blog",
+    "pagesVisited": 11,
+    "imagesFound": 11,
+    "textAssetsCreated": 11,
+    "duration": "3.12 seconds",
+    "userId": "ken_v1",
+    "originalUserId": "ken_v1"
   },
-  "endTime": 1743559347944
+  "endTime": 1743803541597
 }

@@ -1,0 +1,638 @@
+/* Terminal-style interface */
+body {
+  background-color: #1e2127;
+  color: #e8e8e8;
+}
+
+/* App container layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.content-area {
+  display: flex;
+  flex: 1;
+  height: calc(100vh - 100px);
+  overflow: hidden;
+}
+
+/* Side tabs layout */
+.nav-tabs {
+  display: flex;
+  flex-direction: column;
+  width: 180px;
+  background-color: #252830;
+  border-right: 1px solid #4d4d4d;
+  border-bottom: none;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.nav-tab {
+  padding: 15px;
+  cursor: pointer;
+  border-radius: 0;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  background-color: #252830;
+  color: #d0d0d0;
+  text-align: left;
+  border-bottom: 1px solid #333;
+  margin: 0;
+}
+
+.nav-tab.active {
+  background-color: #61afef;
+  color: #ffffff;
+  border-left: 4px solid #61afef;
+  padding-left: 11px;
+}
+
+.nav-tab:hover:not(.active) {
+  background-color: #32363e;
+}
+
+.pages-container {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+/* Form elements */
+input, select, textarea, button {
+  background-color: #21252b;
+  color: #e8e8e8;
+  border: 1px solid #3d4148;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #777;
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+button {
+  background-color: #61afef;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background-color: #4d8ecc;
+}
+
+button:disabled {
+  background-color: #3d4148;
+  color: #7f848e;
+  cursor: not-allowed;
+}
+
+/* Module styling */
+.module {
+  background-color: #282c34;
+  border-radius: 8px;
+  border: 1px solid #3d4148;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.module-header {
+  background-color: #333842;
+  border-bottom: 1px solid #4d4d4d;
+  padding: 15px 20px;
+  margin: -20px -20px 20px -20px;
+  display: flex;
+  align-items: center;
+}
+
+.module-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #3a3f4b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 15px;
+  font-size: 20px;
+}
+
+.module-title {
+  color: #e8e8e8;
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.module-description {
+  color: #a0a0a0;
+  margin-bottom: 20px;
+}
+
+/* Flex layouts */
+.flex-row {
+  display: flex;
+  gap: 15px;
+}
+
+.flex-col {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .flex-row {
+    flex-direction: column;
+  }
+  
+  .nav-tabs {
+    width: 100px;
+  }
+  
+  .nav-tab {
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+}
+
+/* Status messages */
+.status {
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+.status.success {
+  background-color: #283c34;
+  color: #a5e075;
+  border-left: 3px solid #89ca64;
+}
+
+.status.error {
+  background-color: #3e2936;
+  color: #e06c75;
+  border-left: 3px solid #e06c75;
+}
+
+.status.info {
+  background-color: #2d3b4a;
+  color: #61afef;
+  border-left: 3px solid #61afef;
+}
+
+.status.warning {
+  background-color: #3d3c2d;
+  color: #e2c08d;
+  border-left: 3px solid #e5c07b;
+}
+
+/* Main terminal container - for chat interface */
+#chat-container {
+  background-color: #282c34;
+  color: #e8e8e8;
+  font-family: "Courier New", Courier, monospace;
+  padding: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #3d4148;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  margin-bottom: 20px;
+}
+
+#chat-history {
+  background-color: #21252b;
+  color: #e8e8e8;
+  padding: 15px;
+  height: 450px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  border: none;
+}
+
+/* Terminal header */
+#chat-container > div:first-child {
+  background-color: #3a3f4b;
+  color: #e8e8e8;
+  padding: 8px 12px;
+  border-bottom: 1px solid #4d4d4d;
+  font-family: "Courier New", Courier, monospace;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Terminal title */
+#chat-container > div:first-child span {
+  color: #e8e8e8;
+  font-weight: bold;
+}
+
+/* Clear button */
+#clear-chat-button {
+  background-color: #4d5263;
+  border: 1px solid #555;
+  color: #e8e8e8;
+  padding: 2px 8px;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#clear-chat-button:hover {
+  background-color: #5a6377;
+}
+
+/* Message styling - core fixes for text display */
+.message-wrapper {
+  margin-bottom: 5px;
+  padding: 3px 0;
+  clear: both;
+  overflow: visible;
+  float: none;
+  max-width: 100%;
+  width: 100%;
+  display: block;
+}
+
+.message {
+  background: none;
+  border: none;
+  padding: 1px 0;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: "Courier New", Courier, monospace;
+  display: block;
+  width: 100%;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.user-message .message {
+  color: #e8e8e8;
+}
+
+.assistant-message .message {
+  color: #a3c9ef;
+}
+
+.system-message .message {
+  color: #7f848e;
+  font-style: italic;
+}
+
+.timestamp {
+  display: none;
+}
+
+.sender {
+  display: inline;
+  font-weight: normal;
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.content {
+  width: 100%;
+  display: inline-block;
+  text-align: left;
+}
+
+/* Input area */
+#chat-container > div:last-child {
+  background-color: #2c313a;
+  border-top: 1px solid #4d4d4d;
+  padding: 10px;
+}
+
+#chat-input {
+  background-color: #282c34;
+  color: #e8e8e8;
+  border: none;
+  padding: 10px 0;
+  font-family: "Courier New", Courier, monospace;
+  border-radius: 0 !important;
+  width: calc(100% - 30px);
+  font-size: 14px;
+  outline: none;
+  margin-left: 5px;
+}
+
+#chat-input::placeholder {
+  color: #777;
+}
+
+#send-chat-button {
+  display: none !important;
+}
+
+/* Terminal prompt */
+.prompt-symbol {
+  color: #61afef;
+  margin-right: 8px;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-weight: bold;
+}
+
+/* System prompt editor container */
+.system-prompt-container {
+  background-color: #282c34;
+  border: 1px solid #4d4d4d;
+  padding: 10px;
+  margin-bottom: 15px;
+}
+
+#system-prompt-editor {
+  background-color: #2c313a;
+  color: #e8e8e8;
+  border: 1px solid #4d4d4d;
+  font-family: "Courier New", Courier, monospace;
+  padding: 10px;
+}
+
+/* Dropdown and buttons */
+#saved-prompts-dropdown {
+  background-color: #2c313a;
+  color: #e8e8e8;
+  border: 1px solid #4d4d4d;
+  font-family: "Courier New", Courier, monospace;
+}
+
+.action-button {
+  background-color: #3a3f4b !important;
+  border: 1px solid #4d4d4d !important;
+  color: #e8e8e8 !important;
+  font-family: "Courier New", Courier, monospace;
+  cursor: pointer;
+}
+
+.action-button:hover {
+  background-color: #4d5263 !important;
+}
+
+/* Blinking cursor */
+.terminal-cursor {
+  display: inline-block;
+  background-color: #61afef;
+  width: 8px;
+  height: 15px;
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Info buttons and tooltips */
+.info-button {
+  background-color: #4d5263;
+  color: #e8e8e8;
+  border: 1px solid #555;
+}
+
+.info-tooltip-text {
+  background-color: #333842;
+  border: 1px solid #4d4d4d;
+  color: #e8e8e8;
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* JSON output styling */
+pre {
+  background-color: #21252b;
+  border: 1px solid #3d4148;
+  border-radius: 4px;
+  padding: 15px;
+  overflow-x: auto;
+  color: #e8e8e8;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Content cards */
+.content-card {
+  background-color: #2c313a;
+  border: 1px solid #3d4148;
+  border-radius: 6px;
+  padding: 15px;
+  transition: all 0.2s;
+}
+
+.content-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.content-card.selected {
+  border-color: #61afef;
+  background-color: #323842;
+}
+
+.content-title {
+  color: #e8e8e8;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.content-type {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.content-type.text {
+  background-color: #35424e;
+  color: #6bb6ff;
+}
+
+.content-type.image {
+  background-color: #3c3e51;
+  color: #c89eff;
+}
+
+.text-preview {
+  background-color: #21252b;
+  border-radius: 4px;
+  padding: 10px;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  color: #d0d0d0;
+}
+
+.json-output {
+  background-color: #21252b;
+  border: 1px solid #3d4148;
+  border-radius: 4px;
+  padding: 15px;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #e8e8e8;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 10px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Add focus states for better accessibility */
+input:focus, textarea:focus, select:focus, button:focus {
+  outline: 2px solid #61afef;
+  outline-offset: 1px;
+}
+
+/* Make sure asset cards are readable */
+.source {
+  color: #a0a0a0;
+  font-size: 12px;
+}
+
+.preview-button {
+  margin-top: 10px;
+  width: 100%;
+}
+
+/* Fix textarea colors */
+textarea {
+  background-color: #21252b;
+  color: #e8e8e8;
+  border: 1px solid #3d4148;
+  padding: 12px;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  line-height: 1.5;
+}
+
+/* Fix selection bar */
+.selection-bar {
+  background-color: #282c34;
+  border: 1px solid #3d4148;
+  padding: 15px;
+  border-radius: 4px;
+  margin-top: 15px;
+}
+
+.selection-info {
+  color: #e8e8e8;
+  font-weight: 600;
+}
+
+/* Modal improvements */
+#preview-modal {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+#preview-modal > div {
+  background-color: #282c34;
+  border: 1px solid #3d4148;
+  color: #e8e8e8;
+  border-radius: 6px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+#modal-title {
+  color: #e8e8e8;
+  border-bottom: 1px solid #3d4148;
+  padding-bottom: 10px;
+}
+
+#close-modal {
+  color: #a0a0a0;
+}
+
+#close-modal:hover {
+  color: #e8e8e8;
+}
+
+/* Make chat interface more readable */
+#chat-history .message {
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background-color: #2c313a;
+}
+
+#chat-history .user-message .message {
+  background-color: #35424e;
+  border-radius: 4px 4px 1px 4px;
+}
+
+#chat-history .assistant-message .message {
+  background-color: #3c3e51;
+  border-radius: 4px 4px 4px 1px;
+}
+
+#chat-history .system-message .message {
+  background-color: #2d2f36;
+  color: #7f848e;
+  border-left: 2px solid #4d4d4d;
+}
+
+/* Better contrast for profile cards */
+.profile-card {
+  background-color: #282c34;
+  border: 1px solid #3d4148;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.profile-card-title {
+  color: #e8e8e8;
+}
+
+.profile-card-date {
+  color: #a0a0a0;
+}
+
+.trait-badge {
+  background-color: #35424e;
+  color: #a3c9ef;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Style JSON correctly */
+#personality-json-output {
+  margin-top: 15px;
+}
+
+#personality-json-output, #chat-personality-json {
+  line-height: 1.5;
+} 
