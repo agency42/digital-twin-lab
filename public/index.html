@@ -625,7 +625,7 @@
 <body>
   <div class="app-container">
     <header>
-      <h1>Digital Twin Lab</h1>
+      <h1>digital twin lab</h1>
       <p class="tagline">Experiment with AI personalities generated from web content and files</p>
     </header>
 
@@ -738,23 +738,12 @@
               Uses the Ten-Item Personality Inventory (TIPI), a brief measure of the Big Five traits. See experimental-design.md for details.
             </div>
             
-            <p style="font-size: 14px; color: #555; margin-bottom: 15px;">Rate how well the following pairs of traits describe you, even if one trait fits better than the other. Use the scale: 1 (Strongly Disagree) to 5 (Strongly Agree).</p>
-            
             <!-- Button to start assessment -->
-            <button type="button" id="start-user-assessment" class="action-button" style="margin-bottom: 15px;">Take Your Assessment</button>
-            
-            <form id="tipi-form">
-                <!-- Container for TIPI questions - Hidden by default -->
-                <div id="tipi-questions" style="margin-top: 15px; margin-bottom: 15px; display: none;">
-                    <!-- Questions will be loaded here by JavaScript -->
-                    <p>Loading assessment questions...</p> 
-                </div>
-                <!-- Submit button - Hidden by default -->
-                <button type="submit" id="submit-user-assessment" class="action-button" style="margin-top: 15px; display: none;">Submit My Assessment</button>
-                <!-- Retake button - Hidden by default -->
-                <button type="button" id="retake-user-assessment" class="action-button" style="margin-top: 15px; background-color: #6c757d; display: none;">Retake Assessment</button>
-            </form>
-            <div id="user-assessment-status" class="status"></div>
+            <div id="user-assessment-controls">
+              <button type="button" id="start-user-assessment" class="action-button" style="margin-bottom: 15px; display: inline-block;">Take Your Assessment</button>
+              <button type="button" id="retake-user-assessment" class="action-button" style="margin-bottom: 15px; background-color: #6c757d; display: none;">Retake Assessment</button>
+            </div>
+            <div id="user-assessment-status-summary" class="status info" style="display: none;">Assessment status will appear here.</div>
           </div>
         </div>
         
@@ -1078,16 +1067,36 @@
   </template>
 
   <!-- Modal for Previews -->
-  <div id="preview-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
-    <div style="background-color: #fff; margin: 10% auto; padding: 25px; border: 1px solid #888; width: 80%; max-width: 800px; border-radius: 8px; position: relative;">
-      <span id="close-modal" style="position: absolute; top: 10px; right: 20px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
-      <h3 id="modal-title" style="margin-bottom: 15px;">Asset Preview</h3>
-      <div id="modal-content" style="max-height: 60vh; overflow-y: auto;">
+  <div id="preview-modal" class="modal">
+    <div class="modal-content">
+      <span id="close-modal" class="close-button">&times;</span>
+      <h3 id="modal-title">Asset Preview</h3>
+      <div id="modal-body">
         <!-- Preview content goes here -->
       </div>
     </div>
   </div>
 
-  <script src="js/app.js?v=44"></script>
+  <!-- NEW: Modal for Personality Assessment -->
+  <div id="assessment-modal" class="modal">
+    <div class="modal-content assessment-modal-content">
+      <span id="close-assessment-modal" class="close-button">&times;</span>
+      <h3 id="assessment-modal-title">Personality Assessment (TIPI)</h3>
+      <p style="font-size: 14px; color: #555; margin: 15px 0;">Rate how well the following pairs of traits describe you, even if one trait fits better than the other. Use the scale: 1 (Strongly Disagree) to 5 (Strongly Agree).</p>
+      <form id="tipi-modal-form">
+        <div id="tipi-modal-questions" class="tipi-questions-container">
+          <!-- Questions will be loaded here -->
+          <p>Loading questions...</p>
+        </div>
+        <div id="assessment-modal-status" class="status" style="display: none;"></div>
+        <div class="modal-actions" style="text-align: right; margin-top: 20px;">
+          <button type="button" id="cancel-assessment-button" class="action-button secondary-button">Cancel</button>
+          <button type="submit" id="submit-assessment-modal-button" class="action-button">Submit Assessment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/app.js?v=51"></script>
 </body>
 </html>

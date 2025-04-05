@@ -52,7 +52,31 @@ function renderChatHistory() {
 // === Event Listeners ===
 document.addEventListener('DOMContentLoaded', () => {
   // --- Assign DOM elements inside the listener ---
+  // Initialize all element variables first
+  initElements(); // Consolidate element assignments
   
+  // Create debounced version of saveContext
+  const debouncedSaveContext = debounce(saveContext, 500);
+
+  // --- Attach Event Listeners ---
+  setupEventListeners(debouncedSaveContext); // Pass debounced function
+
+  // --- Initial Setup Calls ---
+  loadPersonalityPrompt(); // Load default prompt text
+  setupModal(); // Setup the preview modal
+  updateChatSystemPrompt(); // Initial update
+  updateAssessmentUI(); // Now call this AFTER elements are assigned by initElements
+  updateNavigationTabsState(); // Initialize tab navigation state
+  checkSocialAuthCallback(); // Check for social auth redirects
+  setupInfoButtons(); // Setup tooltips
+  loadParameterOptions(); // Load any dynamic parameters
+});
+
+/**
+ * Initialize all UI element references
+ * Assigns DOM elements to the global variables.
+ */
+function initElements() {
   // Tab navigation elements
   navTabs = document.querySelectorAll('.nav-tab');
   pageContainers = document.querySelectorAll('.page');
@@ -67,11 +91,13 @@ document.addEventListener('DOMContentLoaded', () => {
   startScrapingButton = document.getElementById('start-scraping');
   scrapeStatusDiv = document.getElementById('scrape-status');
   
-  // NOTE: uploadProfileIdInput doesn't seem to exist in the latest index.html, commenting out
-  // uploadProfileIdInput = document.getElementById('upload-profile-id'); 
   fileInputElement = document.getElementById('file-input');
   uploadButton = document.getElementById('upload-button');
   uploadStatusDiv = document.getElementById('upload-status');
+  
+  // For file upload form - might not be needed if button triggers fetch directly
+  // uploadForm = document.createElement('form');
+  // uploadForm.addEventListener('submit', (e) => e.preventDefault());
 
   assetDisplayArea = document.getElementById('asset-display-area');
   selectAllTextButton = document.getElementById('select-all-text-button');
@@ -98,12 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Alignment page elements
   aiProfileSelect = document.getElementById('ai-profile-select');
   userAssessmentSummary = document.getElementById('user-assessment-summary');
-  userAssessmentStatusSummary = document.getElementById('user-assessment-status-summary');
+  // userAssessmentStatusSummary is assigned below with assessment controls
 
   chatPersonalityJsonPre = document.getElementById('chat-personality-json');
   chatLoreInput = document.getElementById('chat-lore-input');
   chatParamsInput = document.getElementById('chat-params-input');
-  chatPsychStateInput = document.getElementById('chat-psych-state-input'); // Assign again
+  chatPsychStateInput = document.getElementById('chat-psych-state-input');
   chatCogStyleInput = document.getElementById('chat-cog-style-input');
   chatSystemPromptPre = document.getElementById('chat-system-prompt');
   chatHistoryDiv = document.getElementById('chat-history');
@@ -112,13 +138,13 @@ document.addEventListener('DOMContentLoaded', () => {
   clearChatButton = document.getElementById('clear-chat-button');
   chatStatusDiv = document.getElementById('chat-status');
 
-  tipiForm = document.getElementById('tipi-form');
-  tipiQuestionsContainer = document.getElementById('tipi-questions');
-  submitUserAssessmentButton = document.getElementById('submit-user-assessment');
-  retakeUserAssessmentButton = document.getElementById('retake-user-assessment');
-  startUserAssessmentButton = document.getElementById('start-user-assessment'); // <-- Add this assignment
-  userAssessmentStatusDiv = document.getElementById('user-assessment-status');
-  runAIAssessmentButton = document.getElementById('run-ai-assessment'); // Assignment moved here
+  // TIPI form elements (may not exist if using modal only)
+  // tipiForm = document.getElementById('tipi-form'); 
+  // tipiQuestionsContainer = document.getElementById('tipi-questions');
+  // submitUserAssessmentButton = document.getElementById('submit-user-assessment');
+  // userAssessmentStatusDiv = document.getElementById('user-assessment-status');
+
+  runAIAssessmentButton = document.getElementById('run-ai-assessment');
   aiAssessmentStatusDiv = document.getElementById('ai-assessment-status');
   assessmentResultsArea = document.getElementById('assessment-results-area');
   overallAlignmentSpan = document.getElementById('overall-alignment');
@@ -127,118 +153,25 @@ document.addEventListener('DOMContentLoaded', () => {
   runsPerItemInput = document.getElementById('runs-per-item'); 
   itemAgreementSpan = document.getElementById('item-agreement'); 
 
-  // NOTE: Reset session button/module not fully defined in provided HTML, commenting out
-  // resetSessionButton = document.getElementById('reset-session-button'); 
-  clearLibraryButton = document.getElementById('clear-library-button'); // This is the old reset button, now delete user
+  clearLibraryButton = document.getElementById('clear-library-button');
   clearLibraryStatusDiv = document.getElementById('clear-library-status');
 
   assetGroupTemplate = document.getElementById('asset-group-template');
   assetCardTemplate = document.getElementById('asset-card-template');
   previewModal = document.getElementById('preview-modal');
   modalTitle = document.getElementById('modal-title');
-  modalContent = document.getElementById('modal-content');
+  modalContent = document.getElementById('modal-body'); // Corrected ID for preview modal body
   closeModalButton = document.getElementById('close-modal');
 
-  generateModule = document.getElementById('generate-module'); 
-  chatModule = document.getElementById('chat-module');
-  assessmentModule = document.getElementById('user-assessment-module'); // Changed from assessment-module to user-assessment-module
-  chatContentArea = document.getElementById('chat-content-area');
-  // --- End DOM element assignments ---
-
-  // --- Assign DOM elements ---
-  // ... other assignments ...
+  // Checkbox elements
   includeInteractionContextCheckbox = document.getElementById('include-interaction-context');
   includePsychStateCheckbox = document.getElementById('include-psych-state');
   includeCogStyleCheckbox = document.getElementById('include-cog-style');
-  // ... other assignments ...
 
   // Bio elements
   userBioTextarea = document.getElementById('user-bio');
   saveBioButton = document.getElementById('save-bio-button');
   bioStatusDiv = document.getElementById('bio-status');
-
-  // Create debounced version of saveContext with 500ms delay
-  const debouncedSaveContext = debounce(saveContext, 500);
-
-  // Initial setup on page load
-  updateNavigationTabsState(); // Initialize tab navigation state
-  
-  // Other setup
-  loadPersonalityPrompt(); // Still load default prompt text
-  setupModal();
-  updateChatSystemPrompt();
-  updateAssessmentUI();
-
-  // --- Attach Event Listeners ---
-  // Module 0 Listeners
-  userSelectDropdown?.addEventListener('change', handleUserSelect);
-  createUserButton?.addEventListener('click', handleCreateUser);
-  saveBioButton?.addEventListener('click', handleSaveBio);
-  
-  // Module 1 Listeners
-  startScrapingButton?.addEventListener('click', handleScrape);
-  uploadButton?.addEventListener('click', handleUpload);
-  document.getElementById('connect-linkedin-button')?.addEventListener('click', handleLinkedInConnect);
-  
-  // Module 2 Listeners
-  assetDisplayArea?.addEventListener('change', handleAssetSelectionChange);
-  assetDisplayArea?.addEventListener('click', handleAssetAreaClick);
-  selectAllTextButton?.addEventListener('click', selectAllTextAssets);
-  selectAllImageButton?.addEventListener('click', selectAllImageAssets);
-  deselectAllButton?.addEventListener('click', deselectAllAssets);
-  deleteSelectedButton?.addEventListener('click', deleteSelectedAssets);
-  
-  // Module 3 Listeners
-  savePromptButton?.addEventListener('click', savePersonalityPrompt);
-  resetPromptButton?.addEventListener('click', resetPersonalityPrompt);
-  generatePersonalityButton?.addEventListener('click', generatePersonalityProfile);
-  copyJsonButton?.addEventListener('click', copyGeneratedJson);
-  
-  // Module 4 Listeners
-  sendChatButton?.addEventListener('click', sendChatMessage);
-  chatInputElement?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { // Send on Enter, allow Shift+Enter for newline
-      e.preventDefault(); // Prevent default newline insertion
-          sendChatMessage();
-        }
-      });
-  clearChatButton?.addEventListener('click', clearChat);
-  chatLoreInput?.addEventListener('input', updateChatSystemPrompt); 
-  chatParamsInput?.addEventListener('input', updateChatSystemPrompt); 
-  chatPsychStateInput?.addEventListener('input', debouncedSaveContext); // Add back debounced save
-  chatCogStyleInput?.addEventListener('input', debouncedSaveContext); 
-  
-  // Module 5 Listeners
-  tipiForm?.addEventListener('submit', handleUserAssessmentSubmit);
-  retakeUserAssessmentButton?.addEventListener('click', handleRetakeAssessment);
-  runAIAssessmentButton?.addEventListener('click', handleRunAIAssessment);
-  startUserAssessmentButton?.addEventListener('click', handleStartAssessment); // <-- Add listener
-  
-  // Old Reset/Delete User Listener
-  clearLibraryButton?.addEventListener('click', clearContentLibrary); 
-
-  // Debounced save listeners for original context fields (ensure they use debounce too)
-  chatLoreInput?.addEventListener('input', debouncedSaveContext); 
-  chatParamsInput?.addEventListener('input', debouncedSaveContext); 
-  chatPsychStateInput?.addEventListener('input', debouncedSaveContext); // Add back listener
-  chatCogStyleInput?.addEventListener('input', debouncedSaveContext);
-  
-  // === Info Tooltip Button Logic ===
-  setupInfoButtons(); // Call the setup function after DOM is loaded
-
-  // Add listeners to checkboxes to update prompt when changed
-  includeInteractionContextCheckbox?.addEventListener('change', updateChatSystemPrompt);
-  includePsychStateCheckbox?.addEventListener('change', updateChatSystemPrompt);
-  includeCogStyleCheckbox?.addEventListener('change', updateChatSystemPrompt);
-
-  // Listeners for context textareas (to update prompt AND save)
-  chatLoreInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); });
-  chatParamsInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); }); 
-  chatPsychStateInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); }); 
-  chatCogStyleInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); });
-
-  // Check for social auth callback
-  checkSocialAuthCallback();
 
   // New elements for system prompt editor
   systemPromptEditor = document.getElementById('system-prompt-editor');
@@ -246,13 +179,125 @@ document.addEventListener('DOMContentLoaded', () => {
   savedPromptsDropdown = document.getElementById('saved-prompts-dropdown');
   saveSystemPromptButton = document.getElementById('save-system-prompt');
   saveAsSystemPromptButton = document.getElementById('save-as-system-prompt');
+
+  // Assessment Modal Elements
+  assessmentModal = document.getElementById('assessment-modal');
+  closeModalAssessmentButton = document.getElementById('close-assessment-modal');
+  cancelAssessmentButton = document.getElementById('cancel-assessment-button');
+  submitAssessmentModalButton = document.getElementById('submit-assessment-modal-button');
+  tipiModalQuestionsContainer = document.getElementById('tipi-modal-questions');
+  assessmentModalStatusDiv = document.getElementById('assessment-modal-status');
+
+  // User Setup page controls related to assessment (Ensure these are assigned)
+  startUserAssessmentButton = document.getElementById('start-user-assessment');
+  retakeUserAssessmentButton = document.getElementById('retake-user-assessment');
+  userAssessmentControls = document.getElementById('user-assessment-controls'); // Container for buttons
+  userAssessmentStatusSummary = document.getElementById('user-assessment-status-summary'); // Status text on main page
   
-  // Attach event listeners for system prompt functionality
+  // LinkedIn Buttons
+  connectLinkedinButton = document.getElementById('connect-linkedin-button');
+  disconnectLinkedinButton = document.getElementById('disconnect-linkedin-button');
+}
+
+/**
+ * Set up event listeners
+ * @param {Function} debouncedSaveContext - The debounced save function for context fields.
+ */
+function setupEventListeners(debouncedSaveContext) {
+  console.log('Setting up event listeners...'); // Added log
+  // User Setup page event listeners
+  userSelectDropdown?.addEventListener('change', handleUserSelectChange);
+  createUserButton?.addEventListener('click', handleCreateUser);
+  saveBioButton?.addEventListener('click', handleSaveBio);
+  connectLinkedinButton?.addEventListener('click', handleLinkedInConnect);
+  disconnectLinkedinButton?.addEventListener('click', handleLinkedInDisconnect);
+  
+  // Log if the assessment button is found
+  if (startUserAssessmentButton) {
+    console.log('Attaching listener to startUserAssessmentButton');
+    startUserAssessmentButton.addEventListener('click', openAssessmentModal);
+  } else {
+    console.error('startUserAssessmentButton not found during listener setup!');
+  }
+  // File upload event listeners
+  uploadButton?.addEventListener('click', handleUpload);
+
+  // Content Library page event listeners
+  selectAllTextButton?.addEventListener('click', selectAllTextAssets);
+  selectAllImageButton?.addEventListener('click', selectAllImageAssets);
+  deselectAllButton?.addEventListener('click', deselectAllAssets);
+  deleteSelectedButton?.addEventListener('click', deleteSelectedAssets);
+  assetDisplayArea?.addEventListener('change', handleAssetSelectionChange); // Listener for checkboxes
+  assetDisplayArea?.addEventListener('click', handleAssetAreaClick); // Listener for preview buttons
+
+  startScrapingButton?.addEventListener('click', handleScrape);
+  generatePersonalityButton?.addEventListener('click', generatePersonalityProfile);
+  clearLibraryButton?.addEventListener('click', clearContentLibrary);
+  savePromptButton?.addEventListener('click', savePersonalityPrompt);
+  resetPromptButton?.addEventListener('click', resetPersonalityPrompt);
+  copyJsonButton?.addEventListener('click', copyGeneratedJson);
+
+  // Chat page event listeners
+  sendChatButton?.addEventListener('click', sendChatMessage);
+  chatInputElement?.addEventListener('keydown', (e) => { // Changed from keypress for better Enter key handling
+    if (e.key === 'Enter' && !e.shiftKey) { 
+      e.preventDefault(); 
+      sendChatMessage();
+    }
+  });
+  clearChatButton?.addEventListener('click', clearChat);
+  
+  // Listeners for context fields to update system prompt AND save context
+  chatLoreInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); });
+  chatParamsInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); }); 
+  chatPsychStateInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); }); 
+  chatCogStyleInput?.addEventListener('input', () => { updateChatSystemPrompt(); debouncedSaveContext(); });
+  
+  // Listeners for checkboxes to update system prompt
+  includeInteractionContextCheckbox?.addEventListener('change', updateChatSystemPrompt);
+  includePsychStateCheckbox?.addEventListener('change', updateChatSystemPrompt);
+  includeCogStyleCheckbox?.addEventListener('change', updateChatSystemPrompt);
+
+  // System prompt editor listeners
   showSystemPromptCheckbox?.addEventListener('change', toggleSystemPromptVisibility);
   savedPromptsDropdown?.addEventListener('change', selectSystemPrompt);
   saveSystemPromptButton?.addEventListener('click', saveCurrentSystemPrompt);
   saveAsSystemPromptButton?.addEventListener('click', saveSystemPromptAs);
-});
+
+  // Nav tabs event listeners
+  navTabs?.forEach(tab => {
+    tab.addEventListener('click', handleNavTabClick);
+  });
+  
+  // Assessment Alignment Page listeners
+  runAIAssessmentButton?.addEventListener('click', handleRunAIAssessment);
+  aiProfileSelect?.addEventListener('change', updateRunAIAssessmentButtonState);
+
+  // Assessment Modal listeners (User Setup Page actions trigger modal)
+  startUserAssessmentButton?.addEventListener('click', openAssessmentModal);
+  retakeUserAssessmentButton?.addEventListener('click', openAssessmentModal);
+  closeModalAssessmentButton?.addEventListener('click', closeAssessmentModal);
+  cancelAssessmentButton?.addEventListener('click', closeAssessmentModal);
+  assessmentModal?.addEventListener('click', (event) => { 
+    if (event.target === assessmentModal) {
+      closeAssessmentModal();
+    }
+  });
+  const tipiModalForm = document.getElementById('tipi-modal-form');
+  tipiModalForm?.addEventListener('submit', handleUserAssessmentSubmit); 
+
+  // Preview Modal close button
+  closeModalButton?.addEventListener('click', closePreviewModal);
+}
+
+/**
+ * Close the preview modal.
+ */
+function closePreviewModal() {
+  if (previewModal) {
+    previewModal.style.display = 'none';
+  }
+}
 
 /**
  * Toggle system prompt visibility based on checkbox
@@ -278,9 +323,9 @@ function updateChatInterface() {
     if (sendChatButton) sendChatButton.disabled = true;
     if (clearChatButton) clearChatButton.disabled = true;
     
-    return;
-  }
-  
+        return;
+      }
+      
   // Update personality selector
   if (personalitySelector) {
     personalitySelector.innerHTML = '';
@@ -3188,19 +3233,24 @@ function setupEventListeners() {
   
   // Assessment buttons
   if (startUserAssessmentButton) {
-    startUserAssessmentButton.addEventListener('click', startUserAssessment);
+    startUserAssessmentButton.addEventListener('click', handleStartAssessment); // Changed from startUserAssessment
   }
 
   if (submitUserAssessmentButton) {
-    submitUserAssessmentButton.addEventListener('click', submitUserAssessment);
+    submitUserAssessmentButton.addEventListener('click', handleUserAssessmentSubmit); // Changed from submitUserAssessment
   }
 
   if (retakeUserAssessmentButton) {
-    retakeUserAssessmentButton.addEventListener('click', retakeUserAssessment);
+    retakeUserAssessmentButton.addEventListener('click', handleRetakeAssessment); // Changed from retakeUserAssessment
   }
 
-  if (runAiAssessmentButton) {
-    runAiAssessmentButton.addEventListener('click', runAiAssessment);
+  if (runAIAssessmentButton) { // Changed from runAiAssessmentButton
+    runAIAssessmentButton.addEventListener('click', handleRunAIAssessment); // Changed from runAiAssessment
+  }
+  
+  // Listener for AI Profile selection change to update button state
+  if (aiProfileSelect) {
+    aiProfileSelect.addEventListener('change', updateRunAIAssessmentButtonState);
   }
 
   // Modal close button
@@ -3220,6 +3270,25 @@ function setupEventListeners() {
       }
     }
   });
+
+  // Update Assessment Listeners for Modal
+  startUserAssessmentButton?.addEventListener('click', openAssessmentModal); // Use the function defined above
+  retakeUserAssessmentButton?.addEventListener('click', openAssessmentModal); // Use the function defined above
+
+  // Modal Interaction Listeners
+  closeModalAssessmentButton?.addEventListener('click', closeAssessmentModal);
+  cancelAssessmentButton?.addEventListener('click', closeAssessmentModal);
+  assessmentModal?.addEventListener('click', (event) => { // Close if clicking outside the content
+    if (event.target === assessmentModal) {
+      closeAssessmentModal();
+    }
+  });
+  
+  // Find the form inside the modal and attach the submit listener
+  const tipiModalForm = document.getElementById('tipi-modal-form');
+  tipiModalForm?.addEventListener('submit', handleUserAssessmentSubmit); // Attach listener to form's submit event
+  // Note: The submit button click listener might be redundant if the form listener works
+  // submitAssessmentModalButton?.addEventListener('click', handleUserAssessmentSubmit);
 }
 
 /**
@@ -3227,15 +3296,17 @@ function setupEventListeners() {
  */
 async function handleUserSelectChange() {
   if (!userSelectDropdown) return;
-  
+  console.log('handleUserSelectChange started...'); // Added log
   const selectedUserId = userSelectDropdown.value;
   
   if (!selectedUserId) {
     clearUIState();
+    console.log('handleUserSelectChange: No user selected, clearing state.'); // Added log
     return;
   }
   
   await loadUserData(selectedUserId);
+  console.log('handleUserSelectChange finished loading user data.'); // Added log
 }
 
 /**
@@ -3244,7 +3315,7 @@ async function handleUserSelectChange() {
  */
 async function loadUserData(userId) {
   if (!userId) return;
-  
+  console.log(`loadUserData started for user: ${userId}`); // Added log
   try {
     if (userStatusDiv) {
     showStatus(userStatusDiv, 'Loading user data...', 'loading');
@@ -3260,7 +3331,7 @@ async function loadUserData(userId) {
     
     // Set currentUserId
     currentUserId = userId;
-    
+    console.log(`loadUserData: currentUserId set to: ${currentUserId}`); // Added log
     // Update UI elements
     updateUIWithUserData(userData);
     
@@ -3275,12 +3346,14 @@ async function loadUserData(userId) {
     }
     
     console.log('Loaded user data:', userData);
+    console.log(`loadUserData successfully finished for user: ${userId}`); // Added log
   } catch (error) {
     console.error('Error loading user data:', error);
     if (userStatusDiv) {
     showStatus(userStatusDiv, `Error loading user data: ${error.message}`, 'error');
     }
     clearUIState();
+    console.log(`loadUserData failed for user: ${userId}`); // Added log
   }
 }
 
@@ -3394,6 +3467,20 @@ function initElements() {
   savedPromptsDropdown = document.getElementById('saved-prompts-dropdown');
   saveSystemPromptButton = document.getElementById('save-system-prompt');
   saveAsSystemPromptButton = document.getElementById('save-as-system-prompt');
+
+  // Assessment Modal Elements
+  assessmentModal = document.getElementById('assessment-modal');
+  closeModalAssessmentButton = document.getElementById('close-assessment-modal');
+  cancelAssessmentButton = document.getElementById('cancel-assessment-button');
+  submitAssessmentModalButton = document.getElementById('submit-assessment-modal-button');
+  tipiModalQuestionsContainer = document.getElementById('tipi-modal-questions');
+  assessmentModalStatusDiv = document.getElementById('assessment-modal-status');
+
+  // User Setup page controls related to assessment
+  startUserAssessmentButton = document.getElementById('start-user-assessment');
+  retakeUserAssessmentButton = document.getElementById('retake-user-assessment');
+  userAssessmentControls = document.getElementById('user-assessment-controls'); // Container for buttons
+  userAssessmentStatusSummary = document.getElementById('user-assessment-status-summary'); // Status text on main page
 }
 
 // Fix the LinkedIn disconnect function to better handle errors
@@ -4102,8 +4189,16 @@ async function loadUserList() {
     return;
   }
   
-  // Clear existing options except the placeholder
-  userSelectDropdown.innerHTML = '<option value="" disabled selected>-- Select User --</option>';
+  // Clear ALL existing options first
+  userSelectDropdown.innerHTML = '';
+  
+  // Add the placeholder/default option
+  const defaultOption = document.createElement('option');
+  defaultOption.value = "";
+  defaultOption.textContent = "-- Select User --";
+  defaultOption.disabled = true;
+  defaultOption.selected = true;
+  userSelectDropdown.appendChild(defaultOption);
   
   try {
     const response = await fetch('/api/users');
@@ -4144,3 +4239,371 @@ async function loadUserList() {
     }
   }
 }
+
+// === Page Specific Update Functions ===
+
+/**
+ * Update the UI elements on the User Setup page based on loaded data.
+ */
+function updateUIWithUserData(userData) {
+  // ... (existing code) ...
+}
+
+/**
+ * Update the Content Library page UI.
+ * Loads assets for the current user.
+ */
+async function updateContentLibraryPage() {
+  if (!currentUserId) {
+    assetDisplayArea.innerHTML = '<p>Please select a user first.</p>';
+    return;
+  }
+  await loadAssets(currentUserId);
+  await loadGeneratedPersonalities(currentUserId);
+}
+
+/**
+ * Update the Chat page UI.
+ * Loads saved system prompts and personalities for selection.
+ */
+async function updateChatPage() {
+  if (!currentUserId) {
+    // Handle state where no user is selected if needed
+    console.warn("Chat page loaded without a current user.");
+    return; 
+  }
+  await loadSavedSystemPrompts(currentUserId);
+  await loadAvailablePersonalitiesForChat(currentUserId); 
+}
+
+/**
+ * Update the Alignment page UI.
+ * Loads user assessment status, AI profiles, and potentially results.
+ */
+async function updateAlignmentPage() {
+  if (!currentUserId) {
+    // Display message indicating user needs to be selected
+    if (userAssessmentStatusSummary) userAssessmentStatusSummary.textContent = 'Please select a user first.';
+    if (runAIAssessmentButton) runAIAssessmentButton.disabled = true;
+    if (assessmentResultsArea) assessmentResultsArea.style.display = 'none';
+    return;
+  }
+  
+  console.log(`Updating Alignment page for user: ${currentUserId}`);
+  
+  // 1. Load and display user's assessment status/results
+  //await loadUserAssessmentStatus(); // REMOVED - Data should be loaded already
+  updateAssessmentUI(); // Ensure UI reflects current userTipiScores state
+  
+  // 2. Load available AI personality profiles into the dropdown
+  await loadAIProfilesForAssessment();
+  
+  // 3. Clear previous results (optional, or load last results)
+  if (assessmentResultsArea) assessmentResultsArea.style.display = 'none';
+  if (overallAlignmentSpan) overallAlignmentSpan.textContent = '--%';
+  if (itemAgreementSpan) itemAgreementSpan.textContent = '--%';
+  if (dimensionAlignmentList) dimensionAlignmentList.innerHTML = '';
+  // Clear or reset the radar chart if it exists and has data
+  if (typeof alignmentRadarChart !== 'undefined' && alignmentRadarChart) {
+    alignmentRadarChart.destroy();
+    alignmentRadarChart = null; 
+  }
+  if (aiAssessmentStatusDiv) showStatus(aiAssessmentStatusDiv, ''); // Clear status
+  
+  // 4. Enable/disable Run button based on user assessment completion and profile selection
+  updateRunAIAssessmentButtonState(); 
+}
+
+/**
+ * Load available AI personality profiles for selection in the Alignment page.
+ */
+async function loadAIProfilesForAssessment() {
+  if (!currentUserId || !aiProfileSelect) return;
+
+  aiProfileSelect.innerHTML = '<option value="" disabled selected>-- Select Personality Profile --</option>';
+
+  try {
+    // Fetch the latest generated personality profile for the user
+    const response = await fetch(`/api/personality/${currentUserId}`);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log('No personality profile found for user');
+        aiProfileSelect.innerHTML += '<option value="" disabled>No profile generated yet</option>';
+        return;
+      }
+      throw new Error(`Failed to load personality (${response.status})`);
+    }
+    
+    const data = await response.json();
+
+    if (data.personality) {
+      // For now, only the latest profile is available for assessment
+      const option = document.createElement('option');
+      option.value = 'latest'; // Use a placeholder value, as we only have one
+      // Try to create a meaningful name
+      let profileName = `Profile generated on ${new Date(data.generatedAt || Date.now()).toLocaleDateString()}`;
+      if (data.personality.entity_details && data.personality.entity_details.name) {
+        profileName = data.personality.entity_details.name;
+      }
+      option.textContent = profileName;
+      aiProfileSelect.appendChild(option);
+      
+      // Automatically select it if it's the only one
+      aiProfileSelect.value = 'latest';
+      
+      // Store the actual profile data associated with this selection
+      aiProfileSelect.dataset.latestProfile = JSON.stringify(data.personality);
+    } else {
+      aiProfileSelect.innerHTML += '<option value="" disabled>No profile generated yet</option>';
+    }
+
+  } catch (error) {
+    console.error('Error loading AI profiles for assessment:', error);
+    aiProfileSelect.innerHTML += '<option value="" disabled>Error loading profiles</option>';
+  }
+}
+
+/**
+ * Update the state of the Run AI Assessment button.
+ */
+function updateRunAIAssessmentButtonState() {
+  if (!runAIAssessmentButton) return;
+
+  const userHasAssessed = !!userTipiScores;
+  const aiProfileSelected = aiProfileSelect && aiProfileSelect.value !== ''; 
+
+  console.log(`Updating Run AI Assessment button state: User assessed: ${userHasAssessed}, AI Profile selected: ${aiProfileSelected}`);
+
+  runAIAssessmentButton.disabled = !(userHasAssessed && aiProfileSelected);
+
+  // Provide feedback if disabled
+  if (runAIAssessmentButton.disabled && aiAssessmentStatusDiv) {
+    if (!userHasAssessed && !aiProfileSelected) {
+      showStatus(aiAssessmentStatusDiv, 'Complete your assessment and select an AI profile to run the simulation.', 'warning');
+    } else if (!userHasAssessed) {
+      showStatus(aiAssessmentStatusDiv, 'Please complete your personality assessment first.', 'warning');
+    } else if (!aiProfileSelected) {
+      showStatus(aiAssessmentStatusDiv, 'Please select an AI personality profile to assess.', 'warning');
+    }
+  } else if (aiAssessmentStatusDiv && !runAIAssessmentButton.disabled) {
+     // Clear warning status if button is now enabled
+     if (aiAssessmentStatusDiv.classList.contains('warning')) {
+       showStatus(aiAssessmentStatusDiv, '', 'success'); // Clear status
+     }
+  }
+}
+
+// === General UI Update Functions ===
+// ... (existing code) ...
+
+// === Modal Functions ===
+
+/**
+ * Open the personality assessment modal.
+ */
+function openAssessmentModal() {
+  console.log('openAssessmentModal function called.'); // Added log
+  if (!currentUserId || !assessmentModal || !tipiModalQuestionsContainer) {
+    console.warn('openAssessmentModal returning early. Missing userId, modal, or questions container.', {
+      currentUserId,
+      assessmentModalExists: !!assessmentModal,
+      tipiModalQuestionsContainerExists: !!tipiModalQuestionsContainer
+    });
+    return; 
+  }
+  
+  console.log("Opening assessment modal...");
+  // Load questions into the modal container
+  loadTipiQuestions(tipiModalQuestionsContainer); // Pass the modal's question container
+  
+  // Clear any previous status messages in the modal
+  showStatus(assessmentModalStatusDiv, '', 'info'); // Clear status
+  assessmentModalStatusDiv.style.display = 'none';
+  
+  assessmentModal.style.display = 'block';
+}
+
+/**
+ * Close the personality assessment modal.
+ */
+function closeAssessmentModal() {
+  if (!assessmentModal) return;
+  assessmentModal.style.display = 'none';
+  // Optionally clear the questions or reset the form when closing
+  if(tipiModalQuestionsContainer) tipiModalQuestionsContainer.innerHTML = '<p>Loading questions...</p>';
+}
+
+/**
+ * Load TIPI questions into the specified container.
+ * @param {HTMLElement} container - The HTML element to load questions into.
+ */
+function loadTipiQuestions(container) {
+  if (!container) {
+    console.error("Target container for TIPI questions not found.");
+    return;
+  }
+  console.log("Loading TIPI questions into container:", container.id);
+  container.innerHTML = ''; // Clear previous content like "Loading..."
+
+  const questions = [
+    { id: 'q1', text: 'Extraverted, enthusiastic.', scoring: 'E+' },
+    { id: 'q2', text: 'Critical, quarrelsome.', scoring: 'A-' },
+    { id: 'q3', text: 'Dependable, self-disciplined.', scoring: 'C+' },
+    { id: 'q4', text: 'Anxious, easily upset.', scoring: 'N+' },
+    { id: 'q5', text: 'Open to new experiences, complex.', scoring: 'O+' },
+    { id: 'q6', text: 'Reserved, quiet.', scoring: 'E-' },
+    { id: 'q7', text: 'Sympathetic, warm.', scoring: 'A+' },
+    { id: 'q8', text: 'Disorganized, careless.', scoring: 'C-' },
+    { id: 'q9', text: 'Calm, emotionally stable.', scoring: 'N-' },
+    { id: 'q10', text: 'Conventional, uncreative.', scoring: 'O-' },
+  ];
+
+  questions.forEach((q, index) => {
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'tipi-question';
+    questionDiv.innerHTML = `
+      <p class="question-text"><strong>${index + 1}.</strong> I see myself as: ${q.text}</p>
+      <div class="rating-options">
+        ${[1, 2, 3, 4, 5].map(val => `
+          <div class="rating-option">
+            <input type="radio" id="${q.id}-${val}" name="${q.id}" value="${val}" required>
+            <label for="${q.id}-${val}">${val}</label>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    container.appendChild(questionDiv);
+  });
+  
+  // Restore previous answers if they exist
+  restoreUserAssessmentFormState(container);
+}
+
+/**
+ * Handle the submission of the user's TIPI assessment from the modal form.
+ * @param {Event} event - The form submission event.
+ */
+async function handleUserAssessmentSubmit(event) {
+  event.preventDefault(); // Prevent default form submission
+  if (!currentUserId) {
+    showStatus(assessmentModalStatusDiv, 'Error: No user selected.', 'error');
+    assessmentModalStatusDiv.style.display = 'block';
+    return;
+  }
+  console.log("Handling assessment submission from modal...");
+
+  // Gather scores from the modal form
+  const modalForm = document.getElementById('tipi-modal-form');
+  if (!modalForm) {
+    console.error("Modal form not found!");
+    return;
+  }
+  const formData = new FormData(modalForm); 
+  const scores = {};
+  let allAnswered = true;
+  for (let i = 1; i <= 10; i++) {
+    const score = formData.get(`q${i}`);
+    if (!score) {
+      allAnswered = false;
+      break;
+    }
+    scores[`q${i}`] = parseInt(score);
+  }
+
+  if (!allAnswered) {
+    showStatus(assessmentModalStatusDiv, 'Please answer all questions.', 'warning');
+    assessmentModalStatusDiv.style.display = 'block';
+    return;
+  }
+
+  userTipiScores = scores; // Store scores globally
+  console.log('User TIPI Scores:', userTipiScores);
+
+  showStatus(assessmentModalStatusDiv, 'Saving assessment...', 'loading');
+  assessmentModalStatusDiv.style.display = 'block';
+
+  // Save data to backend
+  const success = await saveUserAssessmentData();
+
+  if (success) {
+    showStatus(assessmentModalStatusDiv, 'Assessment saved successfully!', 'success');
+    assessmentModalStatusDiv.style.display = 'block';
+    // Close modal after a short delay
+    setTimeout(() => {
+        closeAssessmentModal();
+        updateAssessmentUI(); // Update the main page UI
+        updateRunAIAssessmentButtonState(); // Update button state on Alignment page
+    }, 1500); 
+  } else {
+    showStatus(assessmentModalStatusDiv, 'Failed to save assessment. Please try again.', 'error');
+    assessmentModalStatusDiv.style.display = 'block';
+  }
+}
+
+/**
+ * Handle the retake assessment button click. Opens the modal.
+ */
+function handleRetakeAssessment() {
+  if (!currentUserId) {
+      showStatus(userAssessmentStatusSummary, 'Please select a user profile first.', 'error');
+      userAssessmentStatusSummary.style.display = 'block';
+      return;
+  }
+  console.log("Handling retake assessment...");
+  // We don't need to clear userTipiScores here, openAssessmentModal will load questions
+  // and submission will overwrite if completed.
+  openAssessmentModal(); // Just open the modal
+}
+
+/**
+ * Restore user's previous assessment answers into the form fields within the container.
+ * @param {HTMLElement} container - The container holding the form questions.
+ */
+function restoreUserAssessmentFormState(container) {
+  if (!userTipiScores || !container) return;
+
+  console.log("Restoring form state with scores:", userTipiScores);
+  for (const [questionId, score] of Object.entries(userTipiScores)) {
+    const radioToCheck = container.querySelector(`input[name="${questionId}"][value="${score}"]`);
+    if (radioToCheck) {
+      radioToCheck.checked = true;
+    } else {
+      console.warn(`Could not find radio button for ${questionId} with value ${score}`);
+    }
+  }
+}
+
+/**
+ * Update the user assessment section UI based on whether the user has taken the assessment.
+ */
+function updateAssessmentUI() {
+    if (!userAssessmentControls || !userAssessmentStatusSummary || !startUserAssessmentButton || !retakeUserAssessmentButton) {
+        console.warn("Assessment UI elements not found, skipping UI update.");
+        return;
+    }
+
+    // Fetch the latest assessment status when UI is updated (e.g., after user selection)
+    // We already do this in handleUserSelect, maybe just ensure userTipiScores is up-to-date
+    
+    if (userTipiScores) {
+        // User has completed the assessment
+        userAssessmentStatusSummary.textContent = 'Assessment completed. You can retake it if needed.';
+        userAssessmentStatusSummary.className = 'status success'; // Use success class
+        userAssessmentStatusSummary.style.display = 'block';
+        startUserAssessmentButton.style.display = 'none'; // Hide "Take" button
+        retakeUserAssessmentButton.style.display = 'inline-block'; // Show "Retake" button
+    } else {
+        // User has not completed the assessment
+        userAssessmentStatusSummary.textContent = 'You have not taken the personality assessment yet.';
+        userAssessmentStatusSummary.className = 'status info'; // Use info class
+        userAssessmentStatusSummary.style.display = 'block';
+        startUserAssessmentButton.style.display = 'inline-block'; // Show "Take" button
+        retakeUserAssessmentButton.style.display = 'none'; // Hide "Retake" button
+    }
+
+    // Update the button state on the Alignment page as well
+    updateRunAIAssessmentButtonState();
+}
+
+// ... (rest of the file)

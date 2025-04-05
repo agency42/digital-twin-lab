@@ -1,7 +1,64 @@
+:root {
+  /* Core Colors */
+  --bg-primary: #1e2127;       /* Overall background */
+  --bg-secondary: #282c34;     /* Module/Container background */
+  --bg-tertiary: #21252b;      /* Input/Preformatted text background */
+  --bg-accent: #333842;        /* Headers, active states */
+  --bg-hover: #32363e;         /* Hover states */
+
+  --text-primary: #e8e8e8;      /* Primary text */
+  --text-secondary: #d0d0d0;    /* Slightly dimmer text (e.g., inactive tabs) */
+  --text-muted: #a0a0a0;       /* Muted text (descriptions, placeholders) */
+  --text-heading: #abb2bf;     /* More prominent headings/titles */
+  --text-link: #61afef;        /* Links, active states */
+  --text-inverted: #ffffff;     /* Text on colored buttons/badges */
+
+  --border-primary: #4d4d4d;    /* Main borders */
+  --border-secondary: #3d4148; /* Borders for inputs, cards */
+  --border-subtle: #3a3f4b;    /* Subtle separators */
+
+  /* Accents & Status */
+  --accent-blue: #61afef;
+  --accent-green: #a5e075;
+  --accent-red: #e06c75;
+  --accent-yellow: #e5c07b;
+  --accent-purple: #c89eff;
+  --accent-cyan: #6bb6ff;
+  --accent-grey: #7f848e;
+
+  --status-success-bg: #283c34;
+  --status-success-text: var(--accent-green);
+  --status-success-border: #89ca64;
+
+  --status-error-bg: #3e2936;
+  --status-error-text: var(--accent-red);
+  --status-error-border: var(--accent-red);
+
+  --status-info-bg: #2d3b4a;
+  --status-info-text: var(--accent-blue);
+  --status-info-border: var(--accent-blue);
+
+  --status-warning-bg: #3d3c2d;
+  --status-warning-text: var(--accent-yellow);
+  --status-warning-border: var(--accent-yellow);
+
+  /* Fonts */
+  --font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-mono: 'Menlo', 'Monaco', 'Courier New', monospace;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 5px 15px rgba(0, 0, 0, 0.3);
+  --shadow-inset: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+
 /* Terminal-style interface */
 body {
-  background-color: #1e2127;
-  color: #e8e8e8;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.6;
 }
 
 /* App container layout */
@@ -14,7 +71,7 @@ body {
 .content-area {
   display: flex;
   flex: 1;
-  height: calc(100vh - 100px);
+  height: calc(100vh - 100px); /* Adjust if header height changes */
   overflow: hidden;
 }
 
@@ -23,8 +80,8 @@ body {
   display: flex;
   flex-direction: column;
   width: 180px;
-  background-color: #252830;
-  border-right: 1px solid #4d4d4d;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
   border-bottom: none;
   padding: 0;
   margin: 0;
@@ -37,22 +94,23 @@ body {
   border-radius: 0;
   font-weight: 600;
   transition: all 0.2s ease;
-  background-color: #252830;
-  color: #d0d0d0;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
   text-align: left;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-secondary);
   margin: 0;
 }
 
 .nav-tab.active {
-  background-color: #61afef;
-  color: #ffffff;
-  border-left: 4px solid #61afef;
-  padding-left: 11px;
+  background-color: var(--accent-blue);
+  color: var(--text-inverted);
+  border-left: 4px solid var(--accent-blue);
+  padding-left: 11px; /* Account for border */
 }
 
 .nav-tab:hover:not(.active) {
-  background-color: #32363e;
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .pages-container {
@@ -69,11 +127,11 @@ body {
   display: block;
 }
 
-/* Form elements */
+/* General Form elements */
 input, select, textarea, button {
-  background-color: #21252b;
-  color: #e8e8e8;
-  border: 1px solid #3d4148;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-secondary);
   padding: 8px 12px;
   border-radius: 4px;
   font-family: inherit;
@@ -81,20 +139,27 @@ input, select, textarea, button {
 }
 
 input::placeholder, textarea::placeholder {
-  color: #777;
+  color: var(--text-muted);
 }
 
 select {
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); /* Consider using a variable for the SVG color if needed */
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 30px;
 }
 
+label {
+  color: var(--text-heading);
+  margin-bottom: 5px;
+  font-weight: 600;
+  display: block;
+}
+
 button {
-  background-color: #61afef;
-  color: #ffffff;
+  background-color: var(--accent-blue);
+  color: var(--text-inverted);
   border: none;
   border-radius: 4px;
   padding: 8px 12px;
@@ -104,30 +169,31 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background-color: #4d8ecc;
+  background-color: #4d8ecc; /* Slightly darker blue */
 }
 
 button:disabled {
-  background-color: #3d4148;
-  color: #7f848e;
+  background-color: var(--border-secondary);
+  color: var(--accent-grey);
   cursor: not-allowed;
 }
 
 /* Module styling */
 .module {
-  background-color: #282c34;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #3d4148;
+  border: 1px solid var(--border-secondary);
   padding: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-md);
 }
 
 .module-header {
-  background-color: #333842;
-  border-bottom: 1px solid #4d4d4d;
+  background-color: var(--bg-accent);
+  border-bottom: 1px solid var(--border-primary);
   padding: 15px 20px;
   margin: -20px -20px 20px -20px;
+  border-radius: 8px 8px 0 0; /* Ensure header corners match module */
   display: flex;
   align-items: center;
 }
@@ -136,25 +202,38 @@ button:disabled {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: #3a3f4b;
+  background-color: var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 15px;
   font-size: 20px;
+  /* Icon color can be set via inline style or specific classes */
 }
 
 .module-title {
-  color: #e8e8e8;
+  color: var(--text-heading);
   margin: 0;
   font-size: 1.2rem;
   font-weight: bold;
-  margin-bottom: 10px;
+  /* Removed margin-bottom: 10px; as header has padding */
 }
 
 .module-description {
-  color: #a0a0a0;
+  color: var(--text-muted);
   margin-bottom: 20px;
+}
+
+/* Section Titles (e.g., Short Bio, Website Input) */
+.section-title {
+  color: var(--text-heading); /* Use the heading color variable */
+  margin-top: 20px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Flex layouts */
@@ -187,48 +266,49 @@ button:disabled {
   padding: 10px 15px;
   border-radius: 4px;
   margin: 10px 0;
+  font-weight: 500;
 }
 
 .status.success {
-  background-color: #283c34;
-  color: #a5e075;
-  border-left: 3px solid #89ca64;
+  background-color: var(--status-success-bg);
+  color: var(--status-success-text);
+  border-left: 3px solid var(--status-success-border);
 }
 
 .status.error {
-  background-color: #3e2936;
-  color: #e06c75;
-  border-left: 3px solid #e06c75;
+  background-color: var(--status-error-bg);
+  color: var(--status-error-text);
+  border-left: 3px solid var(--status-error-border);
 }
 
 .status.info {
-  background-color: #2d3b4a;
-  color: #61afef;
-  border-left: 3px solid #61afef;
+  background-color: var(--status-info-bg);
+  color: var(--status-info-text);
+  border-left: 3px solid var(--status-info-border);
 }
 
 .status.warning {
-  background-color: #3d3c2d;
-  color: #e2c08d;
-  border-left: 3px solid #e5c07b;
+  background-color: var(--status-warning-bg);
+  color: var(--status-warning-text);
+  border-left: 3px solid var(--status-warning-border);
 }
 
-/* Main terminal container - for chat interface */
+/* Chat Interface Specifics */
 #chat-container {
-  background-color: #282c34;
-  color: #e8e8e8;
-  font-family: "Courier New", Courier, monospace;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
   padding: 0;
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid #3d4148;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  border: 1px solid var(--border-secondary);
+  box-shadow: var(--shadow-md);
   margin-bottom: 20px;
 }
 
 #chat-history {
-  background-color: #21252b;
-  color: #e8e8e8;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
   padding: 15px;
   height: 450px;
   overflow-y: auto;
@@ -240,37 +320,38 @@ button:disabled {
 
 /* Terminal header */
 #chat-container > div:first-child {
-  background-color: #3a3f4b;
-  color: #e8e8e8;
+  background-color: var(--border-subtle);
+  color: var(--text-primary);
   padding: 8px 12px;
-  border-bottom: 1px solid #4d4d4d;
-  font-family: "Courier New", Courier, monospace;
+  border-bottom: 1px solid var(--border-primary);
+  font-family: var(--font-mono);
   display: flex;
   justify-content: space-between;
+  align-items: center;
 }
 
 /* Terminal title */
 #chat-container > div:first-child span {
-  color: #e8e8e8;
+  color: var(--text-primary);
   font-weight: bold;
 }
 
 /* Clear button */
 #clear-chat-button {
-  background-color: #4d5263;
-  border: 1px solid #555;
-  color: #e8e8e8;
+  background-color: var(--border-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
   padding: 2px 8px;
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   cursor: pointer;
 }
 
 #clear-chat-button:hover {
-  background-color: #5a6377;
+  background-color: var(--bg-hover);
 }
 
-/* Message styling - core fixes for text display */
+/* Chat Message styling */
 .message-wrapper {
   margin-bottom: 5px;
   padding: 3px 0;
@@ -289,7 +370,7 @@ button:disabled {
   margin: 0;
   border-radius: 0;
   box-shadow: none;
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--font-mono);
   display: block;
   width: 100%;
   text-align: left;
@@ -298,113 +379,95 @@ button:disabled {
 }
 
 .user-message .message {
-  color: #e8e8e8;
+  color: var(--text-primary);
 }
 
 .assistant-message .message {
-  color: #a3c9ef;
+  color: var(--accent-cyan); /* Light blue for assistant */
 }
 
 .system-message .message {
-  color: #7f848e;
+  color: var(--accent-grey);
   font-style: italic;
 }
 
-.timestamp {
-  display: none;
-}
-
-.sender {
-  display: inline;
-  font-weight: normal;
-  margin: 0;
-  padding: 0;
-  font-size: inherit;
-  color: inherit;
-}
-
-.content {
-  width: 100%;
-  display: inline-block;
-  text-align: left;
-}
-
-/* Input area */
+/* Chat Input area */
 #chat-container > div:last-child {
-  background-color: #2c313a;
-  border-top: 1px solid #4d4d4d;
+  background-color: var(--bg-accent); /* Slightly different background */
+  border-top: 1px solid var(--border-primary);
   padding: 10px;
+  display: flex; /* Use flex to align prompt and input */
+  align-items: center;
+}
+
+.prompt-symbol {
+  color: var(--accent-blue);
+  margin-right: 8px;
+  font-family: var(--font-mono);
+  font-weight: bold;
 }
 
 #chat-input {
-  background-color: #282c34;
-  color: #e8e8e8;
+  background-color: transparent; /* Make input background transparent */
+  color: var(--text-primary);
   border: none;
   padding: 10px 0;
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--font-mono);
   border-radius: 0 !important;
-  width: calc(100% - 30px);
+  flex-grow: 1; /* Allow input to take remaining space */
   font-size: 14px;
   outline: none;
   margin-left: 5px;
 }
 
 #chat-input::placeholder {
-  color: #777;
+  color: var(--text-muted);
 }
 
 #send-chat-button {
-  display: none !important;
-}
-
-/* Terminal prompt */
-.prompt-symbol {
-  color: #61afef;
-  margin-right: 8px;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-weight: bold;
+  display: none !important; /* Hide the send button */
 }
 
 /* System prompt editor container */
 .system-prompt-container {
-  background-color: #282c34;
-  border: 1px solid #4d4d4d;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
   padding: 10px;
   margin-bottom: 15px;
 }
 
 #system-prompt-editor {
-  background-color: #2c313a;
-  color: #e8e8e8;
-  border: 1px solid #4d4d4d;
-  font-family: "Courier New", Courier, monospace;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-secondary);
+  font-family: var(--font-mono);
   padding: 10px;
 }
 
 /* Dropdown and buttons */
 #saved-prompts-dropdown {
-  background-color: #2c313a;
-  color: #e8e8e8;
-  border: 1px solid #4d4d4d;
-  font-family: "Courier New", Courier, monospace;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-secondary);
+  font-family: var(--font-mono);
 }
 
 .action-button {
-  background-color: #3a3f4b !important;
-  border: 1px solid #4d4d4d !important;
-  color: #e8e8e8 !important;
-  font-family: "Courier New", Courier, monospace;
+  background-color: var(--border-subtle) !important; /* Override specific button colors if needed */
+  border: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-mono);
   cursor: pointer;
 }
 
 .action-button:hover {
-  background-color: #4d5263 !important;
+  background-color: var(--bg-hover) !important;
 }
 
 /* Blinking cursor */
 .terminal-cursor {
   display: inline-block;
-  background-color: #61afef;
+  background-color: var(--accent-blue);
   width: 8px;
   height: 15px;
   margin-left: 2px;
@@ -418,35 +481,62 @@ button:disabled {
 
 /* Info buttons and tooltips */
 .info-button {
-  background-color: #4d5263;
-  color: #e8e8e8;
-  border: 1px solid #555;
+  background-color: var(--border-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.info-button:hover {
+  background-color: var(--bg-hover);
 }
 
 .info-tooltip-text {
-  background-color: #333842;
-  border: 1px solid #4d4d4d;
-  color: #e8e8e8;
-  font-family: "Courier New", Courier, monospace;
+  display: none; /* Hidden by default */
+  background-color: var(--bg-accent);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans); /* Use sans-serif for tooltips */
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 5px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  position: relative; /* Ensure it appears above other elements if needed */
+  z-index: 10;
+  box-shadow: var(--shadow-md);
 }
 
 /* JSON output styling */
-pre {
-  background-color: #21252b;
-  border: 1px solid #3d4148;
+pre, .json-output {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
   border-radius: 4px;
   padding: 15px;
   overflow-x: auto;
-  color: #e8e8e8;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.5;
+  margin-top: 10px;
+  box-shadow: var(--shadow-inset);
 }
 
 /* Content cards */
 .content-card {
-  background-color: #2c313a;
-  border: 1px solid #3d4148;
+  background-color: var(--bg-accent);
+  border: 1px solid var(--border-secondary);
   border-radius: 6px;
   padding: 15px;
   transition: all 0.2s;
@@ -454,16 +544,16 @@ pre {
 
 .content-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  box-shadow: var(--shadow-lg);
 }
 
 .content-card.selected {
-  border-color: #61afef;
-  background-color: #323842;
+  border-color: var(--accent-blue);
+  background-color: var(--bg-hover);
 }
 
 .content-title {
-  color: #e8e8e8;
+  color: var(--text-heading);
   font-weight: 600;
   margin-bottom: 8px;
 }
@@ -476,49 +566,36 @@ pre {
 }
 
 .content-type.text {
-  background-color: #35424e;
-  color: #6bb6ff;
+  background-color: var(--status-info-bg);
+  color: var(--accent-cyan);
 }
 
 .content-type.image {
-  background-color: #3c3e51;
-  color: #c89eff;
+  background-color: #3c3e51; /* Keep distinct or use purple/cyan bg */
+  color: var(--accent-purple);
 }
 
 .text-preview {
-  background-color: #21252b;
+  background-color: var(--bg-tertiary);
   border-radius: 4px;
   padding: 10px;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
-  color: #d0d0d0;
-}
-
-.json-output {
-  background-color: #21252b;
-  border: 1px solid #3d4148;
-  border-radius: 4px;
-  padding: 15px;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #e8e8e8;
-  overflow-x: auto;
-  max-height: 400px;
+  color: var(--text-secondary);
+  max-height: 100px; /* Limit preview height */
   overflow-y: auto;
-  margin-top: 10px;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
 }
 
-/* Add focus states for better accessibility */
+/* Focus states */
 input:focus, textarea:focus, select:focus, button:focus {
-  outline: 2px solid #61afef;
+  outline: 2px solid var(--accent-blue);
   outline-offset: 1px;
+  border-color: var(--accent-blue); /* Add border color change on focus */
 }
 
-/* Make sure asset cards are readable */
+/* Asset cards */
 .source {
-  color: #a0a0a0;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -527,27 +604,27 @@ input:focus, textarea:focus, select:focus, button:focus {
   width: 100%;
 }
 
-/* Fix textarea colors */
+/* Textarea styling */
 textarea {
-  background-color: #21252b;
-  color: #e8e8e8;
-  border: 1px solid #3d4148;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-secondary);
   padding: 12px;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-family: var(--font-mono);
   line-height: 1.5;
 }
 
-/* Fix selection bar */
+/* Selection bar */
 .selection-bar {
-  background-color: #282c34;
-  border: 1px solid #3d4148;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
   padding: 15px;
   border-radius: 4px;
   margin-top: 15px;
 }
 
 .selection-info {
-  color: #e8e8e8;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -557,82 +634,224 @@ textarea {
 }
 
 #preview-modal > div {
-  background-color: #282c34;
-  border: 1px solid #3d4148;
-  color: #e8e8e8;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
   border-radius: 6px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lg);
 }
 
 #modal-title {
-  color: #e8e8e8;
-  border-bottom: 1px solid #3d4148;
+  color: var(--text-heading);
+  border-bottom: 1px solid var(--border-secondary);
   padding-bottom: 10px;
 }
 
 #close-modal {
-  color: #a0a0a0;
+  color: var(--text-muted);
 }
 
 #close-modal:hover {
-  color: #e8e8e8;
+  color: var(--text-primary);
 }
 
-/* Make chat interface more readable */
+/* Chat history message bubble refinement */
 #chat-history .message {
   margin-bottom: 8px;
   padding: 8px 12px;
   border-radius: 4px;
-  background-color: #2c313a;
+  background-color: var(--bg-accent);
 }
 
 #chat-history .user-message .message {
-  background-color: #35424e;
+  background-color: var(--status-info-bg);
+  color: var(--text-primary); /* Ensure user text is readable */
   border-radius: 4px 4px 1px 4px;
 }
 
 #chat-history .assistant-message .message {
-  background-color: #3c3e51;
+  background-color: #3c3e51; /* Maybe use a different bg? */
+  color: var(--accent-purple); /* Ensure assistant text is readable */
   border-radius: 4px 4px 4px 1px;
 }
 
 #chat-history .system-message .message {
-  background-color: #2d2f36;
-  color: #7f848e;
-  border-left: 2px solid #4d4d4d;
+  background-color: var(--bg-tertiary);
+  color: var(--accent-grey);
+  border-left: 2px solid var(--border-primary);
+  font-style: italic;
 }
 
-/* Better contrast for profile cards */
+/* Profile card refinement */
 .profile-card {
-  background-color: #282c34;
-  border: 1px solid #3d4148;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
   border-radius: 6px;
   padding: 15px;
   margin-bottom: 15px;
 }
 
 .profile-card-title {
-  color: #e8e8e8;
+  color: var(--text-heading);
 }
 
 .profile-card-date {
-  color: #a0a0a0;
+  color: var(--text-muted);
 }
 
 .trait-badge {
-  background-color: #35424e;
-  color: #a3c9ef;
+  background-color: var(--status-info-bg);
+  color: var(--accent-cyan);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
 }
 
-/* Style JSON correctly */
-#personality-json-output {
-  margin-top: 15px;
+/* Ensure page titles (like Alignment Metrics) are visible */
+.page h2 {
+  color: var(--text-heading);
+  margin-top: 25px;
+  margin-bottom: 15px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-#personality-json-output, #chat-personality-json {
-  line-height: 1.5;
+/* Remove duplicate basic form styling */
+/* form { */
+/*   display: flex; */
+/* } */
+
+/* Modal Styles */
+.modal {
+  display: none; 
+  position: fixed; 
+  z-index: 1000; 
+  left: 0;
+  top: 0;
+  width: 100%; 
+  height: 100%; 
+  overflow: auto; 
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(3px);
+}
+
+.modal-content {
+  background-color: #ffffff;
+  margin: 10% auto; 
+  padding: 30px;
+  border: 1px solid #888;
+  width: 80%;
+  max-width: 700px; 
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  position: relative;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Specific styles for assessment modal content */
+.assessment-modal-content {
+  max-width: 800px;
+}
+
+.close-button {
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close-button:hover,
+.close-button:focus {
+  color: #333;
+  text-decoration: none;
+}
+
+#modal-title, #assessment-modal-title {
+  margin-bottom: 20px;
+  color: #333;
+  font-weight: 600;
+}
+
+#modal-body {
+  max-height: 65vh;
+  overflow-y: auto;
+  padding-right: 15px; /* For scrollbar */
+}
+
+/* Assessment Questions Styling within Modal */
+.tipi-questions-container {
+  max-height: 55vh; /* Adjust height for modal */
+  overflow-y: auto;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.tipi-question {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #fff;
+  border: 1px solid #eee;
+  border-radius: 5px;
+}
+
+.question-text {
+  font-weight: 500;
+  margin-bottom: 12px;
+  color: #444;
+}
+
+.rating-options {
+  display: flex;
+  justify-content: space-around; 
+  flex-wrap: wrap;
+}
+
+.rating-option {
+  display: flex;
+  flex-direction: column; /* Stack radio button and label */
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  flex-basis: calc(20% - 10px); /* Roughly 5 items per row */
+  margin-bottom: 10px;
+}
+
+.rating-option input[type="radio"] {
+  margin-bottom: 5px;
+  width: auto;
+}
+
+.rating-option label {
+  font-size: 13px;
+  color: #666;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.secondary-button {
+  background-color: #6c757d;
+}
+
+.secondary-button:hover {
+  background-color: #5a6268;
+}
+
+/* Animation for Modal */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
 } 
