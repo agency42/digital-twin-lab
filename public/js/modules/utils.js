@@ -1,0 +1,85 @@
+/**
+ * utils.ts - Shared utility functions
+ */
+// Define shared interfaces (can be moved to a dedicated types file later)
+// --- REMOVED INTERFACES (moved to types.ts) ---
+// interface Profile { ... }
+// interface PersonaVariation { ... } 
+// interface UserData { ... }
+// interface ChatMessage { ... }
+// interface AppState { ... }
+// Global state - initialized with the extended AppState
+export const state = {
+    currentUserId: null,
+    currentGeneratedProfile: null, // Use Profile type from types.ts
+    selectedAssets: new Set(),
+    currentChatHistory: [], // Use ChatMessage type from types.ts
+    userTipiScores: null,
+    aiTipiScores: null,
+    currentUserData: null, // Use UserData type from types.ts
+    currentChatSessionId: null
+};
+/**
+ * Show a status message in a given container
+ * @param container - The container element (can be null)
+ * @param message - The message to display
+ * @param type - The type of status
+ * @param timeout - Optional timeout (ms)
+ */
+export function showStatus(container, message, type, timeout) {
+    if (!container) {
+        console.warn("showStatus called with null container for message:", message);
+        return;
+    }
+    // First clear any existing status classes
+    container.classList.remove('success', 'error', 'loading', 'info');
+    // Set the message and add the appropriate class
+    container.textContent = message;
+    container.classList.add(type);
+    container.style.display = 'block';
+    // If a timeout is provided, clear the status after that time
+    if (timeout) {
+        setTimeout(() => {
+            if (container) { // Check container still exists
+                container.textContent = '';
+                container.style.display = 'none';
+            }
+        }, timeout);
+    }
+}
+/**
+ * Create a debounced version of a function
+ * @param func - The function to debounce
+ * @param delay - The delay in milliseconds
+ * @returns The debounced function
+ */
+// Using a generic type for better type safety with debounced functions
+export function debounce(func, delay) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+/**
+ * Format message content for display in chat
+ * @param content - The message content (can be null or undefined)
+ * @returns The formatted content as an HTML string
+ */
+export function formatMessageContent(content) {
+    if (!content)
+        return '';
+    // Escape HTML
+    const escaped = content
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    // Simple markdown-style formatting
+    return escaped
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+        .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+        .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') // Code blocks
+        .replace(/`([^`]+)`/g, '<code>$1</code>') // Inline code
+        .replace(/\n/g, '<br>'); // Line breaks
+}
+//# sourceMappingURL=utils.js.map

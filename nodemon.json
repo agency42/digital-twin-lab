@@ -1,0 +1,6 @@
+{
+  "watch": ["src"],
+  "ext": "ts,json",
+  "ignore": ["dist", "node_modules", "src/**/*.spec.ts", "data/*", "database/*"],
+  "exec": "npm run build && node ./dist/server.js"
+} 
