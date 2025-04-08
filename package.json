@@ -7,8 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon",
     "start": "node dist/server.js",
-    "build": "npm run clean && tsc && mkdir -p dist/database && cp database/schema.sql dist/database/ && mkdir -p dist/public/js && mkdir -p dist/public/js/modules && tsc -p tsconfig.frontend.json && cp public/js/*.js dist/public/js/ && cp public/js/modules/*.js dist/public/js/modules/ && cp -r public/css public/img public/favicon.ico public/index.html dist/public/",
-    "clean": "rm -rf dist public/js/**/*.js public/js/*.js"
+    "build": "npm run clean && tsc && mkdir -p dist/database && cp database/schema.sql dist/database/ && mkdir -p dist/public/js && mkdir -p dist/public/js/modules && tsc -p tsconfig.frontend.json && cp public/js/*.js* dist/public/js/ && cp public/js/modules/*.js* dist/public/js/modules/ && cp -r public/css public/img public/favicon.ico public/index.html dist/public/",
+    "clean": "rm -rf dist",
+    "cleanup": "chmod +x ./cleanup.sh && ./cleanup.sh"
   },
   "keywords": [
     "digital twin",
@@ -33,7 +34,6 @@
     "morgan": "^1.10.0",
     "openai": "^4.24.1",
     "pdf-parse": "^1.1.1",
-    "proper-lockfile": "^4.1.2",
     "puppeteer": "^24.6.0",
     "sanitize-filename": "^1.6.3",
     "sqlite3": "^5.1.7",

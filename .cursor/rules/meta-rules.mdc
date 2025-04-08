@@ -1,0 +1,19 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# These are rules about rules: creating, editing, updating
+
+- The cursor rules director is in the root at .cursor/rules/
+- Each cursor rules file has a descriptive name and a descriptive first title
+- Each cursor rules file ends with .mdc
+- You SHOULD:
+    - frequently reference cursor rules files
+    - frequently update any cursor rules files that have the `// UPDATES: ON` parameter set
+    - when needed, create new cursor rules files, mostly when requested to
+- You SHOULD NOT:
+    - delete cursor rules files
+    - delete any specific rules within files that i did not instruct you to delete
+    - add any specific rules within files that i did not instruct you to add

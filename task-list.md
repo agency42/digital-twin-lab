@@ -1,5 +1,41 @@
 # Digital Twin Lab Task List
 
+## Current Sprint: Codebase Optimization & Cleanup
+
+1. **Refactor Monolithic Files**
+   * ✅ Break up `server.ts` into separate route files:
+     * ✅ Create `chatRoutes.ts` for `/api/chat` endpoints
+     * ✅ Create `scrapeRoutes.ts` for `/api/scrape` endpoints
+     * ✅ Create `uploadRoutes.ts` for `/api/upload` endpoint
+   * 🔲 Split large frontend modules:
+     * 🔲 Refactor `userModule.ts` (1091 lines) into smaller functional components
+     * 🔲 Refactor `contentModule.ts` (861 lines) into smaller functional components
+     * 🔲 Refactor `assessmentModule.ts` (763 lines) into smaller functional components
+
+2. **Performance Optimizations**
+   * ✅ Enhance static asset caching:
+     * ✅ Implement proper cache headers for CSS/JS files (set to 1 day/86400 seconds)
+   * 🔲 Optimize frontend asset loading:
+     * 🔲 Review and optimize JS module dependencies
+     * 🔲 Implement code splitting if applicable
+
+3. **Cleanup Redundant/Old Files**
+   * ✅ Clean up duplicate TypeScript/JavaScript files in public/js directories
+   * ✅ Remove unused dependencies in package.json (proper-lockfile)
+   * ✅ Create cleanup script for maintenance (cleanup.sh)
+   * ✅ Fix build process to properly handle frontend files
+   * ✅ Add npm script for easy cleanup (npm run cleanup)
+   * ✅ Remove redundant JSON files after SQLite migration (assets.json, users.json)
+   * ✅ Remove empty directories from project
+   * ✅ Implement port auto-selection to prevent conflicts
+   * ✅ Create audit script to identify unnecessary files
+
+4. **Documentation Improvements**
+   * ✅ Create project structure tree for easier navigation
+   * ✅ Add cursor rule file with project structure (.cursor/rules/project-structure.mdc)
+   * 🔲 Update README.md with current tech stack and architecture
+   * 🔲 Add developer onboarding guide
+
 ## P0: Database Migration & Core Stabilization (Top Priority)
 
 1.  **Integrate SQLite Database**
@@ -16,7 +52,7 @@
     *   ✅ Refactor `PersonalityProfileService` / `AbstractionApproach` to store/retrieve persona data (SoulScript JSON) from SQLite.
     *   ✅ Refactor `OAuthService` to potentially store tokens/state linked to users in the database instead of relying solely on cookies/temp files if applicable.
 
-3.  **Refactor Asset Serving & Path Resolution** (Supersedes old Task #2)
+3. **Refactor Asset Serving & Path Resolution** (Supersedes old Task #2)
     *   ✅ Update asset request endpoint (`/api/assets/:assetId` or similar) to fetch metadata (including file path/key) from the database.
     *   ✅ Simplify or remove the complex asset-serving middleware in `server.js` (lines 87-171).
 

@@ -1,0 +1,24 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# These are rules for documenting our code
+
+## doc files
+- docs can live in the root
+- docs should be .md files
+- docs should be frequently updates
+- we should maintain our docs by regularly checking that they are up to date with our progress
+- we should suggest removing docs or items in docs if they feel outdated or redundant
+
+## inline docs
+- use minimum viable documentation for complete code understanding for a junior engineer to follow
+- this means, you SHOULD:
+    - document how particular functions work inline
+    - document what a particular modulee is for at the top of the file
+- you SHOULD NOT:
+    - add long form documentation strings
+    - document obvious things
+    - add commeents like "xyz goes here" or "this is the xyz thingy", especially if it is obvious from reading the code
