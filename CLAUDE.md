@@ -6,44 +6,49 @@ This document provides comprehensive technical information about the Digital Twi
 
 The Digital Twin Lab is designed for iterative experimentation with AI-powered personality simulation. The core mission is to create digital twins that:
 
-1. **Accurately mirror a person's personality traits** (as measured by Big Five/OCEAN)
-2. **Provide engaging, authentic interactions** in chat conversations
-3. **Adapt to user feedback** for ongoing personality refinement
-4. **Generate content in the user's voice** across various formats (tweets, posts, blogs)
-5. **Evolve through continuous learning** from interactions and feedback
+1. **Generate comprehensive personality models** from diverse content sources (websites, social media, text)
+2. **Analyze representation across different platforms** to understand how users adapt their voice
+3. **Generate platform-appropriate content** that maintains the authentic voice of the user
+4. **Continuously improve through feedback loops** incorporating user assessments
+5. **Provide advanced tools for comparing** human and AI-generated responses
 
-The ultimate goal is to find the "sweet spot" where digital twins are both psychometrically aligned with their human counterparts AND enjoyable to interact with in conversation, while capable of producing content that authentically represents the user's voice and style.
+The ultimate goal is to find the "sweet spot" where digital twins are both psychometrically aligned with their human counterparts AND capable of producing content that authentically represents the user's voice and style across different platforms.
 
 ## Architecture Overview
 
 The project is built with a modular architecture, separating frontend and backend concerns:
 
 ### Backend Structure (`src/`)
-- `server.js` - Express server with route mounting
+- `server.ts` - Express server with route mounting
 - **Routes** - API endpoints organized by domain:
-  - `assetRoutes.js` - Content management (uploads, scraping)
-  - `userRoutes.js` - User profile operations
-  - `personalityRoutes.js` - Personality generation and management
-  - `oauthRoutes.js` - Social media integration (LinkedIn)
+  - `assetRoutes.ts` - Content management (uploads, metadata)
+  - `userRoutes.ts` - User profile operations
+  - `personalityRoutes.ts` - Personality generation and management
+  - `chatRoutes.ts` - Chat functionality endpoints
+  - `oauthRoutes.ts` - Social media integration (LinkedIn)
+  - `scrapeRoutes.ts` - Website scraping endpoints
+  - `uploadRoutes.ts` - File upload endpoints
+  - `assessmentRoutes.ts` - Assessment functionality
 - **Services** - Business logic encapsulation:
-  - `assetProcessor.js` - Content handling, storage, metadata
-  - `personalityProfileService.js` - Personality creation and scoring
-  - `websiteScraper.js` - Web content extraction
-  - `oauthService.js` - Social authentication flows
-  - `userDataService.js` - User profile management
-  - `abstractionApproach.js` - Personality inference strategies
+  - `assetProcessor.ts` - Content handling, storage, metadata
+  - `personalityProfileService.ts` - Personality creation and scoring
+  - `websiteScraper.ts` - Web content extraction
+  - `oauthService.ts` - Social authentication flows
+  - `userDataService.ts` - User profile management
+  - `abstractionApproach.ts` - Personality inference strategies
+  - `aiService.ts` - AI service for assessment
 
 ### Frontend Structure (`public/`)
 - `index.html` - Single page application UI
-- **JavaScript Modules** - Modular frontend organization:
-  - `app.js` - Main entry point and module initialization
-  - `modules/userModule.js` - User management & LinkedIn integration
-  - `modules/contentModule.js` - Asset collection and management
-  - `modules/personalityModule.js` - Personality generation
-  - `modules/chatModule.js` - Digital twin chat interactions
-  - `modules/assessmentModule.js` - Personality assessment (TIPI)
-  - `modules/navigationModule.js` - Tab navigation between sections
-  - `modules/utils.js` - Shared utility functions and state
+- **TypeScript Modules** - Modular frontend organization:
+  - `app.ts` - Main entry point and module initialization
+  - `modules/userModule.ts` - User management & LinkedIn integration
+  - `modules/contentModule.ts` - Asset collection and management
+  - `modules/personalityModule.ts` - Personality generation
+  - `modules/chatModule.ts` - Digital twin chat interactions
+  - `modules/assessmentModule.ts` - Personality assessment (TIPI)
+  - `modules/navigationModule.ts` - Tab navigation between sections
+  - `modules/utils.ts` - Shared utility functions and state
 
 ### Data Storage (SQLite Database)
 - User data including profile information
@@ -66,33 +71,34 @@ The project is built with a modular architecture, separating frontend and backen
    - Upload files (text, images) to provide personality insights
    - Scrape websites (blogs, portfolios) for additional content
    - Future: scrape recent posts from connected social accounts
-   - Categorize content by type (tweets, blog posts, professional content, etc.)
+   - Categorize content by medium (tweets, blog posts, professional content, etc.)
 
 3. **Personality Generation**
    - Select content from the content library to use for personality creation
-   - Generate a single base personality in structured JSON format
-   - Each user has exactly one primary personality that serves as the foundation
+   - Generate a comprehensive personality in structured JSON format
+   - Support both individual and brand identities
 
-4. **Digital Twin Interaction**
+4. **Cross-Platform Analysis**
+   - Analyze how the user represents themselves across different platforms
+   - Identify platform-specific patterns and adaptations
+   - Incorporate platform-specific traits into the personality model
+
+5. **Digital Twin Interaction**
    - Chat with the generated digital twin
-   - Edit system prompt (derived from the base personality) to refine behavior
-   - Chat-specific changes to system prompt are saved only for the chat context
-   - Changes to system prompt require resetting the chat
-   - Option to reset system prompt to original base personality
-   - Learn from interactions to improve the personality model (future)
-   
-5. **Alignment Evaluation**
-   - Assessment module maintains its own version of the system prompt
-   - Run AI assessment simulation using the same TIPI questions
-   - Compare user's baseline results with AI-generated responses
-   - Visualize trait alignment through charts and metrics
-   - Track changes in alignment as the personality evolves
-   
-6. **Content Generation** (Future)
+   - Edit system prompt to refine behavior
+   - Compare your responses with AI-generated alternatives
+   - Provide feedback on the AI's performance
+
+6. **Content Generation**
    - Use the digital twin to generate content in the user's voice
-   - Select content category (tweets, LinkedIn posts, blog articles)
+   - Select content category and target platform
    - Review, edit, and refine generated content
-   - Track performance and feedback to improve future generations
+   - Add generated content back to the library for refinement
+
+7. **Continuous Improvement**
+   - Feed assessment results and feedback back into the system
+   - Refine the personality model based on interaction history
+   - Track and visualize persona development over time
 
 ## Complete User Flow
 
@@ -100,14 +106,14 @@ The typical complete flow through the application follows these steps:
 
 1. Create a user
 2. Connect social accounts (LinkedIn, Twitter planned for future)
-3. Scrape recent posts (future feature)
-4. Add website URL and scrape website content
+3. Upload content or scrape websites
+4. Categorize content by platform/medium
 5. Take TIPI assessment (popup with questions, results stored in database)
 6. Personality module: select content from library and generate personality JSON
-7. Chat module: interact with digital twin, optionally edit system prompt
+7. Chat module: interact with digital twin, compare your responses with AI alternatives
 8. Assessment module: run simulation of TIPI assessment to compare with user results
-9. Refine personality based on assessment results and chat interactions
-10. Generate content using the refined personality model
+9. Content generation: create new platform-specific content in the user's voice
+10. Add generated content to library and use feedback to refine the personality model
 
 ## Technical Implementation Details
 
@@ -117,7 +123,7 @@ The application uses a structured JSON format for defining agent personalities:
 ```json
 {
   "entity": {
-    "form": "human",
+    "form": "human|brand",
     "occupation": "software engineer",
     "gender": "female",
     "age": "32"
@@ -134,7 +140,21 @@ The application uses a structured JSON format for defining agent personalities:
         "strength": 0.9
       }
     ],
-    "values": [...]
+    "values": [...],
+    "platform_specific": {
+      "twitter": {
+        "tone": "witty and concise",
+        "topics": ["tech", "AI", "programming"]
+      },
+      "linkedin": {
+        "tone": "professional and insightful",
+        "topics": ["career", "industry trends", "thought leadership"]
+      },
+      "blog": {
+        "tone": "detailed and educational",
+        "topics": ["deep dives", "tutorials", "analysis"]
+      }
+    }
   },
   "voice": {
     "style": "clear and concise",
@@ -158,239 +178,97 @@ The application uses a structured JSON format for defining agent personalities:
 }
 ```
 
-### Personality Model
-- Each user has exactly one primary personality/persona
-- This base personality is generated in the Personality module
-- Module-specific variations (for Chat and Assessment) are stored separately
-- If a new personality is generated, it replaces the existing one (unless saved to modules)
-- Users can edit the system prompt in each module context independently
-- Changes can be saved per module or reset to the original base personality
-- Saving system prompt changes in chat will reset the chat conversation
+### Enhanced Assessment & Feedback System
+- Chat-based assessment comparing user and AI responses
+- Parallel AI response generation during user chats
+- Visual comparison interface for responses
+- Performance feedback collection system
+- Integration of feedback into persona refinement
 
-### Personality Alignment & Evolution
-- Assessment results provide a baseline for personality alignment
-- Chat interactions provide data for ongoing personality refinement
-- Feedback loops from assessment and chat interactions update the personality model
-- Visualizations show how personality changes impact alignment metrics
-- The goal is to find the optimal balance between authenticity and enjoyability
+### Content Source Management
+- Enhanced asset metadata with source medium/platform
+- Extended database schema for content categorization
+- UI filters to view content by platform/medium
+- Platform-specific analysis and insights
 
-### Content Generation
-- Digital twins can be used to generate content in the user's voice
-- Content is categorized by type (tweets, LinkedIn posts, blog articles)
-- Generation is informed by the user's existing content examples
-- Content library is analyzed to understand the user's style, tone, and topics
-- Feedback on generated content is used to improve future generations
-
-### Asset Management
-- All content is stored with structured metadata
-- Each asset has a unique UUID identifier
-- Files are stored using `<assetId>_<filename>` pattern
-- Metadata is stored in the SQLite database for faster retrieval
-- Content is categorized by type for targeted personality training and generation
-
-### LinkedIn Integration
-- Uses standard OAuth 2.0 + OpenID Connect flow
-- Requires LinkedIn Developer credentials in .env
-- Configured permissions: openid, profile, email
-- Profile data is stored as content asset
-- Post history will be used for content generation training (future)
-
-### TIPI Assessment
-Currently uses the Ten-Item Personality Inventory (TIPI):
-- Simple 10-question Likert scale assessment
-- Maps to Big Five personality traits (OCEAN)
-- Used for both human baseline and AI simulation (results stored in `assessment_results` table)
-- Alignment calculated and stored (`alignment_metrics` table) through:
-  - Item agreement percentage
-  - Trait-by-trait correlation
-  - Radar chart visualization (frontend)
-- Changes in alignment metrics can be tracked as personality evolves (infrastructure exists)
-
-## Current Challenges
-
-1. **UI Reliability**
-   - Some buttons intermittently fail to respond
-   - LinkedIn connection and disconnect operations have state inconsistencies
-   - Content Library tab sometimes remains inaccessible after user selection
-
-2. **Module Integration**
-   - Code conflicts between modular approach and legacy monolithic structure
-   - Event handlers sometimes duplicated across modules
-   - State management inconsistencies between components
-
-3. **Personality Model**
-   - ✅ Single-personality-per-user model implemented (DB/backend).
-   - ✅ Module-specific variations of the system prompt implemented (DB/backend).
-   - ✅ System prompt editing capabilities with reset functionality exist (backend variations).
-   - UI/UX for editing and explicit reset needs refinement.
-   - Ensure consistent persona data across different application contexts (ongoing).
-   - Develop feedback loops for iterative personality improvement (future).
-
-4. **Assessment Integration**
-   - ✅ TIPI assessment integrated (user + AI sim), results and metrics stored.
-   - ✅ Basic alignment visualization (radar chart) implemented.
-   - TIPI provides only a basic personality assessment (2 items per trait).
-   - Limited granularity makes fine-tuned personality alignment difficult.
-   - Need for more nuanced assessment approaches (Phase 2).
-   - Need to visualize alignment changes *over time* as personality evolves (Phase 2).
-
-5. **Content Generation Pipeline**
-   - Content categorization infrastructure needed
-   - Tools for analyzing user's content style and patterns
-   - Interface for generating and refining content
-   - Feedback mechanisms for improving generation quality
+### Content Generation System
+- Post generator UI tab
+- Platform-specific content generation
+- Prompted content creation tools
+- Content library integration for generated posts
+- Feedback loop for content improvement
 
 ## Development Roadmap
 
-### Phase 1: Technical Stabilization (Current)
-- ✅ Refactor to proper ES6 module architecture
-- ✅ Fix event handler conflicts and button functionality
-- ✅ Implement structured personality format
-- ✅ Add LinkedIn integration
+### Phase 1: Core Infrastructure & Stability (Completed)
 - ✅ Migrate to SQLite database storage
-- ✅ Implement single-personality user model with module variations
-- ✅ Add system prompt editing with reset functionality (backend variations)
-- ✅ Clean up codebase and eliminate redundancies (fileUtils, logging)
-- 🔲 Add comprehensive error handling
-- 🔲 Improve test coverage
-- ⏳ Migrate codebase to TypeScript (backend & frontend) *(Started: Utilities in src/lib complete)*
+- ✅ Implement proper TypeScript typing
+- ✅ Refactor monolithic server into modular routes
+- ✅ Clean up codebase and eliminate redundancies
+- ✅ Enhance asset caching and performance
+- ✅ Implement port auto-selection to prevent conflicts
 
-### Phase 2: Enhanced Assessment & Learning (Next)
-- ✅ Implement TIPI assessment storage and comparison
-- ✅ Create simulation mode for AI-generated assessment responses
-- 🔲 Implement more robust assessment instruments (BFI-2-XS or IPIP-50)
-- 🔲 Create more sophisticated alignment metrics
-- 🔲 Track and visualize changes in alignment metrics over time
-- 🔲 Support multiple assessment options:
-  - "Quick assessment" (TIPI - 1 minute)
-  - "Standard assessment" (BFI-2-XS - 5 minutes)
-  - "Comprehensive assessment" (IPIP-NEO - 15+ minutes)
-- 🔲 Add AI-generated natural language explanations of alignment
+### Phase 2: Content & Source Management (Next)
+- 🔲 Enhance asset metadata model to include source medium/platform
+- 🔲 Update database schema for categorizing content by source
+- 🔲 Extend asset upload UI to allow specifying content source
+- 🔲 Create filters to view content by platform/medium
+- 🔲 Enhance website scraper to better preserve content structure
+- 🔲 Implement selective scraping for specific content types
+- 🔲 Add support for scraping social media platforms
 
-### Phase 3: Advanced Personality Simulation & Learning
-- 🔲 Implement context-aware prompting strategies
-- 🔲 Create trait amplification/modulation controls
-- 🔲 Add linguistic style matching during chat
-- 🔲 Develop learning mechanisms from chat interactions
-- 🔲 Implement feedback loops for personality refinement
-- 🔲 Integrate semantic evaluation of free-text responses
-- 🔲 Implement LIWC-style linguistic analysis
-- 🔲 Add content categorization and analysis
+### Phase 3: Enhanced Personality Models & Analysis
+- 🔲 Update personality JSON structure to include platform-specific traits
+- 🔲 Add cross-platform analysis to persona generation
+- 🔲 Implement source-specific persona variations
+- 🔲 Create visualization for cross-platform personality differences
+- 🔲 Support both individual and brand persona types
+- 🔲 Add platform-specific trait mapping and adaptation
 
-### Phase 4: Content Generation & Optimization
-- 🔲 Develop content category classification system
-- 🔲 Build content style analysis tools
-- 🔲 Create user interface for content generation
-- 🔲 Implement content review and refinement workflow
-- 🔲 Add feedback collection for generated content
+### Phase 4: Content Generation System
+- 🔲 Design and implement post generator UI tab
+- 🔲 Create backend for platform-specific content generation
+- 🔲 Develop prompted content generation system
+- 🔲 Add generated content to library with proper categorization
+- 🔲 Implement feedback collection for generated content
 - 🔲 Create optimization loop for content quality improvement
-- 🔲 Implement multi-format content generation (tweets, posts, articles)
 
-### Phase 5: Adaptive Twin Optimization & Integration
-- 🔲 Build conversational-based assessment (no formal questionnaire)
-- 🔲 Add continuous prompt refinement from chat interactions
-- 🔲 Create optimizer for finding ideal prompt parameters
-- 🔲 Add multimodal input support (voice, video)
-- 🔲 Develop API for external integration of twins
-- 🔲 Build scheduling and automation for content generation
-- 🔲 Create analytics dashboard for personality and content performance
-
-## Immediate Technical Priorities
-
-1. ✅ **Implement Single-Personality User Model**
-   - Update database schema for one primary personality per user
-   - Modify database schema to store module-specific variations
-   - Implement reset functionality for system prompt editing
-   - Ensure consistent personality experience across modules
-
-2. **Enhance Content Ingestion Flow**
-   - Improve website scraping functionality and UX
-   - Ensure scraped content ties directly to personality generation
-   - Add placeholders for future social media integration
-   - Begin developing content categorization system
-
-3. ✅ **Complete Assessment Module Integration**
-   - Store TIPI assessment results in the database
-   - Implement simulation mode for comparing user and AI responses
-   - Create visualization for alignment metrics
-   - Add infrastructure for tracking alignment changes over time
-
-4. **Improve Chat Experience**
-   - Implement editable system prompt within chat context
-   - Add chat reset functionality when prompt changes
-   - Enable saving chat-specific prompt variations
-   - Add basic infrastructure for extracting learning from chat interactions
-
-5. **Lay Groundwork for Personality Evolution**
-   - Design database schema for storing personality revisions
-   - Create basic metrics for evaluating personality improvements
-   - Implement simple feedback collection mechanisms
-   - Build visualization tools for tracking personality evolution
-
-6. **Standardize Module Architecture**
-   - Ensure consistent state management across modules
-   - Eliminate any remaining function duplications
-   - Implement clean separation of concerns
-
-7. **Improve Documentation**
-   - Add detailed API documentation
-   - Create comprehensive architecture diagrams
-   - Add code comments for complex components
-   - Update README with latest features
-
-## Best Practices
-
-1. **Code Structure**
-   - Use proper ES6 modules with explicit imports/exports
-   - Follow clear separation of concerns between modules
-   - Maintain consistent naming and casing conventions
-   - Document public interfaces and complex functions
-
-2. **State Management**
-   - Use centralized state in utils.js module
-   - Avoid duplicating state across modules
-   - Implement proper event-based communication
-   - Add defensive state restoration where appropriate
-
-3. **Error Handling**
-   - Add detailed error logging throughout application
-   - Implement user-friendly error messages
-   - Add graceful fallbacks for exceptional conditions
-   - Include error recovery mechanisms
-
-4. **Project Organization**
-   - Keep all module-related code within respective files
-   - Store assets in consistent directory structure
-   - Maintain cleaner separation between frontend/backend
-   - Improve build tooling for production deployment
+### Phase 5: Advanced Assessment & Feedback Loop
+- 🔲 Implement parallel AI response generation during chat
+- 🔲 Create visual comparison interface for responses
+- 🔲 Add feedback collection system for AI performance
+- 🔲 Integrate assessment feedback into persona refinement
+- 🔲 Design system for incorporating generated content into persona models
+- 🔲 Implement analytics to track persona improvement over time
 
 ## Database Schema
 
-The SQLite database should include the following key tables:
+Current tables:
 - **users**: User profiles with basic information
 - **assets**: Metadata for all uploaded and scraped content
-- **asset_categories**: Classification of content by type
 - **personas**: Base personality profiles in JSON format
 - **persona_variations**: Module-specific variations of base personas
-- **persona_revisions**: Historical record of personality changes
 - **assessment_results**: User and AI-generated assessment responses
 - **alignment_metrics**: Calculated alignment between user and twin
-- **chat_interactions**: Notable interactions for learning
-- **content_generations**: Records of generated content and feedback
 - **oauth_state**: OAuth process state information
+
+Planned additions:
+- **content_sources**: For platform/medium tracking
+- **generated_content**: For storing AI-generated posts
+- **assessment_feedback**: For storing user feedback on AI performance
+- **platform_traits**: For storing platform-specific personality traits
 
 ## Long-Term Vision
 
 The ultimate vision for Digital Twin Lab is to create an end-to-end platform for:
 
-1. **Deep Personality Understanding** - Going beyond basic trait assessment to capture nuanced aspects of personality
-2. **Authentic Digital Representation** - Creating twins that authentically embody the user's communication style and values
-3. **Iterative Refinement** - Continuously improving the twin through feedback and interaction data
-4. **Seamless Content Creation** - Enabling users to generate authentic content across multiple platforms and formats
-5. **Learning & Adaptation** - Digital twins that evolve alongside the user, adapting to changes in style and preferences
-6. **Personalized Voice** - Maintaining the user's authentic voice while optimizing for specific contexts and audiences
+1. **Multi-Source Digital Representation** - Creating twins that authentically represent users across different platforms
+2. **Platform-Optimized Content Creation** - Generating content that maintains voice while adapting to platform norms
+3. **Continuous Refinement Through Feedback** - Learning and improving from user assessments and interactions
+4. **Cross-Platform Analysis** - Understanding how users adapt their voice and content across different contexts
+5. **Personality Evolution Tracking** - Visualizing how digital twins improve and adapt over time
 
-This platform will allow users to not only understand their own communication patterns better but also extend their digital presence with authentic, personality-aligned content.
+This platform will enable users to understand their own cross-platform communication patterns and extend their digital presence with authentic, platform-appropriate content that maintains their unique voice and style.
 
 ## Lesson Learned
 

@@ -1,5 +1,35 @@
 # Digital Twin Lab Task List
 
+## Project Vision & End-State Goals
+
+The Digital Twin Lab aims to create a platform that can accurately model and simulate user digital identities across different platforms and contexts, with the following key capabilities:
+
+1. **Multi-Source Persona Generation**
+   * Support both individual and brand identity modeling
+   * Ingest content from personal websites, social accounts, and other sources
+   * Generate comprehensive personality models from diverse inputs
+
+2. **Cross-Platform Content Analysis**
+   * Categorize content by medium (blogs, Twitter, LinkedIn, website copy, etc.)
+   * Analyze how users represent themselves differently across channels
+   * Incorporate platform-specific patterns into personality models
+
+3. **Dynamic Content Generation**
+   * Create a post generator that produces platform-appropriate content
+   * Maintain authentic voice and style matching the persona
+   * Support customization through input prompts and contexts
+
+4. **Continuous Refinement Loop**
+   * Add generated content back to the content library
+   * Use feedback to improve persona models
+   * Create self-improving digital twins
+
+5. **Advanced Assessment Tools**
+   * Implement chat-based assessment comparing user and AI responses
+   * Provide visual comparison between human and AI-generated answers
+   * Allow direct feedback on AI performance to improve models
+   * Feed assessment results back into persona generation
+
 ## Current Sprint: Codebase Optimization & Cleanup
 
 1. **Refactor Monolithic Files**
@@ -35,6 +65,43 @@
    * ✅ Add cursor rule file with project structure (.cursor/rules/project-structure.mdc)
    * 🔲 Update README.md with current tech stack and architecture
    * 🔲 Add developer onboarding guide
+
+## Next Phase: Feature Development & Enhancement
+
+5. **Content Source Management**
+   * 🔲 Enhance asset metadata model to include source medium/platform
+   * 🔲 Update database schema for categorizing content by source
+   * 🔲 Extend asset upload UI to allow specifying content source
+   * 🔲 Create filters to view content by platform/medium
+
+6. **Advanced Web Scraping & Content Ingestion**
+   * 🔲 Enhance website scraper to better preserve content structure
+   * 🔲 Implement selective scraping for specific content types
+   * 🔲 Add support for scraping social media platforms
+   * 🔲 Create content preview and validation before ingestion
+
+7. **Personality Model Enhancement**
+   * 🔲 Update personality JSON structure to include platform-specific traits
+   * 🔲 Add cross-platform analysis to persona generation
+   * 🔲 Implement source-specific persona variations
+   * 🔲 Create visualization for cross-platform personality differences
+
+8. **Content Generation System**
+   * 🔲 Design and implement post generator UI tab
+   * 🔲 Create backend for platform-specific content generation
+   * 🔲 Develop prompted content generation system
+   * 🔲 Add generated content to library with proper categorization
+
+9. **Chat-Based Assessment Module**
+   * 🔲 Implement parallel AI response generation during chat
+   * 🔲 Create visual comparison interface for responses
+   * 🔲 Add feedback collection system for AI performance
+   * 🔲 Integrate assessment feedback into persona refinement
+
+10. **Feedback Loop Integration**
+    * 🔲 Design system for incorporating generated content into persona models
+    * 🔲 Create feedback categorization for improving specific traits
+    * 🔲 Implement analytics to track persona improvement over time
 
 ## P0: Database Migration & Core Stabilization (Top Priority)
 
@@ -85,11 +152,11 @@
 
 ## Priority 2: Personality/Persona Model Refinement
 
-9.  **Implement Single-Personality User Model**
-    *   🔲 Update database schema to clarify that each user has one primary personality/persona.
-    *   🔲 Modify API endpoints to maintain this one-to-one relationship.
-    *   🔲 Ensure UI reflects this model (clear editing of a single personality per user).
-    *   🔲 Add "reset to original" functionality for personality prompt edits.
+9.  **Implement Enhanced Persona Model**
+    *   🔲 Update database schema to support both individual and brand personas
+    *   🔲 Extend persona JSON structure for platform-specific representation
+    *   🔲 Add source categorization to the persona generation process
+    *   🔲 Implement cross-channel analysis into persona generation
 
 10. **Persona Data Workflow Improvements**
     *   ✅ Update personality generation module to create the base personality JSON.
@@ -110,74 +177,60 @@
     *   ✅ Store alignment analysis in database linked to user/persona.
 
 13. **Content Ingestion Flow**
-    *   🔲 Build website scraping functionality with direct tie to personality generation.
-    *   🔲 Add placeholders for future social media integration (LinkedIn, Twitter).
-    *   🔲 Ensure scraped content is properly stored and associated with user for personality generation.
+    *   🔲 Build enhanced website scraping functionality with content type detection.
+    *   🔲 Add content categorization by medium/platform during ingestion.
+    *   🔲 Implement selective scraping for targeted content types.
+    *   🔲 Add support for social media platform integration.
 
-## Priority 3: High-Impact UX & Refinements
+## Priority 3: High-Impact User Experience
 
-14. **Simplify Navigation State Management** (Was Task #6)
+14. **Post Generator Module**
+    *   🔲 Design and implement post generator UI tab.
+    *   🔲 Create backend for content generation based on persona.
+    *   🔲 Implement platform-specific styling for generated content.
+    *   🔲 Add ability to save generated content back to content library.
+
+15. **Chat-Based Assessment System**
+    *   🔲 Develop parallel AI response system during user chats.
+    *   🔲 Create visual comparison interface for responses.
+    *   🔲 Add commentary/feedback system for AI performance.
+    *   🔲 Integrate feedback into persona refinement process.
+
+16. **Feedback Loop Implementation**
+    *   🔲 Build system for incorporating generated content and feedback into persona refinement.
+    *   🔲 Create analytics for tracking persona development over time.
+    *   🔲 Add visualization for persona evolution based on feedback.
+
+## Legacy Tasks (Moved to separate priorities above)
+
+17. **Simplify Navigation State Management** (Was Task #6)
     *   🔲 Consolidate tab enabling/disabling logic.
     *   🔲 Create a clear, deterministic flow for tab state changes.
     *   🔲 Remove redundant enablement code.
 
-15. **Improve Frontend State Management** (Was Task #7)
+18. **Improve Frontend State Management** (Was Task #7)
     *   ✅ Create a consistent approach (e.g., centralize in `utils.js` state, use `localStorage` *or* `sessionStorage` consistently).
     *   🔲 Implement better synchronization between client state and UI.
     *   🔲 Add state validation/cleanup (e.g., on user change).
 
-16. **Optimize LinkedIn Status Checking** (Was Task #9)
+19. **Optimize LinkedIn Status Checking** (Was Task #9)
     *   ✅ Reduce API calls for status checking.
     *   🔲 Create a single source of truth for connection status (potentially using DB-backed session).
     *   🔲 Implement caching for connection status.
 
-## Priority 4: Code Improvements
-
-17. **Performance Optimizations** (Was Task #9 in P3)
-    *   ✅ *Enabled:* Indexed lookups for assets/users via SQLite.
-    *   🔲 Add proper caching for static assets (CSS, JS).
-    *   🔲 Optimize frontend asset loading if needed.
-
-18. **Reduce Duplication** (Was Task #8 in P3)
-    *   ✅ *Partially Addressed:* Common JSON file utilities removed by DB migration.
-    *   🔲 Extract other common functions (e.g., directory management if still needed, frontend utils).
-    *   🔲 Consolidate event handler registration patterns in frontend modules.
-
-19. **Refactor Monolithic Files** (Was Task #10)
-    *   🔲 Break up large `server.js` file into more route files (e.g., move standalone routes like `/api/chat`, `/api/scrape`).
-    *   🔲 Split large frontend modules (`userModule.js`, `contentModule.js`) into smaller, focused components/hooks if needed (Consider post-stabilization).
-
-## Priority 5: Future-Proofing & Polish
-
-20. **Improve Error Handling** (Was Task #11)
-    *   🔲 Add consistent server-side error logging (structured).
-    *   🔲 Implement proper error recovery/fallback mechanisms.
-    *   🔲 Create user-friendly error messages on the frontend.
-
-21. **Implement Testing** (Was Task #12)
-    *   🔲 Add unit tests for critical services (post-SQLite migration).
-    *   🔲 Create integration tests for core flows (DB interactions, API routes).
-    *   🔲 Add E2E tests for user journeys (OAuth, upload, chat, assessment).
-
-22. **Documentation** (Was Task #13)
-    *   🔲 Update `CLAUDE.md` to reflect the SQLite architecture.
-    *   🔲 Document the database schema.
-    *   🔲 Add API documentation for updated/new endpoints.
-    *   🔲 Create developer setup guide.
-
 ## Build Process Tasks (Ongoing)
 
-23. **Setup Development Environment** (Was Task #14)
+20. **Setup Development Environment** (Was Task #14)
     *   🔲 Add linting configuration (ESLint).
     *   🔲 Configure Prettier for code formatting.
     *   🔲 Set up Git hooks for pre-commit checks.
 
-24. **CI/CD Setup** (Was Task #15)
+21. **CI/CD Setup** (Was Task #15)
     *   🔲 Create basic GitHub Actions workflow.
     *   🔲 Add automated testing to the workflow.
     *   🔲 Set up deployment process.
 
-25. **Monitoring and Logging** (Was Task #16)
+22. **Monitoring and Logging** (Was Task #16)
     *   🔲 Implement structured logging (as part of Error Handling).
     *   🔲 Add error tracking (e.g., Sentry).
     *   🔲 Set up performance monitoring.

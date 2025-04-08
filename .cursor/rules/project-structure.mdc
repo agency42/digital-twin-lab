@@ -105,3 +105,10 @@ The application uses SQLite with tables for:
 - oauth_state
 
 See database/schema.sql for detailed structure.
+
+
+
+
+
+
+
