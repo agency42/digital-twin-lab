@@ -5,7 +5,7 @@ import path from 'path';
 import { dbRun, dbGet, dbAll } from '../lib/database'; // Import DB helpers
 import { v4 as uuidv4 } from 'uuid';
 // import WebsiteScraper from './scrapers/websiteScraper'; // Commented out - currently unused
-// import PdfProcessor from './pdfProcessor'; // Commented out - TODO: Migrate pdfProcessor
+import PdfProcessor from './pdfProcessor'; // Import the PDF processor service
 
 // Define the shape of Asset data in the database
 interface Asset {
@@ -35,13 +35,13 @@ interface AssetMetadata {
 class AssetProcessor {
     private assetsDir: string;
     // private scraper: WebsiteScraper; // Removed unused property
-    // private pdfProcessor: PdfProcessor; // Commented out
+    private pdfProcessor: PdfProcessor;
 
     constructor() {
         // Define assets directory relative to compiled JS file location (e.g., dist/services)
         this.assetsDir = path.join(__dirname, '../../data/assets'); 
         // this.scraper = new WebsiteScraper(); // Removed unused initialization
-        // this.pdfProcessor = new PdfProcessor(); // Commented out
+        this.pdfProcessor = new PdfProcessor();
     }
 
     /**
@@ -111,7 +111,9 @@ class AssetProcessor {
         // TODO: Add URL scraping and PDF processing logic here if needed
         // Example placeholder:
         // if (assetType === 'url') { await this.scraper.scrapeAndSave(sourceUrl, fullFilePath); }
-        // if (assetType === 'pdf') { await this.pdfProcessor.extractText(fullFilePath); }
+        if (assetType === 'pdf') { 
+            await this.pdfProcessor.extractText(fullFilePath); 
+        }
         
         // Save asset metadata to database
         const now = new Date().toISOString();

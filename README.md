@@ -1,13 +1,12 @@
-# Digital Twin Lab
-
-An experimental platform for creating and evaluating AI-powered digital twins that mirror human personality traits. This project allows users to collect personal content, generate tailored personality profiles, interact with their digital twins, and evaluate personality alignment.
+# digital twin lab
+an interface for creating and and interacting with digital twins. upload your content, generate a personality profile, chat, and assess alignment.
 
 ## Core Features
 
 1. **User Profile Management**
    - Create and select user profiles
-   - Complete personality assessment questionnaires (TIPI)
-   - Connect LinkedIn accounts for additional profile data
+   - Complete personality assessment
+   - Connect social accounts for additional profile data
    - Save and manage biographical information
 
 2. **Content Collection**
@@ -17,9 +16,7 @@ An experimental platform for creating and evaluating AI-powered digital twins th
    - Organize and select content for personality generation
 
 3. **Personality Generation**
-   - Create structured SoulScript personality profiles
-   - Generate detailed OCEAN/Big Five trait mappings
-   - Configure voice, style, and relationship parameters
+   - Create structured personality profiles (json) from user content
    - Save and manage multiple personality versions
 
 4. **Digital Twin Interaction**
@@ -29,10 +26,8 @@ An experimental platform for creating and evaluating AI-powered digital twins th
    - Test twin in different conversation scenarios
 
 5. **Alignment Evaluation**
-   - Compare user and AI responses to TIPI assessment
+   - Compare user and AI responses to assessment
    - Visualize trait alignment via radar charts
-   - Calculate matching metrics and correlations
-   - Rate subjective authenticity of interactions
 
 ## Getting Started
 
@@ -141,22 +136,6 @@ The application uses local file-based storage:
 
 ## Project Status
 
-The Digital Twin Lab is under active development. Currently completed:
-
-- ✅ User profile management
-- ✅ Content collection (files, websites, LinkedIn)
-- ✅ SoulScript personality generation
-- ✅ Basic personality assessment (TIPI)
-- ✅ Digital twin chat interface
-- ✅ Alignment visualization
-
-In progress:
-
-- 🔲 Enhanced assessment options (BFI-2-XS, IPIP-50)
-- 🔲 Prompt engineering tools
-- 🔲 Linguistic style analysis
-- 🔲 Advanced visualization
-
 See [CLAUDE.md](CLAUDE.md) for detailed technical notes and current development status.
 
 ## Research Background
@@ -167,18 +146,7 @@ This project builds on recent research in LLM-based personality simulation:
 - **GPT-4 Personality Studies** - Showed high correlation between simulated and actual trait scores
 - **Personality Prompting Research** - Developed methods to induce specific trait expressions in LLMs
 
-For more details on the experimental design and research framework, see [experimental-design.md](experimental-design.md).
-
-## Contributing
-
-We welcome contributions to improve Digital Twin Lab! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## Acknowledgments
 
-- The SoulScript structure is inspired by [SoulGraph](https://soulgraph.gitbook.io/)
+- Ther personality json data structure was inspired by SoulScript by [SoulGraph](https://soulgraph.gitbook.io/)
 - TIPI assessment from Gosling et al. (2003)
-- Chart visualizations powered by Chart.js
