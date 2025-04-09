@@ -13,6 +13,8 @@ interface Asset {
     user_id: string;
     type: 'text' | 'image' | 'pdf' | 'url' | 'json'; // Added 'json' type
     filepath: string;
+    source_platform?: string | null; // Added
+    source_medium?: string | null; // Added
     original_filename?: string | null;
     mime_type?: string | null;
     size_bytes?: number | null;
@@ -25,7 +27,8 @@ interface AssetMetadata {
     userId: string;
     personId?: string; // Optional: For organizing files, defaults to userId if missing
     sourceUrl?: string;
-    sourceType?: string;
+    sourcePlatform?: string; // Renamed from sourceType for clarity
+    sourceMedium?: string; // Added
     context?: string;
     title?: string;
     // Allow other arbitrary fields
@@ -62,7 +65,14 @@ class AssetProcessor {
      * @returns The created Asset record.
      */
     async processAsset(file: UploadedFile, metadata: AssetMetadata): Promise<Asset> {
-        const { userId, personId, sourceUrl, ...otherMetadata } = metadata;
+        const {
+            userId,
+            personId,
+            sourceUrl,
+            sourcePlatform, // Use new name
+            sourceMedium, // Use new field
+            ...otherMetadata
+        } = metadata;
         if (!userId) {
             throw new Error('User ID is required in metadata to process asset.');
         }
@@ -120,8 +130,12 @@ class AssetProcessor {
         const metadataJson = JSON.stringify(otherMetadata); // Store remaining metadata
 
         const dbQuery = `
-            INSERT INTO assets (asset_id, user_id, type, filepath, original_filename, mime_type, size_bytes, created_at, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO assets (
+                asset_id, user_id, type, filepath, 
+                source_platform, source_medium, -- Added columns
+                original_filename, mime_type, size_bytes, created_at, metadata
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         
         await dbRun(dbQuery, [
@@ -129,6 +143,8 @@ class AssetProcessor {
             userId,
             assetType,
             relativeFilePath,
+            sourcePlatform, // Added value
+            sourceMedium, // Added value
             originalFilename,
             mimeType,
             sizeBytes,
@@ -136,7 +152,7 @@ class AssetProcessor {
             metadataJson
         ]);
 
-        console.log(`Asset processed and saved: ID ${assetId}, User ${userId}, Type ${assetType}, Path ${relativeFilePath}`);
+        console.log(`Asset processed and saved: ID ${assetId}, User ${userId}, Type ${assetType}, Platform ${sourcePlatform}, Medium ${sourceMedium}, Path ${relativeFilePath}`);
         
         // Fetch and return the created asset record
         const newAsset = await this.getAsset(assetId);
@@ -176,8 +192,10 @@ class AssetProcessor {
                 mimetype: asset.mime_type,
                 fileName: asset.original_filename,
                 filePath: asset.filepath,
+                sourcePlatform: asset.source_platform || 'unknown', // Added
+                sourceMedium: asset.source_medium || 'unknown', // Added
                 createdAt: asset.created_at,
-                sourceType: metadata.sourceType || 'upload',
+                sourceType: metadata.sourceType || 'upload', // Kept for potential backward compat? Review if needed.
                 context: metadata.context || '',
                 contentPreview: metadata.preview || '',
                 // Include other metadata fields

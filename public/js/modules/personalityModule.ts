@@ -312,11 +312,26 @@ export async function generatePersonalityProfile(): Promise<void> {
 
         // Update UI
         if (personalityJsonOutputPre) {
-            personalityJsonOutputPre.textContent = JSON.stringify(data.personality, null, 2);
-            personalityJsonOutputPre.style.display = 'block';
-        }
-        if (copyJsonButton) {
-            copyJsonButton.style.display = 'block';
+            try {
+                // Parse the JSON string received from the backend
+                const parsedProfile = JSON.parse(data.persona_json);
+                // Stringify the *parsed object* for pretty display
+                personalityJsonOutputPre.textContent = JSON.stringify(parsedProfile, null, 2);
+                personalityJsonOutputPre.style.display = 'block';
+                // Only show copy button if JSON is displayed successfully
+                if (copyJsonButton) copyJsonButton.style.display = 'block'; 
+                // Clear the status message above the JSON box
+                if (personalityGenerationStatusDiv) personalityGenerationStatusDiv.textContent = '';
+            } catch (e: unknown) { // Explicitly type e as unknown
+                console.error("Error parsing or displaying generated persona JSON string:", e);
+                // Safely access message property
+                const errorMessage = (e instanceof Error) ? e.message : String(e);
+                personalityJsonOutputPre.textContent = `Error displaying JSON: ${errorMessage}\n\nRaw data received:\n${data.persona_json}`;
+                personalityJsonOutputPre.style.display = 'block';
+                 if (copyJsonButton) copyJsonButton.style.display = 'none';
+            }
+        } else {
+             console.warn("UI Update: personalityJsonOutputPre element not found.");
         }
 
         // Reload user data to ensure all state is properly updated
@@ -450,28 +465,42 @@ export function updateGenerateButtonState(): void {
  * Displays the primary persona in the UI, if available in state.
  */
 function displayPrimaryPersona(): void {
+    console.log('[displayPrimaryPersona] Attempting to display persona...'); // Log entry
     if (!primaryPersonaDisplayContainer || !noPrimaryPersonaMessage || !profileCardTemplate) {
-        console.warn('displayPrimaryPersona: Missing required display or template elements.');
+        console.error('[displayPrimaryPersona] Missing required display or template elements:', {
+            container: !!primaryPersonaDisplayContainer,
+            message: !!noPrimaryPersonaMessage,
+            template: !!profileCardTemplate
+        });
         return;
     }
 
     const primaryPersona = state.currentUserData?.primaryPersona;
+    console.log('[displayPrimaryPersona] Found primaryPersona in state:', primaryPersona ? { id: primaryPersona.id, hasProfile: !!primaryPersona.profile } : null);
 
     primaryPersonaDisplayContainer.innerHTML = ''; // Clear previous content
 
     if (primaryPersona?.profile) {
-        console.log('Displaying primary persona:', primaryPersona.id);
+        console.log('[displayPrimaryPersona] primaryPersona.profile exists. Calling createProfileCard...');
         try {
             const card = createProfileCard(primaryPersona.profile, primaryPersona.updatedAt || primaryPersona.createdAt);
-            primaryPersonaDisplayContainer.appendChild(card);
-            noPrimaryPersonaMessage.style.display = 'none';
+            if (card) {
+                console.log('[displayPrimaryPersona] Card created successfully. Appending to container...', card);
+                primaryPersonaDisplayContainer.appendChild(card);
+                noPrimaryPersonaMessage.style.display = 'none';
+                console.log('[displayPrimaryPersona] Card appended, no-persona message hidden.');
+            } else {
+                 console.error('[displayPrimaryPersona] createProfileCard returned null or undefined.');
+                 noPrimaryPersonaMessage.textContent = 'Error creating profile card element.';
+                 noPrimaryPersonaMessage.style.display = 'block';
+            }
         } catch (error) {
-            console.error('Error creating profile card:', error);
+            console.error('[displayPrimaryPersona] Error creating or appending profile card:', error);
              noPrimaryPersonaMessage.textContent = 'Error displaying primary persona.';
              noPrimaryPersonaMessage.style.display = 'block';
         }
     } else {
-        console.log('No primary persona found in state to display.');
+        console.log('[displayPrimaryPersona] No primary persona profile found in state. Showing message.');
         noPrimaryPersonaMessage.textContent = 'No primary personality profile generated yet. Use the "Generate Personality" section above.';
         noPrimaryPersonaMessage.style.display = 'block';
     }
@@ -483,50 +512,65 @@ function displayPrimaryPersona(): void {
  * @param timestamp - Creation/update timestamp string
  * @returns The card element (HTMLElement)
  */
-export function createProfileCard(profile: Profile, timestamp: string): HTMLElement {
+export function createProfileCard(profile: Profile, timestamp: string): HTMLElement | null { // Return null on error
+     console.log('[createProfileCard] Attempting to create card...');
     if (!profileCardTemplate) {
-        console.error('Profile card template not found');
-        const fallback = document.createElement('div');
-        fallback.textContent = 'Error: Profile template missing.';
-        return fallback;
+        console.error('[createProfileCard] Profile card template not found in DOM!');
+        return null; // Return null instead of fallback div
     }
 
-    const clone = document.importNode(profileCardTemplate.content, true);
-    const card = clone.querySelector('.profile-card') as HTMLElement | null;
-    if (!card) throw new Error ('Invalid profile card template: Missing .profile-card element');
-
-    // Set title and date
-    const titleEl = card.querySelector('.profile-card-title') as HTMLElement | null;
-    const dateEl = card.querySelector('.profile-card-date') as HTMLElement | null;
-    if (titleEl) titleEl.textContent = 'Primary Personality Profile'; // Static title for now
-    if (dateEl) dateEl.textContent = `Updated: ${new Date(timestamp).toLocaleString()}`;
-
-    // Add trait badges
-    const traitsEl = card.querySelector('.traits-summary') as HTMLElement | null;
-    if (traitsEl && profile.big_five_traits) {
-        traitsEl.innerHTML = ''; // Clear any template placeholders
-        for (const [trait, level] of Object.entries(profile.big_five_traits)) {
-            if (typeof level !== 'string') continue; // Skip if level is not a string
-            const badge = document.createElement('span');
-            badge.className = 'trait-badge';
-            badge.textContent = `${trait.charAt(0).toUpperCase() + trait.slice(1)}: ${level}`;
-            // Add basic styling based on level (could be improved)
-            if (level.toLowerCase() === 'high') badge.style.cssText = 'background-color:#d4edda; color:#155724;';
-            else if (level.toLowerCase() === 'low') badge.style.cssText = 'background-color:#f8d7da; color:#721c24;';
-            else badge.style.cssText = 'background-color:#e0e0e0; color:#333;';
-            traitsEl.appendChild(badge);
+    let card: HTMLElement | null = null;
+    try {
+        const clone = document.importNode(profileCardTemplate.content, true);
+        card = clone.querySelector('.profile-card') as HTMLElement | null;
+        if (!card) {
+             console.error('[createProfileCard] Invalid template: Missing .profile-card element within template content.');
+             return null;
         }
-    }
+         console.log('[createProfileCard] Found .profile-card element.');
 
-    // Setup view button action
-    const viewBtn = card.querySelector('.view-profile-button') as HTMLButtonElement | null;
-    if (viewBtn) {
-        viewBtn.addEventListener('click', () => {
-            showProfileModal(profile);
-        });
-    }
+        // Set title and date
+        const titleEl = card.querySelector('.profile-card-title') as HTMLElement | null;
+        const dateEl = card.querySelector('.profile-card-date') as HTMLElement | null;
+        console.log('[createProfileCard] Found sub-elements:', { title: !!titleEl, date: !!dateEl });
+        if (titleEl) titleEl.textContent = 'Primary Personality Profile';
+        if (dateEl) dateEl.textContent = `Updated: ${new Date(timestamp).toLocaleString()}`;
 
-    return card;
+        // Add trait badges
+        const traitsEl = card.querySelector('.traits-summary') as HTMLElement | null;
+         console.log('[createProfileCard] Found traits element:', !!traitsEl);
+        if (traitsEl && profile.big_five_traits) {
+            traitsEl.innerHTML = ''; 
+            // ... (badge creation logic remains the same) ...
+             Object.entries(profile.big_five_traits).forEach(([trait, level]) => {
+                if (typeof level !== 'string') return;
+                const badge = document.createElement('span');
+                badge.className = 'trait-badge';
+                badge.textContent = `${trait.charAt(0).toUpperCase() + trait.slice(1)}: ${level}`;
+                if (level.toLowerCase() === 'high') badge.style.cssText = 'background-color:#d4edda; color:#155724;';
+                else if (level.toLowerCase() === 'low') badge.style.cssText = 'background-color:#f8d7da; color:#721c24;';
+                else badge.style.cssText = 'background-color:#e0e0e0; color:#333;';
+                traitsEl.appendChild(badge);
+            });
+        } else if (traitsEl) {
+            traitsEl.innerHTML = '<p><em>No Big Five traits found in profile.</em></p>'; // Placeholder if traits missing
+        }
+
+        // Setup view button action
+        const viewBtn = card.querySelector('.view-profile-button') as HTMLButtonElement | null;
+         console.log('[createProfileCard] Found view button:', !!viewBtn);
+        if (viewBtn) {
+            viewBtn.addEventListener('click', () => {
+                showProfileModal(profile);
+            });
+        }
+
+        console.log('[createProfileCard] Card created successfully.');
+        return card;
+    } catch (error) {
+         console.error('[createProfileCard] Error during card creation:', error);
+         return null; // Return null if any error occurs during creation
+    }
 }
 
 /**

@@ -13,7 +13,9 @@ interface Asset {
     fileName?: string;
     contentType?: string; // Frontend consistency
     mimetype?: string; // From backend
-    sourceType?: string; // e.g., 'upload', 'scrape', 'linkedin'
+    sourcePlatform?: string; // Added
+    sourceMedium?: string; // Added
+    sourceType?: string; // e.g., 'upload', 'scrape', 'linkedin' - Keep temporarily for compatibility?
     source?: string; // e.g., URL for scrape
     createdAt?: string; // ISO Date string
     assetUrl?: string; // Direct URL if available
@@ -269,17 +271,28 @@ function handleFileUpload(): void {
     const currentUserId = state.currentUserId; // Use const after check
     const files = uploadFileInput.files;
 
+    // Get source platform and medium from the new select elements
+    const sourcePlatformSelect = document.getElementById('upload-source-platform') as HTMLSelectElement | null;
+    const sourceMediumSelect = document.getElementById('upload-source-medium') as HTMLSelectElement | null;
+    const sourcePlatform = sourcePlatformSelect?.value || 'direct_upload';
+    const sourceMedium = sourceMediumSelect?.value || 'file';
+
     const formData = new FormData();
     formData.append('userId', currentUserId);
+    // Append the new source fields
+    formData.append('sourcePlatform', sourcePlatform);
+    formData.append('sourceMedium', sourceMedium);
 
     for (let i = 0; i < files.length; i++) {
-        formData.append('files', files[i]);
+        // Use 'file' as the key, as expected by the backend
+        formData.append('file', files[i]); 
     }
 
-    showStatus(uploadStatusDiv, 'Uploading file(s)...', 'loading');
-    log(3, `Uploading ${files.length} file(s) for user ${currentUserId}`);
+    showStatus(uploadStatusDiv, `Uploading ${files.length} file(s) (Platform: ${sourcePlatform}, Medium: ${sourceMedium})...`, 'loading');
+    log(3, `Uploading ${files.length} file(s) for user ${currentUserId} with source: ${sourcePlatform}/${sourceMedium}`);
 
-    fetch('/api/assets/upload', {
+    // Fetch endpoint is /api/upload/ according to uploadRoutes.ts
+    fetch('/api/upload/', {
         method: 'POST',
         body: formData
     })
@@ -478,7 +491,15 @@ function createAssetCard(asset: Asset, template: HTMLTemplateElement): HTMLEleme
     titleDiv.title = title; // Add tooltip
 
     // Set source
-    sourceDiv.textContent = asset.source || asset.sourceType || asset.metadata?.sourceType || asset.metadata?.source || 'Unknown source';
+    let sourceText = asset.sourcePlatform || 'Unknown Platform';
+    if (asset.sourceMedium) {
+        sourceText += ` (${asset.sourceMedium})`;
+    }
+    if (asset.source) { // Add original URL if available (e.g., for scrapes)
+        sourceText += `: ${asset.source}`;
+    }
+    sourceDiv.textContent = sourceText;
+    sourceDiv.title = asset.source || sourceText; // Tooltip with URL or full text
 
     // Set date
     const createdDate = asset.createdAt || asset.metadata?.createdAt;
@@ -506,16 +527,28 @@ function createAssetCard(asset: Asset, template: HTMLTemplateElement): HTMLEleme
         const imagePreview = document.createElement('div');
         imagePreview.className = 'image-preview';
         const image = document.createElement('img');
+        // Construct the potential paths for the image, prioritizing direct paths
         const paths = [
-            asset.assetUrl,
-            `/api/assets/${asset.id}/content`,
-            `/api/assets/${asset.id}/preview`,
+            // 1. Direct asset path (preferred)
             asset.filePath ? `/assets/${asset.filePath}` : undefined,
+            // 2. Fallback using userId and fileName (less reliable)
             (asset.userId || state.currentUserId) && asset.fileName ? `/assets/${asset.userId || state.currentUserId}/${asset.fileName}` : undefined,
-            (asset.profileId || asset.userId || state.currentUserId) && (asset.fileName || asset.filename) ? `/data/assets/${asset.profileId || asset.userId || state.currentUserId}/${asset.fileName || asset.filename}` : undefined
+            // 3. Fallback using profileId (legacy?)
+            (asset.profileId || asset.userId || state.currentUserId) && (asset.fileName || asset.filename) ? `/data/assets/${asset.profileId || asset.userId || state.currentUserId}/${asset.fileName || asset.filename}` : undefined,
+             // 4. Explicit assetUrl if provided (might be external)
+            asset.assetUrl
+            // Removed API paths: /api/assets/${asset.id}/content and /preview
         ].filter((p): p is string => typeof p === 'string' && p.length > 0); // Filter out null/undefined/empty strings
         
-        loadImageWithFallbacks(image, paths, 0);
+        if (paths.length > 0) {
+            loadImageWithFallbacks(image, paths, 0);
+        } else {
+            // If no valid path constructed, show fallback immediately
+            image.src = '/img/image-icon.png';
+            image.alt = 'Image path not found';
+            image.style.width = '32px'; 
+            image.style.height = '32px';
+        }
         imagePreview.appendChild(image);
         previewDiv.appendChild(imagePreview);
     }

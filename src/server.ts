@@ -7,6 +7,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import path from 'path';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { AddressInfo } from 'net';
 
 // Import database utilities
@@ -37,6 +38,22 @@ const abstractionApproach = new AbstractionApproach();
 const claudeAPI = new ClaudeAPI();
 
 // Middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "*"],
+      connectSrc: ["'self'", "api.anthropic.com", "*.linkedin.com"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+}));
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

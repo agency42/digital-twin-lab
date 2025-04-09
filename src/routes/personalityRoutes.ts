@@ -127,14 +127,20 @@ function createPersonalityRouter(abstractionApproach: AbstractionApproach): Rout
          }
          
          const result = await personalityService.deleteVariation(userId, module);
-         if (result.success && result.changes > 0) {
-             res.status(200).json({ success: true, message: `Variation for module '${module}' deleted.` });
-             return; // Explicit return
-         } else if (result.success && result.changes === 0) {
-             res.status(404).json({ success: false, error: `Variation for module '${module}' not found.` });
+         
+         // Consider the operation successful if there was no error, 
+         // regardless of whether a row was actually deleted (it might not have existed).
+         if (result.success) {
+             const message = result.changes > 0 
+                 ? `Variation for module '${module}' deleted.`
+                 : `No existing variation found for module '${module}', considered deleted.`;
+             // Return 200 OK, indicating the resource is gone (or never existed)
+             res.status(200).json({ success: true, message: message, changes: result.changes }); 
              return; // Explicit return
          } else {
-             throw new Error('Failed to delete variation.');
+             // If the service method itself indicated failure (success: false)
+             console.error(`PersonalityService.deleteVariation failed for user ${userId}, module ${module}`);
+             throw new Error(`Failed to delete variation for module '${module}'.`); 
          }
     }));
 

@@ -72,10 +72,21 @@ class ClaudeAPI {
     ): Promise<string | AsyncIterable<StreamEvent>> { // Return type depends on stream option
         const { system, temperature = 0.7, max_tokens = 1024, stream = false } = options;
 
+        // --- Enhanced Logging Start ---
         console.log(`--- Calling Claude API (Stream: ${stream}) ---`);
-        // console.log(`System Prompt: ${system ? system.substring(0, 100) + '...' : 'None'}`);
-        // console.log(`Messages: ${safeLogStringify(messages)}`);
-        // console.log(`Options: ${safeLogStringify({ temperature, max_tokens })}`);
+        console.log(`System Prompt: ${system ? system.substring(0, 200) + (system.length > 200 ? '...' : '') : 'None'}`);
+        // Log messages carefully, potentially truncating long content
+        const loggedMessages = messages.map(msg => {
+            if (typeof msg.content === 'string' && msg.content.length > 300) {
+                return { ...msg, content: msg.content.substring(0, 150) + '...<truncated>...' + msg.content.substring(msg.content.length - 150) };
+            } else if (Array.isArray(msg.content)) { // Handle image content array
+                 return { ...msg, content: `[${msg.content.length} content parts, including images]` };
+            }
+            return msg;
+        });
+        console.log('Messages:', JSON.stringify(loggedMessages, null, 2));
+        console.log(`Options: ${JSON.stringify({ temperature, max_tokens })}`);
+        // --- Enhanced Logging End ---
 
         try {
             const requestPayload: Anthropic.Messages.MessageCreateParams = {
@@ -91,7 +102,8 @@ class ClaudeAPI {
                 const streamResponse = await this.anthropic.messages.create(requestPayload as Anthropic.Messages.MessageCreateParamsStreaming);
                 console.log(`--- Claude Stream Initiated ---`);
                 // We return the stream directly for the caller to handle
-                return streamResponse as AsyncIterable<StreamEvent>; // Type assertion might be needed based on exact SDK return type
+                // TODO: Add logging within the stream handling if needed (e.g., in chatModule)
+                return streamResponse as AsyncIterable<StreamEvent>; 
             } else {
                 const response: Anthropic.Messages.Message = await this.anthropic.messages.create(requestPayload as Anthropic.Messages.MessageCreateParamsNonStreaming);
                 console.log(`--- Claude Non-Stream Response Received ---`);
@@ -104,19 +116,26 @@ class ClaudeAPI {
                 } else {
                     console.warn('Claude response content was empty or not text.');
                 }
+                
+                // --- Enhanced Logging Start ---
+                console.log('Claude Raw Response Text (Non-Stream):', responseText);
+                // --- Enhanced Logging End ---
 
-                // console.log(`Claude Response (Full):\n${responseText}`); // Commented out: Potentially sensitive
                 console.log(`--- End generateCompletion (Non-Stream) ---`);
                 return responseText;
             }
         } catch (error: any) {
-            console.error('Error calling Anthropic API:', error.message);
+             // --- Enhanced Logging Start ---
+            console.error('[Claude API Error] Error during API call:', error.message);
             if (error instanceof Anthropic.APIError) {
-                 console.error('Anthropic API Error Details:', {
+                 console.error('[Claude API Error] Details:', {
                      status: error.status,
+                     headers: error.headers, // Log headers which might contain rate limit info
                      message: error.message,
+                     // error: error.error // Avoid logging potentially large/sensitive raw error object
                  });
             }
+            // --- Enhanced Logging End ---
             // Re-throw a more generic error or the specific error
             throw new Error(`Anthropic API call failed: ${error.message}`);
         }
@@ -164,33 +183,25 @@ class ClaudeAPI {
 
     /**
      * Attempts to generate a structured personality profile JSON using Claude.
+     * NOTE: This method uses generateCompletion internally, so logging added there applies.
      * @param inputText Combined text input from assets/sources.
      * @param customPrompt Optional custom prompt instructions.
      * @returns {Promise<object | null>} The parsed JSON object or null on failure.
      */
     async generatePersonality(inputText: string, customPrompt?: string): Promise<object | null> {
         console.log(`--- Calling Claude for Personality Generation ---`);
-        const basePrompt = `Analyze the following text which represents writings and information about a person. Based *only* on this text, generate a structured JSON object representing their personality profile. The JSON object should follow this approximate structure:
-{
-  "entity": { "form": "human", "occupation": "...", "gender": "...", "age": "..." },
-  "personality": { "name": "...", "core_traits": [{"trait": "...", "strength": 0.X}], "values": [...] },
-  "voice": { "style": "...", "tone": "...", "qualities": [...], "patterns": [...] },
-  "relationship": { "style": "...", "boundaries": "..." },
-  "big_five_traits": { "openness": "high|medium|low", "conscientiousness": "...", "extraversion": "...", "agreeableness": "...", "neuroticism": "..." },
-  "background": [...],
-  "expertise": [...]
-}
-Ensure the output is ONLY the JSON object, starting with { and ending with }.`;
+        // Enhanced base prompt with stricter JSON formatting instructions
+        const basePrompt = `Analyze the following text which represents writings and information about a person. Based *only* on this text, generate a structured JSON object representing their personality profile.\n\nThe JSON object MUST strictly follow this structure:\n{\n  \"entity\": { \"form\": \"human | brand\", \"occupation\": \"string | null\", \"gender\": \"string | null\", \"age\": \"string | null\" },\n  \"personality\": { \"name\": \"string | null\", \"core_traits\": [{\"trait\": \"string\", \"strength\": number(0.0-1.0)}], \"values\": [\"string\"] },\n  \"voice\": { \"style\": \"string\", \"tone\": \"string\", \"qualities\": [\"string\"], \"patterns\": [\"string\"] },\n  \"relationship\": { \"style\": \"string\", \"boundaries\": \"string\" },\n  \"big_five_traits\": { \"openness\": \"high|medium|low\", \"conscientiousness\": \"high|medium|low\", \"extraversion\": \"high|medium|low\", \"agreeableness\": \"high|medium|low\", \"neuroticism\": \"high|medium|low\" },\n  \"background\": [\"string\"],\n  \"expertise\": [\"string\"]\n}\n\nIMPORTANT RULES FOR JSON OUTPUT:\n1.  The output MUST be ONLY the JSON object itself, starting with { and ending with }.\n2.  Do NOT include any introductory text, explanations, or markdown code fences (like \`\`\`json) before or after the JSON.\n3.  Ensure ALL strings are enclosed in double quotes (\").\n4.  Ensure all keys are enclosed in double quotes (\").\n5.  Ensure correct placement of commas - between elements in arrays and key/value pairs in objects.\n6.  Do NOT use trailing commas after the last element in an array or object.\n7.  Escape any special characters within strings properly (e.g., \\\" for a quote inside a string).\n8.  All keys specified in the structure MUST be present, even if their value is null or an empty array [].\n`;
 
         const systemMessage = customPrompt ? `${customPrompt}\n\n${basePrompt}` : basePrompt;
-        const userMessageContent = `Here is the text about the person:\n\n<text>\n${inputText}\n</text>\n\nGenerate the JSON personality profile.`;
+        const userMessageContent = `Here is the text about the person:\n\n<text>\n${inputText}\n</text>\n\nGenerate the JSON personality profile according to the strict rules provided.`;
 
         const messages: ChatMessage[] = [
             { role: 'user', content: userMessageContent },
         ];
 
         try {
-            // Use generateCompletion (non-streaming)
+            // Use generateCompletion (non-streaming) - Logging is inside generateCompletion
             const responseText = await this.generateCompletion(messages, {
                 system: systemMessage,
                 stream: false,
@@ -198,39 +209,58 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.`;
             }) as string;
 
             // Parse the response as JSON
-            const parsedJson = this.parseJSONFromText(responseText); // Logs raw response on failure
+             console.log('--- Attempting to parse personality JSON --- '); // Log before parsing
+            const parsedJson = this.parseJSONFromText(responseText); // Logs errors internally
             // console.log(`Claude Response (Full JSON):\n${safeLogStringify(parsedJson)}`); // Commented out
             console.log(`--- End generatePersonality ---`);
             return parsedJson;
 
         } catch (error: any) {
-            console.error('Error during personality generation call:', error.message);
+            // Error from generateCompletion is already logged within that function
+            console.error('Error during personality generation call (after API return):', error.message);
             return null; // Return null on API or parsing failure
         }
     }
 
     /**
      * Parses a JSON object from a string, attempting to clean common LLM response issues.
+     * Tries to extract from ```json blocks first, then falls back to first { and last }.
      * @param text The text potentially containing a JSON object.
      * @returns The parsed object or null if parsing fails.
      */
     private parseJSONFromText(text: string): object | null {
-        try {
-            // Attempt to find the start and end of the JSON object
+        let jsonString = null;
+        
+        // 1. Try extracting from ```json code blocks
+        const codeBlockMatch = text.match(/```json\s*(\{.*\})\s*```/s);
+        if (codeBlockMatch && codeBlockMatch[1]) {
+            jsonString = codeBlockMatch[1];
+            console.log("[parseJSONFromText] Extracted JSON from ```json block.");
+        } else {
+            // 2. Fallback: Find the first '{' and the last '}'
             const startIndex = text.indexOf('{');
             const endIndex = text.lastIndexOf('}');
 
-            if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-                console.error("Could not find valid JSON braces {} in Claude response:", text);
+            if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
+                 jsonString = text.substring(startIndex, endIndex + 1);
+                 console.log("[parseJSONFromText] Extracted JSON using first { and last }.");
+            } else {
+                console.error("[parseJSONFromText] Could not find valid JSON start/end markers ({...}) in Claude response:", text ? text.substring(0, 500) + '...' : 'EMPTY RESPONSE'); // Log truncated response
                 return null;
             }
-
-            const jsonString = text.substring(startIndex, endIndex + 1);
-            return JSON.parse(jsonString);
-
+        }
+        
+        // 3. Attempt to parse the extracted string
+        try {
+            if (!jsonString) {
+                 throw new Error("[parseJSONFromText] jsonString is null after extraction attempts.");
+            }
+            // Trim whitespace just in case
+            return JSON.parse(jsonString.trim()); 
         } catch (error: any) {
-            console.error("Failed to parse Claude response as JSON:", error.message);
-            // console.error("Claude raw response:", text); // Commented out
+            console.error("[parseJSONFromText] Failed to parse extracted JSON string:", error.message);
+            console.error("[parseJSONFromText] Attempted to parse:", jsonString ? jsonString.substring(0, 500) + '...' : 'NULL' ); // Log truncated string
+            // console.error("[parseJSONFromText] Original Claude raw response:", text); // Log the full raw response
             return null;
         }
     }

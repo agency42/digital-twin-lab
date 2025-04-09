@@ -56,3 +56,9 @@ Debug.log
 debug.log
 node_modules
 node_modules
+
+# TypeScript compiled files
+public/js/**/*.js
+public/js/**/*.js.map
+public/js/*.js
+public/js/*.js.map

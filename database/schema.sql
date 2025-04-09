@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS assets (
     user_id TEXT NOT NULL,
     type TEXT CHECK(type IN ('text', 'image', 'pdf', 'url', 'json')) NOT NULL,
     filepath TEXT NOT NULL UNIQUE, -- Path relative to the data/assets directory
+    source_platform TEXT, -- e.g., 'linkedin', 'twitter', 'website', 'direct_upload'
+    source_medium TEXT, -- e.g., 'post', 'profile', 'article', 'blog', 'file'
     original_filename TEXT,
     mime_type TEXT,
     size_bytes INTEGER,
@@ -97,7 +99,8 @@ CREATE TABLE IF NOT EXISTS oauth_state (
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets(user_id);
+DROP INDEX IF EXISTS idx_assets_user_id; -- Drop the old index
+CREATE INDEX IF NOT EXISTS idx_assets_user_platform_medium ON assets(user_id, source_platform, source_medium);
 CREATE INDEX IF NOT EXISTS idx_personas_user_id ON personas(user_id);
 CREATE INDEX IF NOT EXISTS idx_persona_variations_user_module ON persona_variations(user_id, module_context);
 CREATE INDEX IF NOT EXISTS idx_assessment_results_user_type_source ON assessment_results(user_id, assessment_type, source);

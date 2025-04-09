@@ -255,15 +255,20 @@ class PersonalityProfileService {
      * @returns {Promise<{ success: boolean; changes: number }>} 
      */
     async deleteVariation(userId: string, moduleContext: string): Promise<{ success: boolean; changes: number }> {
-        if (!userId || !moduleContext) return { success: false, changes: 0 };
+        if (!userId || !moduleContext) {
+             console.warn('Attempted deleteVariation with missing userId or moduleContext');
+             return { success: false, changes: 0 };
+        }
         try {
             const query = 'DELETE FROM persona_variations WHERE user_id = ? AND module_context = ?';
             const params = [userId, moduleContext];
             const result = await dbRun(query, params);
-            return { success: result.changes > 0, changes: result.changes };
+            // Operation is successful from DB perspective even if changes = 0
+            return { success: true, changes: result.changes }; 
         } catch (error: any) {
-            console.error(`Error deleting variation for user ${userId}, module ${moduleContext}:`, error);
-            throw new Error(`Failed to delete variation: ${error.message}`);
+            // Log the actual DB error but return success: false instead of throwing
+            console.error(`Error during DB operation in deleteVariation for user ${userId}, module ${moduleContext}:`, error);
+            return { success: false, changes: 0 }; 
         }
     }
 }

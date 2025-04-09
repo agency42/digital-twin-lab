@@ -1,13 +1,13 @@
 {
   "inProgress": false,
-  "startTime": 1744068460434,
+  "startTime": 1744137309209,
   "url": "https://shoshin.blog",
-  "userId": "ken_v3",
+  "userId": "ken_v1",
   "originalUserId": "ken_v1",
   "pagesVisited": 11,
   "imagesFound": 11,
   "textAssetsCreated": 11,
-  "lastUpdated": 1744068461518,
+  "lastUpdated": 1744137312268,
   "status": "completed",
   "summary": {
     "baseUrl": "https://shoshin.blog",
@@ -18,7 +18,7 @@
     "userId": "ken_v1",
     "originalUserId": "ken_v1"
   },
-  "endTime": 1744068461518,
+  "endTime": 1744137312268,
   "message": "Scraping completed successfully. Visited 11 pages.",
-  "durationSeconds": 1
+  "durationSeconds": 3
 }

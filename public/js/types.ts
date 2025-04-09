@@ -4,8 +4,46 @@
 
 // Basic profile structure (used in Personality, Chat, Assessment)
 export interface Profile {
-    big_five_traits?: { [key: string]: string };
-    [key: string]: any; // Allow for other potential profile fields
+    entity?: { 
+        form?: string; 
+        occupation?: string | null; 
+        gender?: string | null; 
+        age?: string | null; 
+    };
+    personality?: {
+        name?: string | null;
+        core_traits?: { trait: string; strength: number }[];
+        values?: string[];
+        // Added platform_specific structure
+        platform_specific?: {
+            [platform: string]: { // e.g., platform = 'twitter', 'linkedin'
+                tone?: string;
+                topics?: string[];
+                // Add other platform-specific fields as needed
+            };
+        };
+    };
+    voice?: {
+        style?: string;
+        tone?: string;
+        qualities?: string[];
+        patterns?: string[];
+    };
+    relationship?: {
+        style?: string;
+        boundaries?: string;
+    };
+    big_five_traits?: { 
+        openness?: string; 
+        conscientiousness?: string; 
+        extraversion?: string; 
+        agreeableness?: string; 
+        neuroticism?: string; 
+    };
+    background?: string[];
+    expertise?: string[];
+    // Allow for other potential profile fields
+    [key: string]: any; 
 }
 
 // Persona variation structure (used in Personality, Chat)

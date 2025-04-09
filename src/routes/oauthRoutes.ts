@@ -128,10 +128,11 @@ function createOAuthRouter(): Router {
 
                 const metadata = {
                     sourceUrl: 'https://www.linkedin.com',
-                    sourceType: 'linkedin',
-                    context: 'LinkedIn Profile',
-                    userId,
-                    personId: userId
+                    sourcePlatform: 'linkedin',
+                    sourceMedium: 'profile',
+                    userId: userId,
+                    personId: userId,
+                    context: 'LinkedIn Profile'
                 };
 
                 const asset = await assetProcessor.processAsset(assetData as any, metadata);
