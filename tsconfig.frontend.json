@@ -8,9 +8,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "public/js",
-    "rootDir": "public/js",
+    "rootDir": "src/client/ts",
     "sourceMap": true
   },
-  "include": ["public/js/**/*.ts"],
+  "include": ["src/client/ts/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 } 

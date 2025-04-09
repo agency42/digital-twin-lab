@@ -1,0 +1,90 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+ # Digital Twin Lab - Project Setup
+
+This document outlines the setup and execution commands for the Digital Twin Lab project.
+
+## Project Overview
+Digital Twin Lab is a Next.js application that allows users to create AI-powered representations of themselves or others using text and image content.
+
+## Development Environment Setup
+
+### Prerequisites
+- Node.js (v18+)
+- npm (v8+)
+
+### Initial Setup
+1. Clone the repository
+2. Install dependencies:
+```bash
+npm install
+```
+
+## Build Commands
+
+### Development Mode
+Run the application in development mode with hot reloading:
+```bash
+npm run dev-frontend
+```
+
+This command runs both:
+- Backend server with nodemon (`npm run dev`)
+- TypeScript compiler in watch mode (`npm run watch-ts`)
+
+### TypeScript Compilation
+Compile TypeScript files (frontend only):
+```bash
+tsc -p tsconfig.frontend.json
+```
+
+### Clean Compiled JavaScript
+Remove all compiled JavaScript files:
+```bash
+npm run clean-js
+```
+
+### Full Production Build
+Build the application for production:
+```bash
+npm run build
+```
+
+This build process:
+1. Cleans the `dist` directory
+2. Compiles TypeScript (both backend and frontend)
+3. Copies necessary files to the `dist` directory
+4. Creates required directories
+
+## Running the Application
+
+### Development Server
+```bash
+npm run dev-frontend
+```
+
+### Production Server
+```bash
+npm run build
+npm start
+```
+
+## Source Control Notes
+- Compiled JavaScript files (.js and .js.map) are excluded from git
+- When freshly cloning the repository, you must run TypeScript compilation first
+- Always check `.gitignore` before committing
+
+## Project Structure
+- `/public` - Frontend assets and TypeScript source
+- `/public/js` - TypeScript modules that compile to JavaScript
+- `/src` - Backend TypeScript code
+- `/database` - SQL schema and database-related files
+
+## Recommended Workflow
+1. Make changes to TypeScript files
+2. Let the watch process compile them automatically
+3. Test in the browser
+4. If needed, clean compiled JS files with `npm run clean-js`

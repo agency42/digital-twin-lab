@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS users (
     bio TEXT,
     linkedin_connected INTEGER DEFAULT 0, -- 0 for false, 1 for true
     linkedin_profile_asset_id TEXT, -- Foreign key to assets table (optional)
-    primary_persona_id TEXT, -- Foreign key to the user's primary persona
+    base_prompt_id TEXT, -- Renamed from primary_persona_id
     assessment_data TEXT, -- JSON string for storing assessment results
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (primary_persona_id) REFERENCES personas(persona_id) ON DELETE SET NULL -- Set NULL if persona is deleted
+    FOREIGN KEY (base_prompt_id) REFERENCES base_prompts(base_prompt_id) ON DELETE SET NULL -- Updated FK
     -- Removed FK for linkedin_profile_asset_id to avoid complexity, handled in code
 );
 
@@ -33,45 +33,47 @@ CREATE TABLE IF NOT EXISTS assets (
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE -- Delete assets if user is deleted
 );
 
--- Personas Table (Primary User Persona)
-CREATE TABLE IF NOT EXISTS personas (
-    persona_id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL UNIQUE, -- Each user has exactly one primary persona
-    persona_name TEXT,
-    persona_json TEXT NOT NULL, -- SoulScript JSON definition
+-- Base Prompts Table (Replaces Personas Table)
+CREATE TABLE IF NOT EXISTS base_prompts (
+    base_prompt_id TEXT PRIMARY KEY, -- Renamed from persona_id
+    user_id TEXT NOT NULL UNIQUE, -- Each user has exactly one base prompt
+    prompt_name TEXT, -- Optional name for the prompt
+    prompt_text TEXT NOT NULL, -- Renamed from persona_json, stores the actual prompt string
     based_on_assets TEXT, -- JSON array of asset_ids used for generation
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE -- Delete persona if user is deleted
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
--- Persona Variations Table (Module-specific prompts)
-CREATE TABLE IF NOT EXISTS persona_variations (
+-- Prompt Variations Table (Replaces Persona Variations Table)
+CREATE TABLE IF NOT EXISTS prompt_variations (
     variation_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
-    persona_id TEXT NOT NULL, -- Links to the primary persona
+    base_prompt_id TEXT NOT NULL, -- Renamed from persona_id, links to the base prompt
     module_context TEXT NOT NULL, -- e.g., 'chat', 'assessment'
-    system_prompt TEXT, -- The specific prompt for this context
+    system_prompt_override TEXT, -- Renamed from system_prompt, stores the specific override for this context
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (persona_id) REFERENCES personas(persona_id) ON DELETE CASCADE, -- Delete variation if primary persona is deleted
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE, -- Delete variation if user is deleted
-    UNIQUE (user_id, module_context) -- Only one variation per user per module
+    FOREIGN KEY (base_prompt_id) REFERENCES base_prompts(base_prompt_id) ON DELETE CASCADE, -- Updated FK
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    UNIQUE (user_id, module_context)
 );
 
 -- Assessment Results Table
 CREATE TABLE IF NOT EXISTS assessment_results (
-    result_id TEXT PRIMARY KEY, -- Renamed from 'id' for clarity
+    result_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
-    assessment_type TEXT NOT NULL, -- e.g., 'TIPI'
+    assessment_type TEXT NOT NULL,
     source TEXT CHECK(source IN ('user', 'ai')) NOT NULL,
-    persona_id TEXT, -- Link to primary persona used for AI simulation
-    temperature REAL, -- Temperature used for AI simulation
-    answers TEXT NOT NULL, -- JSON string of raw answers (e.g., { q1: 5, q2: 3 })
-    scores TEXT NOT NULL, -- JSON string of calculated scores (e.g., { openness: 4.5, ... })
+    base_prompt_id TEXT, -- Renamed from persona_id, link to base prompt used for AI simulation
+    prompt_variation_id TEXT, -- Optional: Link to specific variation used, if any
+    temperature REAL,
+    answers TEXT NOT NULL,
+    scores TEXT NOT NULL,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (persona_id) REFERENCES personas(persona_id) ON DELETE SET NULL
+    FOREIGN KEY (base_prompt_id) REFERENCES base_prompts(base_prompt_id) ON DELETE SET NULL, -- Updated FK
+    FOREIGN KEY (prompt_variation_id) REFERENCES prompt_variations(variation_id) ON DELETE SET NULL
 );
 
 -- Alignment Metrics Table
@@ -99,15 +101,24 @@ CREATE TABLE IF NOT EXISTS oauth_state (
 );
 
 -- Indexes for performance
-DROP INDEX IF EXISTS idx_assets_user_id; -- Drop the old index
-CREATE INDEX IF NOT EXISTS idx_assets_user_platform_medium ON assets(user_id, source_platform, source_medium);
-CREATE INDEX IF NOT EXISTS idx_personas_user_id ON personas(user_id);
-CREATE INDEX IF NOT EXISTS idx_persona_variations_user_module ON persona_variations(user_id, module_context);
-CREATE INDEX IF NOT EXISTS idx_assessment_results_user_type_source ON assessment_results(user_id, assessment_type, source);
-CREATE INDEX IF NOT EXISTS idx_alignment_metrics_user_assessment ON alignment_metrics(user_id, assessment_type);
-CREATE INDEX IF NOT EXISTS idx_oauth_state_expires ON oauth_state(expires_at);
+DROP INDEX IF EXISTS idx_assets_user_platform_medium;
+CREATE INDEX IF NOT EXISTS idx_assets_user_platform_medium ON assets(user_id, source_platform, source_medium); -- Recreating just in case
+DROP INDEX IF EXISTS idx_personas_user_id;
+CREATE INDEX IF NOT EXISTS idx_base_prompts_user_id ON base_prompts(user_id); -- Updated index
+DROP INDEX IF EXISTS idx_persona_variations_user_module;
+CREATE INDEX IF NOT EXISTS idx_prompt_variations_user_module ON prompt_variations(user_id, module_context); -- Updated index
+DROP INDEX IF EXISTS idx_assessment_results_user_type_source;
+CREATE INDEX IF NOT EXISTS idx_assessment_results_user_prompt ON assessment_results(user_id, base_prompt_id, prompt_variation_id); -- Updated index
+DROP INDEX IF EXISTS idx_alignment_metrics_user_assessment;
+CREATE INDEX IF NOT EXISTS idx_alignment_metrics_user_assessment ON alignment_metrics(user_id, assessment_type); -- Recreating just in case
+DROP INDEX IF EXISTS idx_oauth_state_expires;
+CREATE INDEX IF NOT EXISTS idx_oauth_state_expires ON oauth_state(expires_at); -- Recreating just in case
 
--- Triggers to update 'updated_at' timestamps (Optional but good practice)
+-- Triggers to update 'updated_at' timestamps
+-- Drop old triggers first
+DROP TRIGGER IF EXISTS personas_update_timestamp;
+DROP TRIGGER IF EXISTS persona_variations_update_timestamp;
+
 CREATE TRIGGER IF NOT EXISTS users_update_timestamp
 AFTER UPDATE ON users
 FOR EACH ROW
@@ -115,16 +126,16 @@ BEGIN
     UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE user_id = OLD.user_id;
 END;
 
-CREATE TRIGGER IF NOT EXISTS personas_update_timestamp
-AFTER UPDATE ON personas
+CREATE TRIGGER IF NOT EXISTS base_prompts_update_timestamp -- Updated trigger
+AFTER UPDATE ON base_prompts
 FOR EACH ROW
 BEGIN
-    UPDATE personas SET updated_at = CURRENT_TIMESTAMP WHERE persona_id = OLD.persona_id;
+    UPDATE base_prompts SET updated_at = CURRENT_TIMESTAMP WHERE base_prompt_id = OLD.base_prompt_id;
 END;
 
-CREATE TRIGGER IF NOT EXISTS persona_variations_update_timestamp
-AFTER UPDATE ON persona_variations
+CREATE TRIGGER IF NOT EXISTS prompt_variations_update_timestamp -- Updated trigger
+AFTER UPDATE ON prompt_variations
 FOR EACH ROW
 BEGIN
-    UPDATE persona_variations SET updated_at = CURRENT_TIMESTAMP WHERE variation_id = OLD.variation_id;
+    UPDATE prompt_variations SET updated_at = CURRENT_TIMESTAMP WHERE variation_id = OLD.variation_id;
 END;

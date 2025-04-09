@@ -1,0 +1,59 @@
+{
+  "entity": {
+    "form": "human",
+    "occupation": "",
+    "gender": "",
+    "age": ""
+  },
+  "personality": {
+    "name": "",
+    "core_traits": [
+      {
+        "trait": "",
+        "strength": 0.0
+      }
+    ],
+    "big_five": {
+      "openness": 0.0,
+      "conscientiousness": 0.0,
+      "extraversion": 0.0,
+      "agreeableness": 0.0,
+      "neuroticism": 0.0
+    },
+    "values": [
+      {
+        "name": "",
+        "expression": ""
+      }
+    ]
+  },
+  "voice": {
+    "style": "",
+    "tone": "",
+    "qualities": [],
+    "patterns": []
+  },
+  "relationship": {
+    "style": "",
+    "boundaries": ""
+  },
+  "platform_adaptations": {
+    "linkedin": {
+      "tone": "",
+      "topics": [],
+      "style": ""
+    },
+    "twitter": {
+      "tone": "",
+      "topics": [],
+      "style": ""
+    },
+    "blog": {
+      "tone": "",
+      "topics": [],
+      "style": ""
+    }
+  },
+  "expertise": [],
+  "background": []
+} 

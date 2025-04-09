@@ -3,11 +3,21 @@ description:
 globs: 
 alwaysApply: true
 ---
- # Project Structure
+# Project Structure
 
 This file documents the structure of the Digital Twin Lab project. It provides a high-level overview of the codebase organization to help with navigation and understanding.
 
 // UPDATES: ON
+
+## Project Vision
+
+Digital Twin Lab is a platform for creating and evaluating AI-powered digital twins that can:
+
+1. Generate comprehensive system prompts from diverse content sources (websites, social media, text)
+2. Analyze representation across different platforms to understand how users adapt their voice
+3. Generate platform-appropriate content that maintains the authentic voice of the user
+4. Continuously improve through feedback loops incorporating user assessments
+5. Provide advanced tools for comparing human and AI-generated responses
 
 ## Directory Structure
 
@@ -17,79 +27,97 @@ This file documents the structure of the Digital Twin Lab project. It provides a
 │   └── rules/            # Cursor rules for documentation
 ├── data/                 # User and application data
 │   ├── assets/           # User-uploaded files
-│   │   ├── ken_v1/       # Assets for user ken_v1
-│   │   ├── ken_v2/       # Assets for user ken_v2
-│   │   └── ken_v3/       # Assets for user ken_v3
-│   ├── personality_prompt.txt   # Template for personality generation
+│   ├── character_card_template.json # Template for character card generation
 │   ├── scrape_result.json       # Results from website scraping
 │   └── scrape_status.json       # Status of scrape operations
 ├── database/             # SQLite database files
-│   ├── digital_twin_lab.db       # Main SQLite database
-│   └── schema.sql                # Database schema definition
+│   ├── digital_twin_lab.db      # Main SQLite database
+│   └── schema.sql               # Database schema definition
+├── dist/                 # Compiled output for production
+│   ├── database/         # Copied database schema
+│   ├── public/           # Copied static assets for production
+│   └── server/           # Compiled server code
 ├── public/               # Frontend static files
 │   ├── css/              # CSS stylesheets
 │   ├── img/              # Image assets
-│   ├── js/               # Frontend JavaScript/TypeScript
-│   │   ├── modules/      # Frontend modules
-│   │   ├── app.ts        # Main application entry point
-│   │   └── types.ts      # TypeScript type definitions
+│   ├── js/               # Compiled JavaScript (output only)
 │   └── index.html        # Main HTML page
-└── src/                  # Backend source code
-    ├── api/              # API client implementations
-    │   └── claude.ts     # Claude API client
-    ├── lib/              # Utility libraries
-    │   ├── asyncHandler.ts     # Async request handler
-    │   ├── database.ts         # Database connection
-    │   ├── statsUtils.ts       # Statistical utilities
-    │   └── tipiUtils.ts        # TIPI assessment utilities
-    ├── routes/           # Express route handlers
-    │   ├── assessmentRoutes.ts # Assessment endpoints
-    │   ├── assetRoutes.ts      # Asset management endpoints
-    │   ├── chatRoutes.ts       # Chat functionality endpoints
-    │   ├── oauthRoutes.ts      # OAuth authentication endpoints
-    │   ├── personalityRoutes.ts # Personality endpoints
-    │   ├── scrapeRoutes.ts     # Website scraping endpoints
-    │   ├── uploadRoutes.ts     # File upload endpoints
-    │   └── userRoutes.ts       # User management endpoints
-    ├── services/         # Business logic services
-    │   ├── scrapers/     # Web scraping modules
-    │   │   └── websiteScraper.ts # Website scraping service
-    │   ├── abstractionApproach.ts # Main personality generation logic
-    │   ├── aiService.ts          # AI service for assessment
-    │   ├── assetProcessor.ts     # Asset handling
-    │   ├── oauthService.ts       # OAuth service implementation
-    │   ├── pdfProcessor.ts       # PDF processing utility
-    │   ├── personalityProfileService.ts # Personality management
-    │   └── userDataService.ts    # User data management
-    └── server.ts         # Main Express server
+├── scripts/              # Utility scripts
+│   ├── clean-js.sh       # Script to clean compiled JS files
+│   ├── migrate.js        # Database migration script
+│   ├── reset.js          # Database reset script
+│   └── setup-directories.sh # Directory structure setup script
+├── src/                  # Source code
+│   ├── client/           # Frontend source code
+│   │   └── ts/           # TypeScript source
+│   │       ├── modules/  # Frontend modules
+│   │       ├── app.ts    # Main application entry point
+│   │       ├── types.ts  # TypeScript type definitions
+│   │       └── utils.ts  # Shared utilities
+│   └── server/           # Backend source code
+│       ├── api/          # API client implementations
+│       │   └── claude.ts # Claude API client for character card generation
+│       ├── lib/          # Utility libraries
+│       │   ├── asyncHandler.ts  # Async request handler
+│       │   ├── database.ts      # Database connection
+│       │   ├── statsUtils.ts    # Statistical utilities
+│       │   └── tipiUtils.ts     # TIPI assessment utilities
+│       ├── routes/       # Express route handlers
+│       │   ├── assessmentRoutes.ts # Assessment endpoints
+│       │   ├── assetRoutes.ts      # Asset management endpoints
+│       │   ├── chatRoutes.ts       # Chat functionality endpoints
+│       │   ├── oauthRoutes.ts      # OAuth authentication endpoints
+│       │   ├── promptRoutes.ts     # Character card generation endpoints
+│       │   ├── scrapeRoutes.ts     # Website scraping endpoints
+│       │   ├── uploadRoutes.ts     # File upload endpoints
+│       │   └── userRoutes.ts       # User management endpoints
+│       ├── services/     # Business logic services
+│       │   ├── scrapers/ # Web scraping modules
+│       │   │   └── websiteScraper.ts # Website scraping service
+│       │   ├── abstractionApproach.ts # Character card generation logic
+│       │   ├── aiService.ts          # AI service for assessment
+│       │   ├── assetProcessor.ts     # Asset handling
+│       │   ├── oauthService.ts       # OAuth service implementation
+│       │   ├── pdfProcessor.ts       # PDF processing utility
+│       │   ├── promptService.ts      # Character card management
+│       │   └── userDataService.ts    # User data management
+│       └── server.ts     # Main Express server
 ```
 
 ## Key Files
 
-- **server.ts**: Main server entry point that sets up Express and mounts routes
-- **database.ts**: Database connection and initialization
-- **claude.ts**: API client for Claude AI that handles personality generation
-- **abstractionApproach.ts**: Core logic for generating personality profiles
-- **assetProcessor.ts**: Handles asset uploads, processing, and storage
-- **userDataService.ts**: Manages user data in the database
-- **app.ts**: Main frontend application entry point
+- **src/server/server.ts**: Main server entry point that sets up Express and mounts routes
+- **src/server/lib/database.ts**: Database connection and initialization
+- **src/server/api/claude.ts**: API client for Claude AI that handles character card generation
+- **src/server/services/abstractionApproach.ts**: Core logic for generating character cards
+- **src/server/services/assetProcessor.ts**: Handles asset uploads, processing, and storage
+- **src/server/services/userDataService.ts**: Manages user data in the database
+- **src/client/ts/app.ts**: Main frontend application entry point
+- **src/client/ts/utils.ts**: Shared frontend utilities
+- **src/client/ts/types.ts**: TypeScript type definitions
 
 ## Frontend Modules
 
 - **userModule.ts**: User management UI
 - **contentModule.ts**: Content/asset management UI
-- **personalityModule.ts**: Personality generation and viewing UI
-- **chatModule.ts**: Chat interface with generated personalities
+- **promptModule.ts**: Character card generation and viewing UI
+- **chatModule.ts**: Chat interface with generated digital twins
 - **assessmentModule.ts**: Personality assessment features
 - **navigationModule.ts**: Navigation between application features
-- **utils.ts**: Shared frontend utilities
+- **contentMediumModule.ts**: Content medium instructions for different platforms
+
+## Build and Development
+
+- **TypeScript Workflow**: Edit source files in `src/client/ts/` which compile to `public/js/`
+- **Development Scripts**: `npm run dev-frontend` starts both backend server and TS compiler
+- **Build Process**: `npm run build` compiles all TypeScript and prepares production files
 
 ## Data Flow
 
 1. Users create accounts and upload assets (text, images) via frontend
 2. Assets are processed and stored in database/filesystem
-3. Personalities are generated using assets via Claude AI
-4. Personalities can be used in chat or assessments
+3. Character cards (JSON) are generated using assets via Claude AI
+4. Character cards can be used as system prompts in chat or assessments
 5. SQLite database stores all metadata while actual assets are on filesystem
 
 ## Database Structure
@@ -98,17 +126,10 @@ The application uses SQLite with tables for:
 
 - users
 - assets
-- personas
-- persona_variations
+- base_prompts (stores character cards)
+- prompt_variations (context-specific variations of character cards)
 - assessment_results
 - alignment_metrics
 - oauth_state
 
-See database/schema.sql for detailed structure.
-
-
-
-
-
-
-
+See database/schema.sql for detailed structure. 

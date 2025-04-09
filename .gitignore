@@ -55,7 +55,6 @@ yarn-error.log*
 Debug.log
 debug.log
 node_modules
-node_modules
 
 # TypeScript compiled files
 public/js/**/*.js

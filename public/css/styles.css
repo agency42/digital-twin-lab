@@ -847,4 +847,123 @@ textarea {
   font-size: 14px;
   color: #333;
   cursor: pointer;
+}
+
+/* Interactions page (dark mode) */
+.interaction-content {
+  display: none;
+}
+
+.interaction-content.active {
+  display: block;
+}
+
+/* Dark mode styling for medium tabs */
+#interactions-module .medium-tabs {
+  background-color: #1e2127;
+  border-color: #333;
+  gap: 10px;
+  padding-bottom: 15px;
+}
+
+#interactions-module .medium-tab {
+  background-color: #2c3e50;
+  color: #ccc;
+  border-color: #34495e;
+  transition: all 0.2s;
+  padding: 10px 15px;
+}
+
+#interactions-module .medium-tab:hover {
+  background-color: #3d5572;
+}
+
+#interactions-module .medium-tab.active {
+  background-color: #3498db;
+  color: white;
+  border-color: #2980b9;
+}
+
+/* Dark mode styling for system prompt container */
+#interactions-module .system-prompt-container {
+  background-color: #1e2127;
+  border: 1px solid #333;
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 5px;
+}
+
+#interactions-module .system-prompt-container h3 {
+  color: #e0e0e0;
+  margin: 0;
+}
+
+#interactions-module .info-tooltip-text {
+  background-color: #333;
+  border: 1px solid #444;
+  color: #e0e0e0;
+}
+
+#interactions-module textarea, 
+#interactions-module input[type="text"] {
+  background-color: #2d2d2d;
+  color: #e0e0e0;
+  border: 1px solid #444;
+}
+
+#interactions-module label {
+  color: #e0e0e0;
+}
+
+/* Chat container styling */
+#interactions-module #chat-container {
+  background-color: #1e2127;
+  border: 1px solid #333;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+#interactions-module #chat-container > div:first-child {
+  background-color: #2c3e50;
+}
+
+#interactions-module #chat-history {
+  background-color: #1e2127;
+  color: #e0e0e0;
+}
+
+#interactions-module #chat-input {
+  background-color: transparent;
+  border: none;
+  color: #e0e0e0;
+  outline: none;
+}
+
+#interactions-module .prompt-symbol {
+  color: #27ae60;
+}
+
+#interactions-module .system-message .message {
+  background-color: #2c3e50;
+  color: #e0e0e0;
+}
+
+/* Blog output styling */
+#blog-output-container {
+  margin-top: 20px;
+}
+
+#blog-output-container > div {
+  background-color: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 5px;
+  padding: 20px;
+  color: #e0e0e0;
+}
+
+/* Button styling */
+#interactions-module .action-button.primary {
+  background-color: #2980b9;
+  color: white;
 } 

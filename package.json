@@ -2,14 +2,21 @@
   "name": "digital-twin-lab",
   "version": "1.0.0",
   "description": "Platform for creating and evaluating AI-powered digital twins",
-  "main": "dist/src/server.js",
+  "main": "dist/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon",
+    "watch-ts": "tsc -p tsconfig.frontend.json --watch",
+    "dev-frontend": "concurrently \"npm run dev\" \"npm run watch-ts\"",
     "start": "node dist/server.js",
-    "build": "npm run clean && tsc && mkdir -p dist/database && cp database/schema.sql dist/database/ && mkdir -p dist/public/js && mkdir -p dist/public/js/modules && tsc -p tsconfig.frontend.json && cp public/js/*.js* dist/public/js/ && cp public/js/modules/*.js* dist/public/js/modules/ && cp -r public/css public/img public/favicon.ico public/index.html dist/public/",
+    "build": "npm run clean && npm run build-server && npm run build-client && npm run copy-static",
+    "build-server": "tsc",
+    "build-client": "tsc -p tsconfig.frontend.json",
+    "copy-static": "mkdir -p dist/database dist/public && cp database/schema.sql dist/database/ && cp -r public/css public/img public/js public/favicon.ico public/index.html dist/public/",
     "clean": "rm -rf dist",
-    "cleanup": "chmod +x ./cleanup.sh && ./cleanup.sh"
+    "clean-js": "find public/js -name \"*.js\" -delete && find public/js -name \"*.js.map\" -delete && find public/js -name \"*.ts\" -delete",
+    "db:migrate": "node scripts/migrate.js",
+    "db:reset": "node scripts/reset.js"
   },
   "keywords": [
     "digital twin",
@@ -17,8 +24,7 @@
     "machine learning",
     "personalization",
     "experimentation",
-    "comparison",
-    "raw dogging vs. abstraction"
+    "comparison"
   ],
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

@@ -1,5 +1,5 @@
 # digital twin lab
-an interface for creating and and interacting with digital twins. upload your content, generate a personality profile, chat, and assess alignment.
+an interface for creating and interacting with digital twins. upload your content, generate system prompts, chat, and assess alignment.
 
 ## Core Features
 
@@ -13,17 +13,21 @@ an interface for creating and and interacting with digital twins. upload your co
    - Upload text and image files as personality samples
    - Scrape websites to gather profile information
    - Import social media content via OAuth
-   - Organize and select content for personality generation
+   - Organize and select content for prompt generation
 
-3. **Personality Generation**
-   - Create structured personality profiles (json) from user content
-   - Save and manage multiple personality versions
+3. **Character Card Generation**
+   - Generate structured JSON character cards that serve as system prompts
+   - Character cards include personality traits, voice style, and platform adaptations
+   - Edit the character card template to customize the structure
+   - Use character cards as the foundation for digital twin interactions
 
-4. **Digital Twin Interaction**
-   - Chat with digital twins based on generated profiles
+4. **Interactions**
+   - Chat with digital twins using generated prompts
+   - Configure how your digital twin communicates across different mediums
+   - Generate content for various platforms (blog posts, tweets, LinkedIn)
    - Edit system prompts to refine twin behavior
-   - Save successful chat configurations
-   - Test twin in different conversation scenarios
+   - View the full structured prompt including examples
+   - Generate sample content based on the current medium
 
 5. **Alignment Evaluation**
    - Compare user and AI responses to assessment
@@ -101,13 +105,14 @@ The frontend is a modular single-page application with:
 - **Responsive UI** - Progressive user flow
 - **Chart Visualization** - For alignment metrics
 
-### Data Storage (`data/`)
+### Data Storage
 
-The application uses local file-based storage:
+The application uses SQLite for database storage:
 
-- **JSON Files** - For structured metadata
-- **File Assets** - For content and source materials
-- **Personality Profiles** - For generated twins
+- **User Data** - Profiles and preferences
+- **Assets** - Metadata for content and source materials
+- **Base Prompts** - Generated system prompts
+- **Prompt Variations** - Context-specific prompt modifications
 - **Assessment Results** - For trait comparisons
 
 ## Key Workflows
@@ -116,23 +121,22 @@ The application uses local file-based storage:
 
 1. Create or select a user profile
 2. Upload or scrape source content
-3. Select content for personality generation
-4. Generate SoulScript personality profile
-5. Edit and save the profile
+3. Select content for character card generation
+4. Generate a JSON character card that serves as the system prompt
+5. Edit the character card template if needed
 
 ### Testing Personality Alignment
 
 1. Complete the TIPI assessment as the user
-2. Select a generated personality profile
+2. Select a generated character card (or variation)
 3. Run the AI assessment simulation
 4. View and analyze the alignment results
 
 ### Interacting with Digital Twins
 
-1. Select a personality profile
-2. Edit system prompt parameters (optional)
-3. Engage in conversation with the digital twin
-4. Rate the authenticity of the interaction
+1. Select a character card
+2. Chat with the digital twin using the selected character card as system prompt
+3. Save successful variations for different contexts
 
 ## Project Status
 
@@ -148,5 +152,74 @@ This project builds on recent research in LLM-based personality simulation:
 
 ## Acknowledgments
 
-- Ther personality json data structure was inspired by SoulScript by [SoulGraph](https://soulgraph.gitbook.io/)
 - TIPI assessment from Gosling et al. (2003)
+
+## TypeScript Development
+
+This project is written entirely in TypeScript with a clean separation between frontend and backend code:
+
+1. **Project Structure**:
+   ```
+   /
+   ├── src/
+   │   ├── server/      # Backend TypeScript 
+   │   └── client/      # Frontend TypeScript source
+   │       └── ts/      # TypeScript source files
+   ├── public/          # Static assets and compiled JS
+   │   ├── js/          # Compiled JavaScript (output only)
+   │   ├── css/
+   │   └── img/
+   ├── scripts/         # Utility scripts
+   ├── database/        # DB schema definition
+   └── dist/            # Compiled backend code
+   ```
+
+2. **Development**: Run the project with auto-compiling TypeScript:
+   ```bash
+   npm run dev-frontend
+   ```
+   This will start both the backend server and the TypeScript compiler in watch mode.
+
+3. **TypeScript Workflow**:
+   - Edit source files in `src/client/ts/` directory
+   - Compiled JS output goes to `public/js/` directory
+   - Backend TypeScript is in `src/server/`
+   - Compiled backend code goes to `dist/`
+
+4. **Clean Compiled Files**: If you need to clean all compiled JS files:
+   ```bash
+   npm run clean-js
+   ```
+
+5. **Database Scripts**: Run database management scripts:
+   ```bash
+   npm run db:migrate  # Run database migrations
+   npm run db:reset    # Reset the database
+   ```
+
+6. **Build for Production**: When building for production:
+   ```bash
+   npm run build
+   ```
+   This will compile all TypeScript code and copy necessary files to the dist directory.
+
+## TypeScript Structure
+
+The project uses a clean separation between source TypeScript files and compiled JavaScript:
+
+- **Source files**: All TypeScript (.ts) files are in `src/client/ts/` directory
+  - Core files: `app.ts`, `types.ts`, `utils.ts` 
+  - Module files: Located in `src/client/ts/modules/`
+
+- **Compiled output**: All JavaScript (.js, .js.map) files are in `public/js/` directory
+  - Generated automatically by TypeScript compiler
+  - Should never be edited manually
+
+### Development Workflow
+
+1. Edit TypeScript source files in `src/client/ts/`
+2. Run `npm run build-client` to compile to JavaScript 
+3. Use `npm run dev-frontend` during development to watch for changes
+4. Clean compiled files with `npm run clean-js` when needed
+
+Never edit the JavaScript files directly as they will be overwritten by the build process.

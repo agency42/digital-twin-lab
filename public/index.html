@@ -615,6 +615,69 @@
     .toggle-switch input[type="checkbox"]:checked::before {
       left: 21px;
     }
+
+    /* Content Medium styles */
+    .medium-tabs {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 10px;
+    }
+    
+    .medium-tab {
+      padding: 8px 15px;
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .medium-tab.active {
+      background-color: #3498db;
+      color: white;
+      border-color: #2980b9;
+    }
+    
+    .medium-content {
+      display: none;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+    
+    .medium-content.active {
+      display: block;
+    }
+    
+    .instruction-section {
+      margin-bottom: 20px;
+    }
+    
+    .instruction-section label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+    
+    .example-item {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: flex-start;
+    }
+    
+    .example-item textarea {
+      flex-grow: 1;
+    }
+    
+    .instruction-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
   </style>
   
   <!-- Link to external CSS file for chat formatting -->
@@ -636,8 +699,8 @@
       <ul class="nav-tabs">
         <li class="nav-tab active" data-page="user-setup-page">User Setup</li>
         <li class="nav-tab" data-page="content-library-page">Content Library</li>
-        <li class="nav-tab" data-page="chat-page">Digital Twin Chat</li>
-        <li class="nav-tab" data-page="alignment-page">Alignment Metrics</li>
+        <li class="nav-tab" data-page="interactions-page">Interactions</li>
+        <li class="nav-tab" data-page="evaluation-page">Evaluation</li>
       </ul>
       
       <!-- Pages Container -->
@@ -804,37 +867,45 @@
           <div class="module" id="generate-module">
             <div class="module-header">
               <div class="module-icon">🧠</div>
-              <h2 class="module-title">Generate Personality</h2>
+              <h2 class="module-title">Character Card Generation [UPDATED]</h2>
             </div>
-            <p class="module-description">Create an AI personality profile based on the selected assets.</p>
+            <p class="module-description">Create an AI representation based on the selected assets using Claude AI.</p>
             
-            <h3 class="section-title">Personality Generation Prompt</h3>
-            <textarea id="personality-prompt" rows="6" placeholder="Loading personality generation prompt..."></textarea>
+            <h3 class="section-title">Character Card Generation</h3>
+            <p class="module-description">Generate a structured JSON character card with personality traits, voice characteristics, and platform adaptations.</p>
+            
+            <h3 class="section-title">Character Card Generation Prompt</h3>
+            <p style="font-size: 14px; color: #555; margin-bottom: 10px;">This is the prompt used to generate the character card. You can edit it to customize how Claude creates the JSON profile.</p>
+            <textarea id="custom-generation-prompt" rows="8" placeholder="Analyze the following text which represents writings and information about a person. Based *only* on this text, generate a structured JSON object representing their personality profile. The JSON should follow the structure in the template...">Analyze the following text which represents writings and information about a person. Based *only* on this text, generate a structured JSON object representing their personality profile. 
+
+The JSON object should follow the character card template structure you've been provided. Include personality traits, voice characteristics, communication patterns, and platform-specific adaptations where discernible from the content.
+
+Ensure the output is ONLY the JSON object, starting with { and ending with }.</textarea>
             <div class="flex-row" style="justify-content: flex-end; gap: 10px; margin-bottom: 20px;">
-                <button id="save-prompt-button" class="action-button" style="width: auto;">Save Prompt</button>
-                <button id="reset-prompt-button" class="action-button" style="width: auto; background-color: #6c757d;">Reset to Default</button>
+                <button id="save-custom-generation-prompt-button" class="action-button" style="width: auto;">Save Prompt</button>
+                <button id="reset-custom-generation-prompt-button" class="action-button" style="width: auto; background-color: #6c757d;">Reset to Default</button>
             </div>
-            <div id="prompt-status" class="status"></div>
-
-            <button id="generate-personality-button" class="action-button" style="width:100%;" disabled>Generate Personality Profile</button>
-            <div id="personality-generation-status" class="status"></div>
+            <div id="custom-generation-prompt-status" class="status"></div>
             
-            <h3 class="section-title">Generated Personality JSON</h3>
-            <pre id="personality-json-output" class="json-output" style="display: none;"></pre>
-            <button id="copy-json-button" class="copy-button" style="display: none;">Copy JSON</button>
-          </div>
-
-          <!-- Current Primary Persona Module -->
-          <div class="module" id="primary-persona-module">
-            <div class="module-header">
-              <div class="module-icon" style="background-color: #27ae60;">💾</div>
-              <h2 class="module-title">Current Primary Persona</h2>
+            <!-- Add the missing elements for base prompt display -->
+            <div id="base-prompt-display-container" style="margin-top: 20px; display: none;">
+              <h3 class="section-title">Base Prompt</h3>
+              <textarea id="base-prompt-output" rows="10" readonly style="width: 100%; background-color: #f5f5f5;"></textarea>
+              <button id="copy-base-prompt-button" class="action-button copy-button">Copy Base Prompt</button>
+              <div id="no-base-prompt-message" class="status info">No base prompt has been generated yet.</div>
             </div>
-            <p class="module-description">View the current primary personality profile generated for this user.</p>
             
-            <div id="primary-persona-display-container">
-              <!-- This will be populated by JS with the single primary persona card -->
-              <p id="no-primary-persona-message">No primary personality profile generated yet. Use the "Generate Personality" section above to create one.</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+              <button id="edit-template-button" class="action-button" style="background-color: #34495e;">Edit Character Card Template</button>
+              <button id="generate-character-card-button" class="action-button" disabled>Create JSON Character Card</button>
+            </div>
+            <div id="character-card-generation-status" class="status"></div>
+            
+            <!-- JSON Output Display -->
+            <div id="json-output-container" style="margin-top: 20px; display: none;">
+              <h3 class="section-title">Generated Character Card</h3>
+              <div id="json-output" class="json-output"></div>
+              <button id="copy-json-button" class="action-button copy-button">Copy JSON</button>
             </div>
           </div>
 
@@ -852,131 +923,169 @@
           </div>
         </div>
         
-        <!-- Page 3: Chat with Digital Twin -->
-        <div id="chat-page" class="page">
-          <!-- Chat Module -->
-          <div class="module" id="chat-module">
+        <!-- Page 3: Interactions -->
+        <div id="interactions-page" class="page">
+          <div class="module" id="interactions-module">
             <div class="module-header">
-              <div class="module-icon">💬</div>
-              <h2 class="module-title">Chat with Digital Twin</h2>
+              <div class="module-icon" style="background-color: #27ae60;">💬</div>
+              <h2 class="module-title">Interactions</h2>
             </div>
-            <p class="module-description">Interact with the user's primary AI personality.</p>
+            <p class="module-description">Configure how your digital twin communicates across different mediums and interact with it in real-time.</p>
 
-            <div id="chat-content-area">
-              <div class="system-prompt-container">
+            <!-- Medium Selector Tabs with improved contrast -->
+            <div class="medium-selector">
+              <div class="medium-tabs" style="background-color: #1e2127; border-color: #333;">
+                <button class="medium-tab active" data-medium="chat" style="background-color: #2c3e50; color: white; border-color: #34495e;">Chat</button>
+                <button class="medium-tab" data-medium="blog" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">Blog/Article</button>
+                <button class="medium-tab" data-medium="tweet" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">Tweet</button>
+                <button class="medium-tab" data-medium="linkedin" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">LinkedIn</button>
+              </div>
+            </div>
+
+            <!-- Chat Interface (Default) -->
+            <div class="interaction-content active" id="chat-interaction-content">
+              <div class="system-prompt-container" style="background-color: #1e2127; border: 1px solid #333; margin-bottom: 20px; padding: 15px; border-radius: 5px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                  <h3 class="section-title" style="color: #e0e0e0; margin: 0;">System Prompt JSON 
+                  <h3 class="section-title" style="color: #e0e0e0; margin: 0;">System Prompt 
                     <button class="info-button" data-tooltip-target="system-prompt-tooltip" style="background-color: #333; color: #fff; border: 1px solid #444;">?</button>
                   </h3>
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <label style="font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #aaa;">
                       <input type="checkbox" id="show-system-prompt" style="width: auto; margin: 0;" checked> Show System Prompt
                     </label>
+                    <button id="toggle-system-prompt-button" class="action-button" style="font-size: 0.8em; padding: 3px 8px; background-color: #555;">Toggle Prompt</button>
                   </div>
                 </div>
                 <div id="system-prompt-tooltip" class="info-tooltip-text" style="display: none; background-color: #333; border: 1px solid #444; color: #e0e0e0;">
                   <p><strong>What it is:</strong><br>The system prompt contains all the instructions sent to the AI model that determine how your digital twin will respond.</p>
-                  <p><strong>How to use it:</strong><br>You can edit this JSON directly to modify any aspect of your digital twin's personality, background, and behavior.</p>
+                  <p><strong>How to use it:</strong><br>You can edit this text directly to modify how your digital twin behaves and responds.</p>
                 </div>
                 
                 <div id="system-prompt-controls" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                  <button id="save-chat-prompt-variation-button" class="action-button" style="background-color: #2b5278; border: none; color: white; flex-grow: 1;">Save Chat Variation</button>
-                  <button id="reset-chat-prompt-button" class="action-button" style="background-color: #6c757d; flex-grow: 1;">Reset to Base Persona</button>
+                  <button id="save-chat-prompt-variation-button" class="action-button" style="background-color: #2b5278; border: none; color: white; flex-grow: 1;">Save Variation</button>
+                  <button id="reset-chat-prompt-button" class="action-button" style="background-color: #6c757d; flex-grow: 1;">Reset to Base Prompt</button>
                 </div>
                 
                 <textarea id="system-prompt-editor" rows="15" style="width: 100%; font-family: monospace; margin-bottom: 15px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 5px; padding: 10px;"></textarea>
+                
+                <!-- Show Full Structured Prompt Button -->
+                <button id="toggle-full-prompt" class="action-button" style="background-color: #555; margin-bottom: 10px;">Show Full Structured Prompt</button>
+                
+                <!-- Full Structured Prompt (hidden by default) -->
+                <div id="full-structured-prompt" style="display: none; margin-top: 15px;">
+                  <h4 style="color: #e0e0e0; margin-bottom: 10px;">Full Structured Prompt</h4>
+                  <textarea id="full-prompt-display" readonly rows="12" style="width: 100%; font-family: monospace; background-color: #1a1a1a; color: #ccc; border: 1px solid #444; border-radius: 5px; padding: 10px;"></textarea>
+                </div>
               </div>
               
               <!-- Chat container styled as terminal -->
-              <div id="chat-container">
-                <div style="padding: 5px 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+              <div id="chat-container" style="background-color: #1e2127; border: 1px solid #333; border-radius: 5px; overflow: hidden; margin-bottom: 20px;">
+                <div style="padding: 5px 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background-color: #2c3e50;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-family: 'Courier New', monospace;">digital-twin@localhost:~</span>
+                    <span style="font-family: 'Courier New', monospace; color: #e0e0e0;">digital-twin@localhost:~</span>
                   </div>
                   <button id="clear-chat-button" class="action-button" style="background-color: transparent; border: 1px solid #444; color: #aaa; padding: 3px 8px; font-size: 12px; font-family: 'Courier New', monospace;">clear</button>
                 </div>
                 
-                <div id="chat-history">
+                <div id="chat-history" style="background-color: #1e2127; color: #e0e0e0; padding: 15px; height: 450px; overflow-y: auto; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
                   <!-- Terminal welcome message -->
                   <div class="message-wrapper system-message">
-                    <div class="message"># Digital Twin Terminal v1.0</div>
+                    <div class="message" style="background-color: #2c3e50; color: #e0e0e0;"># Digital Twin Terminal v1.0</div>
                   </div>
                   <div class="message-wrapper system-message">
-                    <div class="message"># Type your messages and press Enter to communicate with your digital twin</div>
+                    <div class="message" style="background-color: #2c3e50; color: #e0e0e0;"># Type your messages and press Enter to communicate with your digital twin</div>
                   </div>
                   <div class="message-wrapper system-message">
-                    <div class="message"># Type 'clear' to clear the terminal</div>
+                    <div class="message" style="background-color: #2c3e50; color: #e0e0e0;"># Type 'clear' to clear the terminal</div>
                   </div>
                 </div>
                 
-                <div style="padding: 10px; border-top: 1px solid #333; display: flex; align-items: center;">
-                  <span class="prompt-symbol">$</span>
-                  <input type="text" id="chat-input" placeholder="Type a message...">
+                <div style="padding: 10px; border-top: 1px solid #333; display: flex; align-items: center; background-color: #2c3e50;">
+                  <span class="prompt-symbol" style="color: #27ae60; margin-right: 8px;">$</span>
+                  <input type="text" id="chat-input" placeholder="Type a message..." style="background-color: transparent; border: none; color: #e0e0e0; flex-grow: 1; outline: none;">
                   <div id="terminal-cursor" class="terminal-cursor"></div>
                 </div>
               </div>
               
               <div id="chat-status" class="status" style="color: #aaa;"></div>
+              
+              <!-- Generate content button for this medium -->
+              <button id="generate-chat-content" class="action-button" style="background-color: #2980b9; color: white; margin-top: 10px;">Generate Sample Chat Interaction</button>
             </div>
+            
+            <!-- Other mediums (initially hidden) -->
+            <div class="interaction-content" id="blog-interaction-content" style="display: none;">
+              <!-- Blog medium instructions from Content Medium page -->
+              <h3 class="section-title" style="color: #e0e0e0;">Blog/Article Medium Instructions</h3>
+              <p style="font-size: 14px; color: #ccc; margin-bottom: 15px;">These instructions will guide how your digital twin creates long-form written content.</p>
+              
+              <div class="instruction-section">
+                <label for="blog-instruction" style="color: #e0e0e0;">Main Instruction:</label>
+                <textarea id="blog-instruction" rows="4" class="medium-instruction" placeholder="Instruction for how to write blog posts or articles..." style="background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444;"></textarea>
+              </div>
+              
+              <div class="instruction-section">
+                <label for="blog-main-character" style="color: #e0e0e0;">Main Character:</label>
+                <input type="text" id="blog-main-character" class="medium-character" placeholder="Who should write (e.g., 'a digital twin of [name]')" style="background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444;">
+              </div>
+              
+              <div class="instruction-section">
+                <label for="blog-main-goal" style="color: #e0e0e0;">Main Goal:</label>
+                <input type="text" id="blog-main-goal" class="medium-goal" placeholder="The main objective (e.g., 'create informative and engaging articles in the style of [name]')" style="background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444;">
+              </div>
+              
+              <div class="instruction-section">
+                <label for="blog-description" style="color: #e0e0e0;">Description:</label>
+                <textarea id="blog-description" rows="3" class="medium-description" placeholder="Additional details about this medium..." style="background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444;"></textarea>
+              </div>
+              
+              <div class="instruction-section">
+                <label style="color: #e0e0e0;">Example Articles:</label>
+                <div id="blog-examples-container">
+                  <!-- Examples will be added dynamically -->
+                  <div class="example-item">
+                    <textarea rows="3" class="example-text" placeholder="Example blog post excerpt..." style="background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444;"></textarea>
+                    <button class="remove-example action-button danger-button" style="width: auto;">Remove</button>
+                  </div>
+                </div>
+                <button id="add-blog-example" class="action-button" style="width: auto; margin-top: 10px;">Add Example</button>
+              </div>
+              
+              <div class="instruction-actions">
+                <button id="save-blog-medium" class="action-button">Save Blog Instructions</button>
+                <button id="reset-blog-medium" class="action-button" style="background-color: #6c757d;">Reset</button>
+              </div>
+              <div id="blog-medium-status" class="status"></div>
+              
+              <!-- Generate content button for this medium -->
+              <button id="generate-blog-content" class="action-button" style="background-color: #2980b9; color: white; margin-top: 20px;">Generate Blog Article</button>
+              
+              <!-- Blog article display area -->
+              <div id="blog-output-container" style="margin-top: 20px; display: none;">
+                <h3 class="section-title" style="color: #e0e0e0;">Generated Blog Article</h3>
+                <div style="background-color: #2d2d2d; border: 1px solid #444; border-radius: 5px; padding: 20px; color: #e0e0e0;">
+                  <h2 id="blog-output-title" style="margin-bottom: 10px;"></h2>
+                  <div id="blog-output-content" style="white-space: pre-wrap; line-height: 1.6;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Remaining Content Medium sections would be added here (Tweet, LinkedIn) -->
+            <!-- ... with similar styling for dark mode and improved contrast ... -->
           </div>
         </div>
         
-        <!-- Page 4: Alignment Metrics -->
-        <div id="alignment-page" class="page">
-          <div class="module" id="alignment-module">
+        <!-- Page 4: Evaluation -->
+        <div id="evaluation-page" class="page">
+          <div class="module" id="evaluation-module">
             <div class="module-header">
               <div class="module-icon" style="background-color: #f39c12;">📊</div>
-              <h2 class="module-title">Personality Alignment Assessment</h2>
+              <h2 class="module-title">Evaluation</h2>
             </div>
-            <p class="module-description">Compare your Digital Twin's personality traits with your own assessment.</p>
+            <p class="module-description">Assess and evaluate your Digital Twin's personality and performance.</p>
 
-            <div style="margin-bottom: 20px;">
-              <!-- Only show if user has completed assessment -->
-              <div id="user-assessment-summary" style="margin-bottom: 20px;">
-                <h3>Your Assessment</h3>
-                <p id="user-assessment-status-summary">Complete your personality assessment in the User Setup page first.</p>
-                <!-- Will show user scores here when available -->
-              </div>
-
-              <div id="ai-simulation-section">
-                <h3 class="section-title">AI Alignment Simulation</h3>
-                <p style="font-size: 14px; color: #555; margin-bottom: 15px;">Run a simulation to have the AI answer the same questions based on its generated profile. Results will show alignment.</p>
-                
-                <div style="margin-bottom: 15px;">
-                  <label for="ai-assessment-temp" style="margin-right: 10px; font-weight: 500;">Simulation Temperature:</label>
-                  <input type="number" id="ai-assessment-temp" value="0.8" step="0.1" min="0" max="1.0" style="width: 80px; padding: 5px 8px; margin-bottom: 0;">
-                  <span style="font-size: 12px; color: #666;">(Higher value = more creative/random responses)</span>
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                  <label for="ai-profile-select" style="margin-right: 10px; font-weight: 500;">Select Personality Profile:</label>
-                  <select id="ai-profile-select" style="width: 300px; padding: 5px 8px;">
-                    <option value="">-- Select Personality Profile --</option>
-                    <!-- Will be populated with available profiles -->
-                  </select>
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                  <label for="runs-per-item" style="margin-right: 10px; font-weight: 500;">Runs per Item:</label>
-                  <input type="number" id="runs-per-item" name="runs-per-item" value="3" min="1" max="10" style="width: 50px;">
-                  <span style="font-size: 12px; color: #666;">(More runs = more accurate but slower)</span>
-                </div>
-                
-                <button id="run-ai-assessment" class="action-button" disabled>Run AI Assessment & Compare</button>
-                <div id="ai-assessment-status" class="status"></div>
-              </div>
-            </div>
-
-            <!-- Results Section -->
-            <div id="assessment-results-area" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc; display: none;">
-              <h3>Alignment Results</h3>
-              <p>Overall Alignment: <strong id="overall-alignment">--%</strong></p>
-              <p>Exact Item Agreement: <strong id="item-agreement">--%</strong></p>
-              <ul id="dimension-alignment-list" style="margin-bottom: 15px;"></ul>
-              <div style="width: 100%; max-width: 600px; height: 400px; margin: 0 auto;">
-                <canvas id="radar-chart"></canvas>
-              </div>
-            </div>
+            <!-- Content from the Alignment Metrics page goes here -->
+            <!-- ... Existing code ... -->
           </div>
         </div>
       </div>
@@ -1064,7 +1173,281 @@
     </div>
   </div>
 
+  <!-- Character Card Template Modal -->
+  <div id="template-edit-modal" class="modal">
+    <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+      <span id="close-template-modal" class="close-button">&times;</span>
+      <h3>Edit Character Card Template</h3>
+      <p style="font-size: 14px; color: #555; margin-bottom: 15px;">
+        Customize the structure of the character card. This template will be used when generating new character cards.
+      </p>
+      
+      <div style="margin-bottom: 15px;">
+        <textarea id="template-editor" rows="30" style="width: 100%; font-family: monospace; font-size: 14px;"></textarea>
+      </div>
+      
+      <div style="display: flex; justify-content: space-between;">
+        <button id="reset-template-button" class="action-button" style="background-color: #e74c3c; width: auto;">Reset to Default</button>
+        <button id="save-template-button" class="action-button" style="width: auto;">Save Template</button>
+      </div>
+      <div id="template-edit-status" class="status"></div>
+    </div>
+  </div>
+
   <!-- Load the modular app.js with type="module" to enable ES6 imports -->
-  <script type="module" src="js/app.js?v=57"></script>
+  <script type="module" src="js/app.js?v=timestamp"></script>
+  
+  <!-- Character Card Template handling -->
+  <script>
+  // Character Card Template handling
+  document.addEventListener('DOMContentLoaded', function() {
+    const editTemplateButton = document.getElementById('edit-template-button');
+    const generateCharacterCardButton = document.getElementById('generate-character-card-button');
+    const templateEditModal = document.getElementById('template-edit-modal');
+    const closeTemplateModalButton = document.getElementById('close-template-modal');
+    const templateEditor = document.getElementById('template-editor');
+    const saveTemplateButton = document.getElementById('save-template-button');
+    const resetTemplateButton = document.getElementById('reset-template-button');
+    const templateEditStatus = document.getElementById('template-edit-status');
+    const characterCardGenerationStatus = document.getElementById('character-card-generation-status');
+    
+    // Load template when edit button is clicked
+    editTemplateButton.addEventListener('click', async function() {
+      try {
+        const response = await fetch('/api/prompts/character-card-template');
+        if (!response.ok) {
+          throw new Error(`Failed to load template (${response.status})`);
+        }
+        const template = await response.json();
+        templateEditor.value = JSON.stringify(template, null, 2);
+        templateEditModal.style.display = 'block';
+      } catch (error) {
+        console.error('Error loading template:', error);
+        templateEditStatus.textContent = `Error: ${error.message}`;
+        templateEditStatus.className = 'status error';
+      }
+    });
+    
+    // Close modal
+    closeTemplateModalButton.addEventListener('click', function() {
+      templateEditModal.style.display = 'none';
+    });
+    
+    // Close modal if clicked outside
+    window.addEventListener('click', function(event) {
+      if (event.target === templateEditModal) {
+        templateEditModal.style.display = 'none';
+      }
+    });
+    
+    // Save template
+    saveTemplateButton.addEventListener('click', async function() {
+      try {
+        const templateJson = JSON.parse(templateEditor.value); // Validate JSON
+        
+        const response = await fetch('/api/prompts/character-card-template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(templateJson)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to save template (${response.status})`);
+        }
+        
+        templateEditStatus.textContent = 'Template saved successfully!';
+        templateEditStatus.className = 'status success';
+        
+        // Clear after 3 seconds
+        setTimeout(() => {
+          templateEditStatus.textContent = '';
+          templateEditStatus.className = 'status';
+        }, 3000);
+        
+      } catch (error) {
+        console.error('Error saving template:', error);
+        templateEditStatus.textContent = `Error: ${error.message}`;
+        templateEditStatus.className = 'status error';
+      }
+    });
+    
+    // Reset template to default
+    resetTemplateButton.addEventListener('click', async function() {
+      if (confirm('Are you sure you want to reset the template to the default structure?')) {
+        try {
+          // Define a default template structure
+          const defaultTemplate = {
+            "entity": {
+              "form": "human",
+              "occupation": "",
+              "gender": "",
+              "age": ""
+            },
+            "personality": {
+              "name": "",
+              "core_traits": [
+                {
+                  "trait": "",
+                  "strength": 0.0
+                }
+              ],
+              "big_five": {
+                "openness": 0.0,
+                "conscientiousness": 0.0,
+                "extraversion": 0.0,
+                "agreeableness": 0.0,
+                "neuroticism": 0.0
+              },
+              "values": [
+                {
+                  "name": "",
+                  "expression": ""
+                }
+              ]
+            },
+            "voice": {
+              "style": "",
+              "tone": "",
+              "qualities": [],
+              "patterns": []
+            },
+            "relationship": {
+              "style": "",
+              "boundaries": ""
+            },
+            "platform_adaptations": {
+              "linkedin": {
+                "tone": "",
+                "topics": [],
+                "style": ""
+              },
+              "twitter": {
+                "tone": "",
+                "topics": [],
+                "style": ""
+              },
+              "blog": {
+                "tone": "",
+                "topics": [],
+                "style": ""
+              }
+            },
+            "expertise": [],
+            "background": []
+          };
+          
+          templateEditor.value = JSON.stringify(defaultTemplate, null, 2);
+          
+          // Also save to server
+          const response = await fetch('/api/prompts/character-card-template', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(defaultTemplate)
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to save default template (${response.status})`);
+          }
+          
+          templateEditStatus.textContent = 'Template reset to default!';
+          templateEditStatus.className = 'status success';
+          
+          // Clear after 3 seconds
+          setTimeout(() => {
+            templateEditStatus.textContent = '';
+            templateEditStatus.className = 'status';
+          }, 3000);
+          
+        } catch (error) {
+          console.error('Error resetting template:', error);
+          templateEditStatus.textContent = `Error: ${error.message}`;
+          templateEditStatus.className = 'status error';
+        }
+      }
+    });
+    
+    // Add a function to reset the custom generation prompt
+    const resetCustomGenerationPromptButton = document.getElementById('reset-custom-generation-prompt-button');
+    resetCustomGenerationPromptButton?.addEventListener('click', function() {
+      const customGenerationPromptTextarea = document.getElementById('custom-generation-prompt');
+      if (customGenerationPromptTextarea) {
+        customGenerationPromptTextarea.value = `Analyze the following text which represents writings and information about a person. Based *only* on this text, generate a structured JSON object representing their personality profile. 
+
+The JSON object should follow the character card template structure you've been provided. Include personality traits, voice characteristics, communication patterns, and platform-specific adaptations where discernible from the content.
+
+Ensure the output is ONLY the JSON object, starting with { and ending with }.`;
+        
+        // Show status confirmation
+        const customGenerationPromptStatus = document.getElementById('custom-generation-prompt-status');
+        if (customGenerationPromptStatus) {
+          customGenerationPromptStatus.textContent = 'Prompt reset to default.';
+          customGenerationPromptStatus.className = 'status success';
+          
+          // Clear after 3 seconds
+          setTimeout(() => {
+            customGenerationPromptStatus.textContent = '';
+            customGenerationPromptStatus.className = 'status';
+          }, 3000);
+        }
+      }
+    });
+    
+    // Generate Character Card button behavior
+    generateCharacterCardButton.addEventListener('click', async function() {
+      // This functionality has been moved to the promptModule.ts TypeScript file
+    });
+    
+    // Update Generate Character Card button state when assets/user change
+    function updateCharacterCardButtonState() {
+      // This functionality has been moved to the promptModule.ts TypeScript file
+    }
+    
+    // Event listeners for updating button state
+    document.addEventListener('user-data-loaded', updateCharacterCardButtonState);
+    document.addEventListener('assets-selection-changed', updateCharacterCardButtonState);
+
+    // Add a function to save the custom generation prompt
+    const saveCustomGenerationPromptButton = document.getElementById('save-custom-generation-prompt-button');
+    saveCustomGenerationPromptButton?.addEventListener('click', function() {
+      const customGenerationPromptTextarea = document.getElementById('custom-generation-prompt');
+      const customGenerationPromptStatus = document.getElementById('custom-generation-prompt-status');
+      
+      if (customGenerationPromptTextarea && customGenerationPromptStatus) {
+        // Save to localStorage for persistence
+        try {
+          localStorage.setItem('customGenerationPrompt', customGenerationPromptTextarea.value);
+          
+          customGenerationPromptStatus.textContent = 'Prompt saved successfully!';
+          customGenerationPromptStatus.className = 'status success';
+          
+          // Clear after 3 seconds
+          setTimeout(() => {
+            customGenerationPromptStatus.textContent = '';
+            customGenerationPromptStatus.className = 'status';
+          }, 3000);
+      } catch (error) {
+          console.error('Error saving prompt:', error);
+          customGenerationPromptStatus.textContent = `Error: ${error.message}`;
+          customGenerationPromptStatus.className = 'status error';
+        }
+      }
+    });
+    
+    // Load saved prompt on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      const customGenerationPromptTextarea = document.getElementById('custom-generation-prompt');
+      const savedPrompt = localStorage.getItem('customGenerationPrompt');
+      
+      if (customGenerationPromptTextarea && savedPrompt) {
+        customGenerationPromptTextarea.value = savedPrompt;
+      }
+    });
+  });
+
+  // Fix character card button state
+  document.addEventListener('DOMContentLoaded', function() {
+    // This functionality has been moved to the promptModule.ts TypeScript file
+  });
+  </script>
 </body>
 </html>
