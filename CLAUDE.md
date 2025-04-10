@@ -4,15 +4,52 @@ This document provides comprehensive technical information about the Digital Twi
 
 ## Project Vision
 
-The Digital Twin Lab is designed for iterative experimentation with AI-powered personality simulation using customizable system prompts. The core mission is to:
+The Digital Twin Lab is designed as a prompt engineering playground for iterative experimentation with AI-powered personality simulation using customizable system prompts. The core mission is to:
 
 1. **Generate effective base system prompts** from diverse content sources (websites, social media, text) that capture a user's essence.
 2. **Analyze user representation across different platforms** to inform potential prompt adaptations.
 3. **Enable easy editing and management of prompt variations** for different contexts (e.g., chat vs. assessment vs. content generation).
 4. **Provide tools for comparing** the outputs of different prompt versions.
 5. **Facilitate continuous prompt refinement** based on user feedback and assessment results.
+6. **Maintain complete transparency** about what prompts are sent to models at all times.
 
-The ultimate goal is to empower users to craft and test system prompts that allow AI models to interact and generate content authentically representing the user's voice, style, and platform-specific nuances.
+The ultimate goal is to empower users to craft and test system prompts that allow AI models to interact and generate content authentically representing the user's voice, style, and platform-specific nuances, with full visibility into the prompting process.
+
+## Prompt Engineering Playground
+
+Digital Twin Lab's primary function is to serve as a playground for prompt engineering experimentation:
+
+### Core Features
+
+1. **Prompt Engineering Playground**
+- Complete transparency in what is sent to the model
+- No hidden prompts or instructions
+- Designed for iterative experimentation with different prompt structures
+
+2. **Structured Prompt Templates**
+- JSON-based templates allow for clean organization and separation of:
+  - Character/Personality Cards (who the digital twin is)
+  - Generation Instructions (how the digital twin should respond)
+  - Together forming a complete Digital Twin representation
+
+3. **Unified Interface**
+- User Profile Management
+- Content Collection/Scraping
+- Digital Twin Generation
+- Evaluation & Testing
+- Multi-platform Previews (Twitter, LinkedIn, etc.)
+
+4. **Immediate Feedback Loop**
+   - Make small changes to prompts and immediately see effects
+   - Compare outputs across different platforms
+   - Save variations for different contexts to test effectiveness
+
+5. **Controlled Experimentation**
+   - Test different directive styles
+   - Experiment with output format requirements
+   - Adjust character attributes independently from generation instructions
+
+For complete documentation on the prompt structures and usage, see [PROMPTS.md](PROMPTS.md).
 
 ## Architecture Overview
 
@@ -55,17 +92,24 @@ The project is built with a modular architecture, separating frontend and backen
 ### Digital Twin Representation
 The system uses a standardized approach to represent digital twins:
 
-**Character Card (JSON Format)**: A structured JSON representation with explicit fields for personality traits, voice characteristics, platform adaptations, and other attributes. The character card includes:
-- Entity information (form, occupation, gender, age)
-- Personality traits including Big Five factors
-- Voice style and communication patterns
-- Relationship handling approaches
-- Platform-specific adaptations (e.g., LinkedIn vs Twitter style)
-- Areas of expertise and background
+**Prompt Template (JSON Format)**: A structured JSON representation containing two main components:
 
-This JSON character card serves as the system prompt for the AI model. When using the digital twin in different contexts (chat, assessment, social media), additional instructions specific to that context can be appended to the character card as needed.
+1. **Character/Personality Card**:
+   - Entity details (name, handle, form, occupation, gender, age)
+   - Personality traits including Big Five factors
+   - Voice style and communication patterns
+   - Relationship handling approaches
+   - Areas of expertise and background
 
-Users can edit the character card template to customize its structure according to their needs through the Digital Twin Generation module in the UI.
+2. **Generation Instructions**:
+   - Directives for behavior (never break character, avoid narration)
+   - Platform-specific adaptations (e.g., LinkedIn vs Twitter style)
+   - Output formatting rules and guidelines
+   - Default fallback instructions
+
+This JSON template serves as the system prompt for the AI model. When using the digital twin in different contexts (chat, assessment, social media), the system automatically selects the appropriate instructions from the template.
+
+Users can edit both the character card and generation instructions through the user interface, allowing for flexible customization of their digital twin.
 
 ### Data Storage (SQLite Database)
 - User data including profile information.
@@ -107,17 +151,34 @@ Users can edit the character card template to customize its structure according 
 7. **Assessment Module:** Run simulation using current prompt (defaults to base, loads variation if exists). Edit prompt; saves as 'assessment' variation. Compare results.
 8. Refine prompts based on results and feedback.
 
-## Technical Implementation Details
+## Prompt Engineering Implementation
 
 ### System Prompts
-- The core "personality" is represented by a **character card** (JSON format) stored in the `base_prompts` table.
-- This character card is generated by Claude based on analysis of user assets, using the asset's metadata about source platform/medium to inform platform-specific adaptations.
-- The character card serves as the system prompt and follows a structured JSON format with fields for entity information, personality traits, voice characteristics, platform adaptations, and other attributes.
-- Using JSON format ensures consistency and makes it easier to extract specific personality aspects for different contexts.
+- The core of each digital twin is represented by a **prompt template** (JSON format) stored in the `base_prompts` table.
+- This template contains both the character/personality card and generation instructions.
+- The template is generated by Claude based on analysis of user assets, using the asset's metadata about source platform/medium to inform platform-specific adaptations.
+- The template serves as the system prompt and follows a structured JSON format with distinct sections for character information (personality traits, voice characteristics) and generation instructions (platform adaptations, directives).
+- Using JSON format ensures consistency and makes it easier to extract specific instructions for different contexts.
 
 ### Prompt Variations
-- Users can edit the character card within specific modules (Chat, Assessment, etc.).
-- These edits are saved as **prompt variations** in the `prompt_variations` table, linked to the base prompt and the specific `module_context`.
+- Users can edit both character cards and instruction sets within specific modules (Chat, Assessment, etc.).
+- Variations are stored in the database linked to the base prompt, allowing for rapid experimentation.
+- Variations can be saved for different platforms or contexts (e.g., a more professional LinkedIn version vs. a casual Twitter version).
+
+### Prompt Transparency
+- When generating content, the system displays exactly which instruction was extracted from the prompt template and used for generation.
+- No additional prompts or instructions are added by the backend beyond what's in your template.
+- This transparency is critical for effective prompt engineering.
+
+### Flexible Instruction Paths
+- The system supports multiple paths for defining generation instructions:
+  - `platform_adaptations.[medium].generation_instructions`
+  - `generation.platform_instructions.[medium]`
+  - `[medium]_instructions`
+  - `generation_instructions` or `generation.default_instruction`
+  - `main_goal`
+- This flexibility allows users to organize their prompt templates in the way that makes most sense for their use case.
+- The system has a clear priority order for which instructions to use, ensuring predictable behavior.
 
 ### Interactions Page
 - The Interactions page combines what was previously two separate pages (Content Medium and Digital Twin Chat)
@@ -127,6 +188,53 @@ Users can edit the character card template to customize its structure according 
 - Other mediums allow configuration of medium-specific instructions and parameters
 - Users can view the full structured prompt for any medium, showing how parameters and examples are combined
 - The page includes generate buttons to create sample content for each medium type
+
+## Implementation Task List
+
+### 1. Database Schema Updates
+- [ ] Create a new `character_cards` table to store character information separately
+- [ ] Create a new `generation_instructions` table to store instruction sets
+- [ ] Add relationship fields to link character cards and instructions to prompt templates
+- [ ] Update `base_prompts` table to reference these components
+- [ ] Create migration script for existing data
+
+### 2. Backend API Changes
+- [ ] Update `/api/prompts/:userId/generate` endpoint to create separate components
+- [ ] Update `/api/prompts/:userId/generate-character-card` to match new structure
+- [ ] Modify `chatRoutes.ts` to handle the new structure for content generation
+- [ ] Create new API endpoints for managing character cards and instructions separately
+- [ ] Update prompt service to support the new component-based approach
+
+### 3. Frontend Changes
+- [ ] Create UI components for editing character card and instructions separately
+- [ ] Update promptModule.js to handle separate character and instruction editing
+- [ ] Modify chatModule.js to display which instruction set is being used
+- [ ] Add interface for selecting/mixing different character cards with different instruction sets
+- [ ] Update JSON viewer component to show the structured format
+
+### 4. Data Migration
+- [ ] Write script to convert existing flat JSON to the new structured format
+- [ ] Separate character attributes from generation instructions in existing data
+- [ ] Handle edge cases where the separation isn't clean
+- [ ] Test migration on sample data before applying to production
+
+### 5. Documentation Updates
+- [ ] Update PROMPTS.md to include implementation details and examples
+- [ ] Update README.md to reflect the new structure in user workflows
+- [ ] Create developer documentation for the new component-based approach
+- [ ] Document migration process for future reference
+
+### 6. Testing
+- [ ] Test character card generation with the new structure
+- [ ] Test content generation across different platforms
+- [ ] Verify backward compatibility with existing features
+- [ ] Test mixing different character cards with different instruction sets
+
+### Implementation Priority
+1. Database schema and backend API changes (foundation)
+2. Data migration script (preserve existing data)
+3. Frontend UI updates (user experience)
+4. Documentation and testing (ensure quality)
 
 ## Development Roadmap
 

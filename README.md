@@ -1,5 +1,5 @@
-# digital twin lab
-an interface for creating and interacting with digital twins. upload your content, generate system prompts, chat, and assess alignment.
+# Digital Twin Lab
+A prompt engineering playground for creating and interacting with digital twins. Upload your content, generate system prompts, experiment with different prompt structures, and see exactly what instructions are sent to the models.
 
 ## Core Features
 
@@ -15,23 +15,36 @@ an interface for creating and interacting with digital twins. upload your conten
    - Import social media content via OAuth
    - Organize and select content for prompt generation
 
-3. **Character Card Generation**
-   - Generate structured JSON character cards that serve as system prompts
-   - Character cards include personality traits, voice style, and platform adaptations
-   - Edit the character card template to customize the structure
-   - Use character cards as the foundation for digital twin interactions
+3. **Digital Twin Creation**
+   - Generate structured JSON templates that define your digital twin
+   - Templates include character/personality cards (traits, voice, background)
+   - Add instruction directives to control output behavior
+   - See exactly what instructions are sent to the model with full transparency
 
-4. **Interactions**
-   - Chat with digital twins using generated prompts
+4. **Interactions & Content Generation**
+   - Chat with your digital twin using your customized prompts
    - Configure how your digital twin communicates across different mediums
    - Generate content for various platforms (blog posts, tweets, LinkedIn)
    - Edit system prompts to refine twin behavior
-   - View the full structured prompt including examples
+   - See the exact instructions used for each generation
    - Generate sample content based on the current medium
 
 5. **Alignment Evaluation**
    - Compare user and AI responses to assessment
    - Visualize trait alignment via radar charts
+
+## Prompt Engineering Playground
+
+Digital Twin Lab is designed as a complete prompt engineering environment:
+
+1. **Full Prompt Visibility**: See exactly what prompts are sent to the model in every interaction
+2. **Structured Experimentation**: Test different prompt structures and instructions across platforms
+3. **Rapid Iteration**: Make small changes to your digital twin template and immediately see the effects
+4. **Complete Control**: No hidden instructions or default prompts are added by the system
+5. **Instruction Transparency**: All instructions used for generation are displayed in the UI
+6. **Separation of Concerns**: Clear separation between character attributes and generation instructions
+
+All prompts are fully customizable, visible, and documented. For detailed information on how prompts are structured and used in the system, see [PROMPTS.md](PROMPTS.md).
 
 ## Getting Started
 
@@ -121,26 +134,31 @@ The application uses SQLite for database storage:
 
 1. Create or select a user profile
 2. Upload or scrape source content
-3. Select content for character card generation
-4. Generate a JSON character card that serves as the system prompt
-5. Edit the character card template if needed
+3. Select content for template generation
+4. Generate a JSON template that includes:
+   - Character/personality card (traits, voice, background)
+   - Generation instructions and directives
+5. Edit components to customize your digital twin's identity and behavior
 
 ### Testing Personality Alignment
 
 1. Complete the TIPI assessment as the user
-2. Select a generated character card (or variation)
+2. Select a generated digital twin template (or variation)
 3. Run the AI assessment simulation
 4. View and analyze the alignment results
 
 ### Interacting with Digital Twins
 
-1. Select a character card
-2. Chat with the digital twin using the selected character card as system prompt
+1. Select a digital twin's template
+2. Chat with the digital twin using the selected template as system prompt
 3. Save successful variations for different contexts
+4. See the exact instructions being used for each interaction
 
 ## Project Status
 
 See [CLAUDE.md](CLAUDE.md) for detailed technical notes and current development status.
+
+See [PROMPTS.md](PROMPTS.md) for comprehensive documentation on all prompts used in the system and how to customize them.
 
 ## Research Background
 
