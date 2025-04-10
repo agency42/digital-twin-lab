@@ -970,6 +970,29 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
             
             <!-- Chat Interface (Default) -->
             <div class="medium-content active" id="chat-medium-content">
+              <!-- Component Selection -->
+              <div style="margin-bottom: 20px; background-color: #2d3748; padding: 15px; border-radius: 5px; border: 1px solid #4a5568;">
+                <h3 style="margin-bottom: 15px; color: #e2e8f0; font-size: 18px;">Digital Twin Components</h3>
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                  <div style="flex: 1;">
+                    <label for="character-card-select" style="display: block; margin-bottom: 8px; color: #cbd5e0; font-size: 14px;">Character Card:</label>
+                    <select id="character-card-select" style="width: 100%; padding: 8px; background-color: #1a202c; color: #e2e8f0; border: 1px solid #4a5568; border-radius: 4px;">
+                      <option value="">Select Character Card</option>
+                    </select>
+                  </div>
+                  <div style="flex: 1;">
+                    <label for="instruction-set-select" style="display: block; margin-bottom: 8px; color: #cbd5e0; font-size: 14px;">Instruction Set:</label>
+                    <select id="instruction-set-select" style="width: 100%; padding: 8px; background-color: #1a202c; color: #e2e8f0; border: 1px solid #4a5568; border-radius: 4px;">
+                      <option value="">Select Instruction Set</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                  <button id="manage-character-cards-btn" class="action-button" style="background-color: #2d3748; border: 1px solid #4a5568; color: #e2e8f0; font-size: 13px; padding: 6px 12px;">Manage Character Cards</button>
+                  <button id="manage-instruction-sets-btn" class="action-button" style="background-color: #2d3748; border: 1px solid #4a5568; color: #e2e8f0; font-size: 13px; padding: 6px 12px;">Manage Instruction Sets</button>
+                </div>
+              </div>
+            
               <!-- Chat container styled as terminal -->
               <div id="chat-container" style="background-color: #1e2127; border: 1px solid #333; border-radius: 5px; overflow: hidden; margin-bottom: 20px;">
                 <div style="padding: 5px 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background-color: #2c3e50;">
@@ -1002,6 +1025,25 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
             
             <!-- Twitter Medium Content -->
             <div class="medium-content" id="twitter-medium-content" style="display: none;">
+              <!-- Component Selection -->
+              <div style="margin-bottom: 20px; background-color: #15202B; padding: 15px; border-radius: 5px; border: 1px solid #38444d;">
+                <h3 style="margin-bottom: 15px; color: #f5f8fa; font-size: 18px;">Tweet Generation Components</h3>
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                  <div style="flex: 1;">
+                    <label for="twitter-character-select" style="display: block; margin-bottom: 8px; color: #8899a6; font-size: 14px;">Character Card:</label>
+                    <select id="twitter-character-select" class="character-card-select" style="width: 100%; padding: 8px; background-color: #192734; color: #f5f8fa; border: 1px solid #38444d; border-radius: 4px;">
+                      <option value="">Select Character Card</option>
+                    </select>
+                  </div>
+                  <div style="flex: 1;">
+                    <label for="twitter-instruction-select" style="display: block; margin-bottom: 8px; color: #8899a6; font-size: 14px;">Instruction Set:</label>
+                    <select id="twitter-instruction-select" class="instruction-set-select" style="width: 100%; padding: 8px; background-color: #192734; color: #f5f8fa; border: 1px solid #38444d; border-radius: 4px;">
+                      <option value="">Select Instruction Set</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
               <div style="margin-bottom: 20px;">
                 <button id="generate-twitter-content" class="action-button" style="background-color: #1DA1F2; color: white;">Generate Tweet</button>
               </div>
