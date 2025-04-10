@@ -27,6 +27,7 @@ import createAssessmentRouter from './routes/assessmentRoutes';
 import createChatRouter from './routes/chatRoutes';
 import createScrapeRouter from './routes/scrapeRoutes';
 import createUploadRouter from './routes/uploadRoutes';
+import createComponentRouter from './routes/componentRoutes';
 
 // Initialize the app
 const app: Express = express();
@@ -116,6 +117,7 @@ app.use('/api/assessment', createAssessmentRouter());
 app.use('/api/chat', createChatRouter());
 app.use('/api/scrape', createScrapeRouter());
 app.use('/api/upload', createUploadRouter());
+app.use('/api/components', createComponentRouter());
 
 // Direct LinkedIn authentication endpoint - legacy support
 app.get('/api/auth/linkedin', (req: Request, res: Response): void => {
