@@ -79,7 +79,7 @@ export default function createChatRouter() {
     // Chat with persona endpoint
     router.post('/:userId/response', asyncHandler(async (req: Request, res: Response) => {
         const userId = req.params.userId;
-        const { message, history, systemPrompt, personaId } = req.body;
+        const { message, history, systemPrompt, mainGoal } = req.body;
         
         if (!userId || !message) {
             throw new Error('Missing required fields: userId (in path) and message (in body)');
@@ -95,6 +95,49 @@ export default function createChatRouter() {
         res.status(200).json({ 
             response: responseText, 
             userId, 
+            timestamp: new Date().toISOString() 
+        });
+    }));
+
+    // Content generation endpoint
+    router.post('/:userId/generate-content', asyncHandler(async (req: Request, res: Response) => {
+        const userId = req.params.userId;
+        const { systemPrompt, medium } = req.body;
+        
+        if (!userId || !systemPrompt) {
+            throw new Error('Missing required fields: userId (in path) and systemPrompt (in body)');
+        }
+
+        if (!medium) {
+            throw new Error('Medium is required for content generation');
+        }
+        
+        // Create a medium-specific prompt
+        let userMessage = '';
+        
+        switch (medium) {
+            case 'twitter':
+                userMessage = 'Please generate a tweet that represents my thoughts and style. Make it concise, engaging, and authentic to my voice as described in the system prompt. Limit to 280 characters if possible.';
+                break;
+            case 'linkedin':
+                userMessage = 'Please generate a professional LinkedIn post that would be appropriate for my network. The post should be in my authentic voice as described in the system prompt, and should be thoughtful and provide value to professionals in my field.';
+                break;
+            case 'blog':
+                userMessage = 'Please generate a blog post with a title and content that reflects my writing style and perspective. The content should be well-structured, thoughtful, and in my authentic voice as described in the system prompt. Include a compelling title at the beginning.';
+                break;
+            default:
+                userMessage = 'Please generate content that reflects my authentic voice and style as described in the system prompt.';
+        }
+        
+        const content = await claudeAPI.generateCompletion(
+            [{ role: 'user', content: userMessage }],
+            { system: systemPrompt, temperature: 0.7, stream: false }
+        ) as string;
+        
+        res.status(200).json({ 
+            content, 
+            userId, 
+            medium,
             timestamp: new Date().toISOString() 
         });
     }));

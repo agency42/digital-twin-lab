@@ -699,7 +699,7 @@
       <ul class="nav-tabs">
         <li class="nav-tab active" data-page="user-setup-page">User Setup</li>
         <li class="nav-tab" data-page="content-library-page">Content Library</li>
-        <li class="nav-tab" data-page="interactions-page">Interactions</li>
+        <li class="nav-tab" data-page="interactions-page">Generations</li>
         <li class="nav-tab" data-page="evaluation-page">Evaluation</li>
       </ul>
       
@@ -928,56 +928,48 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
           <div class="module" id="interactions-module">
             <div class="module-header">
               <div class="module-icon" style="background-color: #27ae60;">💬</div>
-              <h2 class="module-title">Interactions</h2>
+              <h2 class="module-title">Generations</h2>
             </div>
-            <p class="module-description">Configure how your digital twin communicates across different mediums and interact with it in real-time.</p>
+            <p class="module-description">Generate content with your digital twin across different platforms.</p>
 
-            <!-- Medium Selector Tabs with improved contrast -->
+            <!-- Medium Selector Tabs -->
             <div class="medium-selector">
               <div class="medium-tabs" style="background-color: #1e2127; border-color: #333;">
                 <button class="medium-tab active" data-medium="chat" style="background-color: #2c3e50; color: white; border-color: #34495e;">Chat</button>
-                <button class="medium-tab" data-medium="blog" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">Blog/Article</button>
-                <button class="medium-tab" data-medium="tweet" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">Tweet</button>
+                <button class="medium-tab" data-medium="twitter" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">Twitter</button>
                 <button class="medium-tab" data-medium="linkedin" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">LinkedIn</button>
+                <button class="medium-tab" data-medium="blog" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">Blog</button>
               </div>
             </div>
 
-            <!-- Chat Interface (Default) -->
-            <div class="interaction-content active" id="chat-interaction-content">
-              <div class="system-prompt-container" style="background-color: #1e2127; border: 1px solid #333; margin-bottom: 20px; padding: 15px; border-radius: 5px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                  <h3 class="section-title" style="color: #e0e0e0; margin: 0;">System Prompt 
-                    <button class="info-button" data-tooltip-target="system-prompt-tooltip" style="background-color: #333; color: #fff; border: 1px solid #444;">?</button>
-                  </h3>
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <label style="font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #aaa;">
-                      <input type="checkbox" id="show-system-prompt" style="width: auto; margin: 0;" checked> Show System Prompt
-                    </label>
-                    <button id="toggle-system-prompt-button" class="action-button" style="font-size: 0.8em; padding: 3px 8px; background-color: #555;">Toggle Prompt</button>
-                  </div>
-                </div>
-                <div id="system-prompt-tooltip" class="info-tooltip-text" style="display: none; background-color: #333; border: 1px solid #444; color: #e0e0e0;">
-                  <p><strong>What it is:</strong><br>The system prompt contains all the instructions sent to the AI model that determine how your digital twin will respond.</p>
-                  <p><strong>How to use it:</strong><br>You can edit this text directly to modify how your digital twin behaves and responds.</p>
-                </div>
-                
-                <div id="system-prompt-controls" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                  <button id="save-chat-prompt-variation-button" class="action-button" style="background-color: #2b5278; border: none; color: white; flex-grow: 1;">Save Variation</button>
-                  <button id="reset-chat-prompt-button" class="action-button" style="background-color: #6c757d; flex-grow: 1;">Reset to Base Prompt</button>
-                </div>
-                
-                <textarea id="system-prompt-editor" rows="15" style="width: 100%; font-family: monospace; margin-bottom: 15px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 5px; padding: 10px;"></textarea>
-                
-                <!-- Show Full Structured Prompt Button -->
-                <button id="toggle-full-prompt" class="action-button" style="background-color: #555; margin-bottom: 10px;">Show Full Structured Prompt</button>
-                
-                <!-- Full Structured Prompt (hidden by default) -->
-                <div id="full-structured-prompt" style="display: none; margin-top: 15px;">
-                  <h4 style="color: #e0e0e0; margin-bottom: 10px;">Full Structured Prompt</h4>
-                  <textarea id="full-prompt-display" readonly rows="12" style="width: 100%; font-family: monospace; background-color: #1a1a1a; color: #ccc; border: 1px solid #444; border-radius: 5px; padding: 10px;"></textarea>
+            <!-- System Prompt Container -->
+            <div class="system-prompt-container" style="background-color: #1e2127; border: 1px solid #333; margin-bottom: 20px; padding: 15px; border-radius: 5px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 class="section-title" style="color: #e0e0e0; margin: 0;">System Prompt 
+                  <button class="info-button" data-tooltip-target="system-prompt-tooltip" style="background-color: #333; color: #fff; border: 1px solid #444;">?</button>
+                </h3>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <label style="font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #aaa;">
+                    <input type="checkbox" id="show-system-prompt" style="width: auto; margin: 0;" checked> Show System Prompt
+                  </label>
                 </div>
               </div>
+              <div id="system-prompt-tooltip" class="info-tooltip-text" style="display: none; background-color: #333; border: 1px solid #444; color: #e0e0e0;">
+                <p><strong>What it is:</strong><br>The system prompt contains all the instructions sent to the AI model that determine how your digital twin will respond.</p>
+                <p><strong>How to use it:</strong><br>You can edit this text directly to modify how your digital twin behaves and responds.</p>
+              </div>
               
+              <div id="system-prompt-controls" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <button id="save-medium-prompt-variation-button" class="action-button" style="background-color: #2b5278; border: none; color: white; flex-grow: 1;">Save Variation</button>
+                <button id="reset-medium-prompt-button" class="action-button" style="background-color: #6c757d; flex-grow: 1;">Reset to Base Prompt</button>
+                <button id="toggle-json-prompt-button" class="action-button" style="background-color: #5a6268; flex-grow: 1;">Show As JSON</button>
+              </div>
+              
+              <textarea id="system-prompt-editor" rows="15" style="width: 100%; font-family: monospace; margin-bottom: 15px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 5px; padding: 10px;"></textarea>
+            </div>
+            
+            <!-- Chat Interface (Default) -->
+            <div class="medium-content active" id="chat-medium-content">
               <!-- Chat container styled as terminal -->
               <div id="chat-container" style="background-color: #1e2127; border: 1px solid #333; border-radius: 5px; overflow: hidden; margin-bottom: 20px;">
                 <div style="padding: 5px 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background-color: #2c3e50;">
@@ -1006,72 +998,74 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
                   <div id="terminal-cursor" class="terminal-cursor"></div>
                 </div>
               </div>
-              
-              <div id="chat-status" class="status" style="color: #aaa;"></div>
-              
-              <!-- Generate content button for this medium -->
-              <button id="generate-chat-content" class="action-button" style="background-color: #2980b9; color: white; margin-top: 10px;">Generate Sample Chat Interaction</button>
             </div>
             
-            <!-- Other mediums (initially hidden) -->
-            <div class="interaction-content" id="blog-interaction-content" style="display: none;">
-              <!-- Blog medium instructions from Content Medium page -->
-              <h3 class="section-title" style="color: #e0e0e0;">Blog/Article Medium Instructions</h3>
-              <p style="font-size: 14px; color: #ccc; margin-bottom: 15px;">These instructions will guide how your digital twin creates long-form written content.</p>
-              
-              <div class="instruction-section">
-                <label for="blog-instruction" style="color: #e0e0e0;">Main Instruction:</label>
-                <textarea id="blog-instruction" rows="4" class="medium-instruction" placeholder="Instruction for how to write blog posts or articles..." style="background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444;"></textarea>
+            <!-- Twitter Medium Content -->
+            <div class="medium-content" id="twitter-medium-content" style="display: none;">
+              <div style="margin-bottom: 20px;">
+                <button id="generate-twitter-content" class="action-button" style="background-color: #1DA1F2; color: white;">Generate Tweet</button>
               </div>
               
-              <div class="instruction-section">
-                <label for="blog-main-character" style="color: #e0e0e0;">Main Character:</label>
-                <input type="text" id="blog-main-character" class="medium-character" placeholder="Who should write (e.g., 'a digital twin of [name]')" style="background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444;">
-              </div>
-              
-              <div class="instruction-section">
-                <label for="blog-main-goal" style="color: #e0e0e0;">Main Goal:</label>
-                <input type="text" id="blog-main-goal" class="medium-goal" placeholder="The main objective (e.g., 'create informative and engaging articles in the style of [name]')" style="background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444;">
-              </div>
-              
-              <div class="instruction-section">
-                <label for="blog-description" style="color: #e0e0e0;">Description:</label>
-                <textarea id="blog-description" rows="3" class="medium-description" placeholder="Additional details about this medium..." style="background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444;"></textarea>
-              </div>
-              
-              <div class="instruction-section">
-                <label style="color: #e0e0e0;">Example Articles:</label>
-                <div id="blog-examples-container">
-                  <!-- Examples will be added dynamically -->
-                  <div class="example-item">
-                    <textarea rows="3" class="example-text" placeholder="Example blog post excerpt..." style="background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444;"></textarea>
-                    <button class="remove-example action-button danger-button" style="width: auto;">Remove</button>
+              <!-- Twitter Output Area -->
+              <div id="twitter-output-container" style="display: none; background-color: #15202B; border-radius: 12px; border: 1px solid #38444d; padding: 15px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                  <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #2C3E50; margin-right: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">DT</div>
+                  <div>
+                    <div style="font-weight: bold; color: #FFFFFF;">Digital Twin</div>
+                    <div style="color: #8899A6; font-size: 14px;">@DigitalTwin</div>
                   </div>
                 </div>
-                <button id="add-blog-example" class="action-button" style="width: auto; margin-top: 10px;">Add Example</button>
+                <div id="twitter-content" style="color: white; margin-bottom: 10px; font-size: 16px; line-height: 1.5; word-wrap: break-word;">
+                  <!-- Tweet content will be inserted here -->
+                </div>
+                <div style="color: #8899A6; font-size: 14px;">Just now · Twitter for Web</div>
+              </div>
+            </div>
+            
+            <!-- LinkedIn Medium Content -->
+            <div class="medium-content" id="linkedin-medium-content" style="display: none;">
+              <div style="margin-bottom: 20px;">
+                <button id="generate-linkedin-content" class="action-button" style="background-color: #0077B5; color: white;">Generate LinkedIn Post</button>
               </div>
               
-              <div class="instruction-actions">
-                <button id="save-blog-medium" class="action-button">Save Blog Instructions</button>
-                <button id="reset-blog-medium" class="action-button" style="background-color: #6c757d;">Reset</button>
-              </div>
-              <div id="blog-medium-status" class="status"></div>
-              
-              <!-- Generate content button for this medium -->
-              <button id="generate-blog-content" class="action-button" style="background-color: #2980b9; color: white; margin-top: 20px;">Generate Blog Article</button>
-              
-              <!-- Blog article display area -->
-              <div id="blog-output-container" style="margin-top: 20px; display: none;">
-                <h3 class="section-title" style="color: #e0e0e0;">Generated Blog Article</h3>
-                <div style="background-color: #2d2d2d; border: 1px solid #444; border-radius: 5px; padding: 20px; color: #e0e0e0;">
-                  <h2 id="blog-output-title" style="margin-bottom: 10px;"></h2>
-                  <div id="blog-output-content" style="white-space: pre-wrap; line-height: 1.6;"></div>
+              <!-- LinkedIn Output Area -->
+              <div id="linkedin-output-container" style="display: none; background-color: #FFFFFF; border-radius: 8px; border: 1px solid #E0E0E0; padding: 15px; margin-bottom: 20px; color: #000000;">
+                <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                  <div style="width: 60px; height: 60px; border-radius: 50%; background-color: #0077B5; margin-right: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">DT</div>
+                  <div>
+                    <div style="font-weight: bold; font-size: 16px;">Digital Twin</div>
+                    <div style="color: #666666; font-size: 14px;">AI Personality • Connected</div>
+                    <div style="color: #666666; font-size: 12px;">Just now • 🌐</div>
+                  </div>
+                </div>
+                <div id="linkedin-content" style="margin-bottom: 15px; font-size: 14px; line-height: 1.5;">
+                  <!-- LinkedIn content will be inserted here -->
+                </div>
+                <div style="border-top: 1px solid #E0E0E0; padding-top: 10px; color: #666666;">
+                  <span style="margin-right: 15px;">👍 Like</span>
+                  <span style="margin-right: 15px;">💬 Comment</span>
+                  <span>↪️ Share</span>
                 </div>
               </div>
             </div>
-
-            <!-- Remaining Content Medium sections would be added here (Tweet, LinkedIn) -->
-            <!-- ... with similar styling for dark mode and improved contrast ... -->
+            
+            <!-- Blog Medium Content -->
+            <div class="medium-content" id="blog-medium-content" style="display: none;">
+              <div style="margin-bottom: 20px;">
+                <button id="generate-blog-content" class="action-button" style="background-color: #2C3E50; color: white;">Generate Blog Post</button>
+              </div>
+              
+              <!-- Blog Output Area -->
+              <div id="blog-output-container" style="display: none; background-color: #FFFFFF; border-radius: 5px; border: 1px solid #E0E0E0; padding: 25px; margin-bottom: 20px; color: #333333;">
+                <h2 id="blog-title" style="margin-bottom: 15px; border-bottom: 1px solid #EEEEEE; padding-bottom: 10px; font-size: 24px;">Blog Title</h2>
+                <div style="color: #666666; margin-bottom: 20px; font-size: 14px;">By Digital Twin • Published just now</div>
+                <div id="blog-content" style="font-size: 16px; line-height: 1.8; font-family: Georgia, serif;">
+                  <!-- Blog content will be inserted here -->
+                </div>
+              </div>
+            </div>
+            
+            <div id="medium-status" class="status" style="color: #aaa;"></div>
           </div>
         </div>
         
