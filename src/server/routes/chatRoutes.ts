@@ -102,43 +102,220 @@ export default function createChatRouter() {
     // Content generation endpoint
     router.post('/:userId/generate-content', asyncHandler(async (req: Request, res: Response) => {
         const userId = req.params.userId;
-        const { systemPrompt, medium } = req.body;
+        const { systemPrompt, medium, templateId, cardId, instructionId } = req.body;
         
-        if (!userId || !systemPrompt) {
-            throw new Error('Missing required fields: userId (in path) and systemPrompt (in body)');
+        if (!userId) {
+            throw new Error('Missing required field: userId (in path)');
         }
 
         if (!medium) {
             throw new Error('Medium is required for content generation');
         }
         
-        // Create a medium-specific prompt
+        // Different flows based on whether we're using the component-based approach or legacy
         let userMessage = '';
+        let finalSystemPrompt = systemPrompt;
+        let extractedInstructions = false;
+        let characterData = null;
+        let instructionData = null;
         
-        switch (medium) {
-            case 'twitter':
-                userMessage = 'Please generate a tweet that represents my thoughts and style. Make it concise, engaging, and authentic to my voice as described in the system prompt. Limit to 280 characters if possible.';
-                break;
-            case 'linkedin':
-                userMessage = 'Please generate a professional LinkedIn post that would be appropriate for my network. The post should be in my authentic voice as described in the system prompt, and should be thoughtful and provide value to professionals in my field.';
-                break;
-            case 'blog':
-                userMessage = 'Please generate a blog post with a title and content that reflects my writing style and perspective. The content should be well-structured, thoughtful, and in my authentic voice as described in the system prompt. Include a compelling title at the beginning.';
-                break;
-            default:
-                userMessage = 'Please generate content that reflects my authentic voice and style as described in the system prompt.';
+        try {
+            // Check if we're using component IDs
+            if (templateId || (cardId && instructionId)) {
+                // Component-based approach
+                console.log(`Using component-based approach for ${userId} with ${medium}`);
+                
+                // Get the database connection
+                const db = req.app.locals.db;
+                
+                // If templateId is provided, get the template, character card, and instruction set
+                if (templateId) {
+                    // Fetch the template which references character card and instruction set
+                    const template = await db.get(
+                        `SELECT * FROM prompt_templates WHERE template_id = ? AND user_id = ?`,
+                        [templateId, userId]
+                    );
+                    
+                    if (!template) {
+                        throw new Error(`Template not found: ${templateId}`);
+                    }
+                    
+                    // Fetch the character card
+                    const characterCard = await db.get(
+                        `SELECT * FROM character_cards WHERE card_id = ?`,
+                        [template.card_id]
+                    );
+                    
+                    if (!characterCard) {
+                        throw new Error(`Character card not found: ${template.card_id}`);
+                    }
+                    
+                    characterData = JSON.parse(characterCard.card_data);
+                    
+                    // Fetch the instruction set if it exists
+                    if (template.instruction_id) {
+                        const instructionSet = await db.get(
+                            `SELECT * FROM instruction_sets WHERE instruction_id = ?`,
+                            [template.instruction_id]
+                        );
+                        
+                        if (instructionSet) {
+                            instructionData = JSON.parse(instructionSet.instruction_data);
+                        }
+                    }
+                    
+                    // Use the assembled prompt as fallback
+                    finalSystemPrompt = template.assembled_prompt;
+                }
+                // If cardId and/or instructionId are provided directly
+                else {
+                    // Fetch the character card
+                    if (cardId) {
+                        const characterCard = await db.get(
+                            `SELECT * FROM character_cards WHERE card_id = ? AND user_id = ?`,
+                            [cardId, userId]
+                        );
+                        
+                        if (!characterCard) {
+                            throw new Error(`Character card not found: ${cardId}`);
+                        }
+                        
+                        characterData = JSON.parse(characterCard.card_data);
+                    }
+                    
+                    // Fetch the instruction set
+                    if (instructionId) {
+                        const instructionSet = await db.get(
+                            `SELECT * FROM instruction_sets WHERE instruction_id = ? AND user_id = ?`,
+                            [instructionId, userId]
+                        );
+                        
+                        if (instructionSet) {
+                            instructionData = JSON.parse(instructionSet.instruction_data);
+                        }
+                    }
+                    
+                    // Assemble the system prompt
+                    if (characterData && instructionData) {
+                        finalSystemPrompt = JSON.stringify({
+                            ...characterData,
+                            ...instructionData
+                        });
+                    }
+                    else if (characterData) {
+                        finalSystemPrompt = JSON.stringify(characterData);
+                    }
+                }
+                
+                // Determine the user message (instruction) to use
+                if (instructionData) {
+                    // Check for platform-specific instructions first
+                    if (instructionData.platform_adaptations && 
+                        instructionData.platform_adaptations[medium] && 
+                        instructionData.platform_adaptations[medium].generation_instructions) {
+                        userMessage = instructionData.platform_adaptations[medium].generation_instructions;
+                        extractedInstructions = true;
+                    } 
+                    // Check for platform_instructions
+                    else if (instructionData.platform_instructions && 
+                             instructionData.platform_instructions[medium]) {
+                        userMessage = instructionData.platform_instructions[medium];
+                        extractedInstructions = true;
+                    }
+                    // Next check for medium-specific instructions
+                    else if (instructionData[`${medium}_instructions`]) {
+                        userMessage = instructionData[`${medium}_instructions`];
+                        extractedInstructions = true;
+                    }
+                    // Finally check for generic instructions
+                    else if (instructionData.generation_instructions) {
+                        userMessage = instructionData.generation_instructions;
+                        extractedInstructions = true;
+                    }
+                    // Check for main_goal, instructions, or directives as fallbacks
+                    else if (instructionData.main_goal) {
+                        userMessage = `${instructionData.main_goal}`;
+                        extractedInstructions = true;
+                    }
+                    else if (instructionData.instructions && 
+                             typeof instructionData.instructions === 'string') {
+                        userMessage = instructionData.instructions;
+                        extractedInstructions = true;
+                    }
+                }
+                
+                // Log what instructions were found
+                console.log(`Using ${extractedInstructions ? 'component-extracted' : 'default'} instructions for ${medium}`);
+            }
+            // Legacy approach - parse the system prompt directly
+            else if (systemPrompt) {
+                console.log(`Using legacy approach for ${userId} with ${medium}`);
+                
+                // Try to parse the system prompt as JSON
+                const systemPromptJson = JSON.parse(systemPrompt);
+                
+                // Check for platform-specific instructions first
+                if (systemPromptJson.platform_adaptations && 
+                    systemPromptJson.platform_adaptations[medium] && 
+                    systemPromptJson.platform_adaptations[medium].generation_instructions) {
+                    // Use platform-specific generation instructions
+                    userMessage = systemPromptJson.platform_adaptations[medium].generation_instructions;
+                    extractedInstructions = true;
+                } 
+                // Next check for medium-specific instructions
+                else if (systemPromptJson[`${medium}_instructions`]) {
+                    userMessage = systemPromptJson[`${medium}_instructions`];
+                    extractedInstructions = true;
+                }
+                // Finally check for generic instructions
+                else if (systemPromptJson.generation_instructions) {
+                    userMessage = systemPromptJson.generation_instructions;
+                    extractedInstructions = true;
+                }
+                // Check for main_goal, instructions, or directives as fallbacks
+                else if (systemPromptJson.main_goal) {
+                    userMessage = `${systemPromptJson.main_goal}`;
+                    extractedInstructions = true;
+                }
+                else if (systemPromptJson.instructions && typeof systemPromptJson.instructions === 'string') {
+                    userMessage = systemPromptJson.instructions;
+                    extractedInstructions = true;
+                }
+                
+                // Log what instructions were found
+                console.log(`Using ${extractedInstructions ? 'JSON-extracted' : 'default'} instructions for ${medium}`);
+            }
+        } catch (e) {
+            console.log('Error processing prompt structure:', e);
+            console.log('Using default instructions');
         }
+        
+        // If no instructions were found in the JSON, use a simple generic message
+        if (!extractedInstructions) {
+            userMessage = `Generate content for ${medium}`;
+        }
+        
+        // Log the exact instruction being used for transparency
+        console.log(`Instruction for ${medium}: "${userMessage}"`);
         
         const content = await claudeAPI.generateCompletion(
             [{ role: 'user', content: userMessage }],
-            { system: systemPrompt, temperature: 0.7, stream: false }
+            { system: finalSystemPrompt, temperature: 0.7, stream: false }
         ) as string;
         
         res.status(200).json({ 
             content, 
             userId, 
             medium,
-            timestamp: new Date().toISOString() 
+            timestamp: new Date().toISOString(),
+            // Include the instruction used for transparency
+            instruction_used: userMessage,
+            // Include which components were used
+            components: {
+                templateId: templateId || null,
+                cardId: cardId || null,
+                instructionId: instructionId || null
+            }
         });
     }));
 
