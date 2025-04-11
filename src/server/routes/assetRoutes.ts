@@ -4,6 +4,9 @@ import fs from 'fs/promises';
 import AssetProcessor from '../services/assetProcessor';
 import ClaudeAPI from '../api/claude';
 import { asyncHandler } from '../lib/asyncHandler';
+import { dbRun, dbGet, dbAll } from '../lib/database'; // Import DB helpers
+import { v4 as uuidv4 } from 'uuid';
+import PdfProcessor from '../services/pdfProcessor'; // Import PdfProcessor
 
 // Function to create the asset router, injecting dependencies
 function createAssetRouter(assetProcessor: AssetProcessor, claudeAPI: ClaudeAPI): Router {
@@ -38,68 +41,131 @@ function createAssetRouter(assetProcessor: AssetProcessor, claudeAPI: ClaudeAPI)
         return;
     }));
 
-    // GET /api/assets/:assetId/content - Get the content of an asset
-    router.get('/:assetId/content', asyncHandler(async (req: Request, res: Response) => {
+    // GET /api/assets/:userId/:assetId/content - Get asset text content
+    router.get('/:userId/:assetId/content', asyncHandler(async (req: Request, res: Response) => {
         const { assetId } = req.params;
-        if (!assetId) {
-            res.status(400).json({ error: 'Asset ID parameter is required' });
-            return;
-        }
-        
         const asset = await assetProcessor.getAsset(assetId);
+
         if (!asset) {
-            res.status(404).json({ error: 'Asset not found' });
-            return;
+            return res.status(404).json({ error: 'Asset not found' });
         }
-        
-        // For text assets, read the file and return its content
-        if (asset.type === 'text') {
-            const assetsDir = path.join(__dirname, '../../data/assets');
-            const filePath = path.join(assetsDir, asset.filepath);
-            try {
-                const content = await fs.readFile(filePath, 'utf8');
-                res.status(200).send(content);
-            } catch (error: any) {
-                console.error(`Error reading asset content for ${assetId}:`, error);
-                res.status(500).json({ error: `Failed to read asset content: ${error.message}` });
+        // Ensure it's a text-based asset
+        if (asset.file_type !== 'text' && asset.file_type !== 'json' && asset.file_type !== 'pdf') { // Use file_type
+            return res.status(400).json({ error: 'Asset is not a text-based type (text, json, pdf)' });
+        }
+
+        const assetsDir = path.join(__dirname, '../../data/assets');
+        const filePath = path.join(assetsDir, asset.file_path); // Use file_path
+
+        try {
+            // Special handling for PDF
+            if (asset.file_type === 'pdf') {
+                const pdfProcessor = new PdfProcessor();
+                const textContent = await pdfProcessor.extractText(filePath);
+                res.status(200).type('text/plain').send(textContent);
+            } else {
+                // For text and json, read the file content
+                const content = await fs.readFile(filePath, 'utf-8');
+                // Set content type based on original type
+                 if (asset.file_type === 'json') {
+                     res.status(200).type('application/json').send(content);
+                 } else {
+                     res.status(200).type('text/plain').send(content);
+                 }
             }
-        } else {
-            // For non-text assets, return a 404 or redirect to the asset URL
-            res.status(404).json({ error: 'Content not available for this asset type' });
+        } catch (error: any) {
+            if (error.code === 'ENOENT') {
+                console.error(`Asset file not found at path: ${filePath}`);
+                res.status(404).json({ error: 'Asset file not found on server' });
+            } else {
+                console.error(`Error reading asset content ${assetId}:`, error);
+                res.status(500).json({ error: 'Failed to read asset content' });
+            }
         }
+        return;
     }));
-    
-    // GET /api/assets/:assetId/preview - Get a preview of an asset
-    router.get('/:assetId/preview', asyncHandler(async (req: Request, res: Response) => {
+
+    // GET /api/assets/:userId/:assetId/preview - Get text preview
+    router.get('/:userId/:assetId/preview', asyncHandler(async (req: Request, res: Response) => {
         const { assetId } = req.params;
-        if (!assetId) {
-            res.status(400).json({ error: 'Asset ID parameter is required' });
-            return;
-        }
-        
         const asset = await assetProcessor.getAsset(assetId);
+
         if (!asset) {
-            res.status(404).json({ error: 'Asset not found' });
-            return;
+            return res.status(404).json({ error: 'Asset not found' });
         }
-        
-        // For text assets, get a short preview
-        if (asset.type === 'text') {
-            const assetsDir = path.join(__dirname, '../../data/assets');
-            const filePath = path.join(assetsDir, asset.filepath);
+
+        const assetsDir = path.join(__dirname, '../../data/assets'); // Define assetsDir
+
+        if (asset.file_type === 'text' || asset.file_type === 'json') { // Use file_type
             try {
-                const content = await fs.readFile(filePath, 'utf8');
-                // Take first 200 characters as preview
-                const preview = content.substring(0, 200) + (content.length > 200 ? '...' : '');
-                res.status(200).send(preview);
+                const filePath = path.join(assetsDir, asset.file_path); // Use file_path
+                const content = await fs.readFile(filePath, 'utf-8');
+                const preview = content.substring(0, 500) + (content.length > 500 ? '...' : '');
+                res.status(200).type('text/plain').send(preview);
             } catch (error: any) {
-                console.error(`Error reading asset preview for ${assetId}:`, error);
-                res.status(500).json({ error: `Failed to read asset preview: ${error.message}` });
+                 if (error.code === 'ENOENT') {
+                     console.error(`Asset file not found for preview: ${asset.file_path}`);
+                     res.status(404).json({ error: 'Asset file not found on server' });
+                 } else {
+                    console.error(`Error reading asset content for preview ${assetId}:`, error);
+                    res.status(500).json({ error: 'Failed to read asset content for preview' });
+                 }
+            }
+        } else if (asset.file_type === 'pdf') {
+            try {
+                const filePath = path.join(assetsDir, asset.file_path);
+                const pdfProcessor = new PdfProcessor(); // Instantiate PdfProcessor
+                const extractionResult = await pdfProcessor.extractText(filePath);
+                
+                // Access the .text property from the result before using substring
+                const textContent = extractionResult.text || ''; // Ensure textContent is a string
+                
+                const preview = textContent.substring(0, 500) + (textContent.length > 500 ? '...' : '');
+                res.status(200).type('text/plain').send(preview);
+            } catch (error) {
+                console.error(`Error processing PDF for preview ${assetId}:`, error);
+                res.status(500).json({ error: 'Failed to process PDF for preview' });
             }
         } else {
-            // For non-text assets, return a 404 or redirect to the asset URL
-            res.status(404).json({ error: 'Preview not available for this asset type' });
+            res.status(400).json({ error: 'Preview not available for this asset type' });
         }
+        return;
+    }));
+
+    // GET /api/assets/:userId/:assetId/image - Get image content
+    router.get('/:userId/:assetId/image', asyncHandler(async (req: Request, res: Response) => {
+        const { assetId } = req.params;
+        const asset = await assetProcessor.getAsset(assetId);
+
+        if (!asset) {
+            return res.status(404).json({ error: 'Asset not found' });
+        }
+
+        if (asset.file_type !== 'image' || !asset.mime_type?.startsWith('image/')) { // Use file_type
+            return res.status(400).json({ error: 'Asset is not an image' });
+        }
+
+        // Use file_path from the asset record
+        const assetsDir = path.join(__dirname, '../../data/assets');
+        const imagePath = path.join(assetsDir, asset.file_path); // Use file_path
+
+        // Check if file exists before sending
+        try {
+            await fs.access(imagePath); // Check if the file exists and is accessible
+            res.sendFile(imagePath, (err) => {
+                if (err) {
+                    console.error(`Error sending image file ${assetId}:`, err);
+                    // Avoid sending another response if headers already sent
+                    if (!res.headersSent) {
+                         res.status(500).json({ error: 'Failed to send image file' });
+                    }
+                }
+            });
+        } catch (error) {
+            console.error(`Image file not found or inaccessible: ${imagePath}`);
+            res.status(404).json({ error: 'Image file not found on server' });
+        }
+        return;
     }));
 
     // POST /api/assets/describe/:assetId - Generate description for an image asset
@@ -118,14 +184,14 @@ function createAssetRouter(assetProcessor: AssetProcessor, claudeAPI: ClaudeAPI)
             return;
         }
 
-        if (asset.type !== 'image' || !asset.mime_type?.startsWith('image/')) {
+        if (asset.file_type !== 'image' || !asset.mime_type?.startsWith('image/')) {
             res.status(400).json({ error: 'Asset is not an image' });
             return;
         }
 
         // Read the image file (Paths should be correct relative to compiled JS)
         const assetsDir = path.join(__dirname, '../../data/assets'); // Path relative to dist/routes? -> needs verification after compilation
-        const imagePath = path.join(assetsDir, asset.filepath);
+        const imagePath = path.join(assetsDir, asset.file_path);
         const imageBuffer = await fs.readFile(imagePath);
         const imageBase64 = imageBuffer.toString('base64');
 

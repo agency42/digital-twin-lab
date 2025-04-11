@@ -12,51 +12,122 @@ CREATE TABLE IF NOT EXISTS users (
     base_prompt_id TEXT, -- Renamed from primary_persona_id
     assessment_data TEXT, -- JSON string for storing assessment results
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (base_prompt_id) REFERENCES base_prompts(base_prompt_id) ON DELETE SET NULL -- Updated FK
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     -- Removed FK for linkedin_profile_asset_id to avoid complexity, handled in code
 );
 
 -- Assets Table
 CREATE TABLE IF NOT EXISTS assets (
-    asset_id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
-    type TEXT CHECK(type IN ('text', 'image', 'pdf', 'url', 'json')) NOT NULL,
-    filepath TEXT NOT NULL UNIQUE, -- Path relative to the data/assets directory
-    source_platform TEXT, -- e.g., 'linkedin', 'twitter', 'website', 'direct_upload'
-    source_medium TEXT, -- e.g., 'post', 'profile', 'article', 'blog', 'file'
-    original_filename TEXT,
+    filename TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_type TEXT NOT NULL, -- 'text', 'image', etc.
+    source_url TEXT, -- Optional: URL if scraped
+    upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    content TEXT, -- Store text content directly for faster processing
+    -- Add columns expected by assetProcessor
+    source_platform TEXT,
+    source_medium TEXT,
     mime_type TEXT,
     size_bytes INTEGER,
-    metadata TEXT, -- JSON string for additional metadata
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE -- Delete assets if user is deleted
+    metadata TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
--- Base Prompts Table (Replaces Personas Table)
-CREATE TABLE IF NOT EXISTS base_prompts (
-    base_prompt_id TEXT PRIMARY KEY, -- Renamed from persona_id
-    user_id TEXT NOT NULL UNIQUE, -- Each user has exactly one base prompt
-    prompt_name TEXT, -- Optional name for the prompt
-    prompt_text TEXT NOT NULL, -- Renamed from persona_json, stores the actual prompt string
-    based_on_assets TEXT, -- JSON array of asset_ids used for generation
+-- Rename base_prompts to character_cards and add is_current flag
+DROP TABLE IF EXISTS base_prompts;
+CREATE TABLE IF NOT EXISTS character_cards (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    card_name TEXT, -- Optional name for the card
+    card_data TEXT NOT NULL, -- JSON data for the character card
+    is_current INTEGER DEFAULT 0, -- 1 for true, 0 for false
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    based_on_assets TEXT, -- JSON array of asset IDs used
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Trigger to update updated_at timestamp on character_cards
+CREATE TRIGGER IF NOT EXISTS update_character_card_timestamp
+AFTER UPDATE ON character_cards
+FOR EACH ROW
+BEGIN
+    UPDATE character_cards SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+END;
+
+-- Remove prompt_variations table
+DROP TABLE IF EXISTS prompt_variations;
+
+-- New table for customizable system prompts (replaces prompt_variations)
+CREATE TABLE IF NOT EXISTS system_prompts (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('chat', 'post')), -- 'chat' or 'post'
+    prompt_text TEXT NOT NULL,
+    is_custom INTEGER DEFAULT 0, -- 1 if modified from base character card, 0 otherwise
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, type), -- Ensure only one prompt per type per user
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Trigger to update updated_at timestamp on system_prompts
+CREATE TRIGGER IF NOT EXISTS update_system_prompt_timestamp
+AFTER UPDATE ON system_prompts
+FOR EACH ROW
+BEGIN
+    UPDATE system_prompts SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+END;
+
+-- New table for customizable instructions
+CREATE TABLE IF NOT EXISTS instruction_templates (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('chat', 'post')), -- 'chat' or 'post'
+    instruction_text TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, type), -- Ensure only one instruction set per type per user
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Trigger to update updated_at timestamp on instruction_templates
+CREATE TRIGGER IF NOT EXISTS update_instruction_template_timestamp
+AFTER UPDATE ON instruction_templates
+FOR EACH ROW
+BEGIN
+    UPDATE instruction_templates SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+END;
+
+-- Instruction Sets Table
+CREATE TABLE IF NOT EXISTS instruction_sets (
+    instruction_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    instruction_name TEXT NOT NULL,
+    instruction_data TEXT NOT NULL, -- JSON string containing instruction data
+    medium TEXT, -- e.g., 'chat', 'twitter', 'linkedin', null for general instructions
+    is_default INTEGER DEFAULT 0, -- 0 for false, 1 for true
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
--- Prompt Variations Table (Replaces Persona Variations Table)
-CREATE TABLE IF NOT EXISTS prompt_variations (
-    variation_id TEXT PRIMARY KEY,
+-- Prompt Templates Table (Combines Character Cards and Instruction Sets)
+CREATE TABLE IF NOT EXISTS prompt_templates (
+    template_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
-    base_prompt_id TEXT NOT NULL, -- Renamed from persona_id, links to the base prompt
-    module_context TEXT NOT NULL, -- e.g., 'chat', 'assessment'
-    system_prompt_override TEXT, -- Renamed from system_prompt, stores the specific override for this context
+    template_name TEXT NOT NULL,
+    card_id TEXT NOT NULL,
+    instruction_id TEXT,
+    assembled_prompt TEXT NOT NULL, -- Combined JSON of card and instruction
+    is_default INTEGER DEFAULT 0, -- 0 for false, 1 for true
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (base_prompt_id) REFERENCES base_prompts(base_prompt_id) ON DELETE CASCADE, -- Updated FK
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    UNIQUE (user_id, module_context)
+    FOREIGN KEY (card_id) REFERENCES character_cards(id) ON DELETE CASCADE,
+    FOREIGN KEY (instruction_id) REFERENCES instruction_sets(instruction_id) ON DELETE SET NULL
 );
 
 -- Assessment Results Table
@@ -66,14 +137,12 @@ CREATE TABLE IF NOT EXISTS assessment_results (
     assessment_type TEXT NOT NULL,
     source TEXT CHECK(source IN ('user', 'ai')) NOT NULL,
     base_prompt_id TEXT, -- Renamed from persona_id, link to base prompt used for AI simulation
-    prompt_variation_id TEXT, -- Optional: Link to specific variation used, if any
     temperature REAL,
     answers TEXT NOT NULL,
     scores TEXT NOT NULL,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (base_prompt_id) REFERENCES base_prompts(base_prompt_id) ON DELETE SET NULL, -- Updated FK
-    FOREIGN KEY (prompt_variation_id) REFERENCES prompt_variations(variation_id) ON DELETE SET NULL
+    FOREIGN KEY (base_prompt_id) REFERENCES character_cards(id) ON DELETE SET NULL -- Updated FK to character_cards
 );
 
 -- Alignment Metrics Table
@@ -102,22 +171,28 @@ CREATE TABLE IF NOT EXISTS oauth_state (
 
 -- Indexes for performance
 DROP INDEX IF EXISTS idx_assets_user_platform_medium;
-CREATE INDEX IF NOT EXISTS idx_assets_user_platform_medium ON assets(user_id, source_platform, source_medium); -- Recreating just in case
+-- CREATE INDEX IF NOT EXISTS idx_assets_user_platform_medium ON assets(user_id, source_platform, source_medium); -- Recreating just in case -- REMOVED
 DROP INDEX IF EXISTS idx_personas_user_id;
-CREATE INDEX IF NOT EXISTS idx_base_prompts_user_id ON base_prompts(user_id); -- Updated index
+-- CREATE INDEX IF NOT EXISTS idx_base_prompts_user_id ON base_prompts(user_id); -- Updated index -- REMOVED
 DROP INDEX IF EXISTS idx_persona_variations_user_module;
-CREATE INDEX IF NOT EXISTS idx_prompt_variations_user_module ON prompt_variations(user_id, module_context); -- Updated index
+-- CREATE INDEX IF NOT EXISTS idx_prompt_variations_user_module ON prompt_variations(user_id, module_context); -- Updated index -- REMOVED
 DROP INDEX IF EXISTS idx_assessment_results_user_type_source;
-CREATE INDEX IF NOT EXISTS idx_assessment_results_user_prompt ON assessment_results(user_id, base_prompt_id, prompt_variation_id); -- Updated index
+-- CREATE INDEX IF NOT EXISTS idx_assessment_results_user_prompt ON assessment_results(user_id, base_prompt_id, prompt_variation_id); -- Updated index -- REMOVED (as prompt_variation_id is removed)
+CREATE INDEX IF NOT EXISTS idx_assessment_results_user_prompt_base ON assessment_results(user_id, base_prompt_id); -- New index without prompt_variation_id
 DROP INDEX IF EXISTS idx_alignment_metrics_user_assessment;
 CREATE INDEX IF NOT EXISTS idx_alignment_metrics_user_assessment ON alignment_metrics(user_id, assessment_type); -- Recreating just in case
 DROP INDEX IF EXISTS idx_oauth_state_expires;
 CREATE INDEX IF NOT EXISTS idx_oauth_state_expires ON oauth_state(expires_at); -- Recreating just in case
+CREATE INDEX IF NOT EXISTS idx_character_cards_user_id ON character_cards(user_id);
+CREATE INDEX IF NOT EXISTS idx_instruction_sets_user_medium ON instruction_sets(user_id, medium);
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_user_id ON prompt_templates(user_id);
 
 -- Triggers to update 'updated_at' timestamps
 -- Drop old triggers first
 DROP TRIGGER IF EXISTS personas_update_timestamp;
 DROP TRIGGER IF EXISTS persona_variations_update_timestamp;
+DROP TRIGGER IF EXISTS base_prompts_update_timestamp;
+DROP TRIGGER IF EXISTS prompt_variations_update_timestamp; -- Added drop for this trigger
 
 CREATE TRIGGER IF NOT EXISTS users_update_timestamp
 AFTER UPDATE ON users
@@ -126,16 +201,16 @@ BEGIN
     UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE user_id = OLD.user_id;
 END;
 
-CREATE TRIGGER IF NOT EXISTS base_prompts_update_timestamp -- Updated trigger
-AFTER UPDATE ON base_prompts
+CREATE TRIGGER IF NOT EXISTS instruction_sets_update_timestamp
+AFTER UPDATE ON instruction_sets
 FOR EACH ROW
 BEGIN
-    UPDATE base_prompts SET updated_at = CURRENT_TIMESTAMP WHERE base_prompt_id = OLD.base_prompt_id;
+    UPDATE instruction_sets SET updated_at = CURRENT_TIMESTAMP WHERE instruction_id = OLD.instruction_id;
 END;
 
-CREATE TRIGGER IF NOT EXISTS prompt_variations_update_timestamp -- Updated trigger
-AFTER UPDATE ON prompt_variations
+CREATE TRIGGER IF NOT EXISTS prompt_templates_update_timestamp
+AFTER UPDATE ON prompt_templates
 FOR EACH ROW
 BEGIN
-    UPDATE prompt_variations SET updated_at = CURRENT_TIMESTAMP WHERE variation_id = OLD.variation_id;
+    UPDATE prompt_templates SET updated_at = CURRENT_TIMESTAMP WHERE template_id = OLD.template_id;
 END;

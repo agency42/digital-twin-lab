@@ -6,14 +6,14 @@ This document provides comprehensive technical information about the Digital Twi
 
 The Digital Twin Lab is designed as a prompt engineering playground for iterative experimentation with AI-powered personality simulation using customizable system prompts. The core mission is to:
 
-1. **Generate effective base system prompts** from diverse content sources (websites, social media, text) that capture a user's essence.
-2. **Analyze user representation across different platforms** to inform potential prompt adaptations.
-3. **Enable easy editing and management of prompt variations** for different contexts (e.g., chat vs. assessment vs. content generation).
-4. **Provide tools for comparing** the outputs of different prompt versions.
+1. **Generate effective Character Cards** (JSON format) from diverse content sources (websites, social media, text) that capture a user's core identity.
+2. **Enable context-specific customization** of System Prompts and Instruction Templates based on the Character Card.
+3. **Persist these customizations** in a structured database (`character_cards`, `system_prompts`, `instruction_templates`).
+4. **Provide tools for interacting** with the AI (chat, content generation) using the appropriate context-specific prompts.
 5. **Facilitate continuous prompt refinement** based on user feedback and assessment results.
 6. **Maintain complete transparency** about what prompts are sent to models at all times.
 
-The ultimate goal is to empower users to craft and test system prompts that allow AI models to interact and generate content authentically representing the user's voice, style, and platform-specific nuances, with full visibility into the prompting process.
+The ultimate goal is to empower users to craft and test prompts that allow AI models to interact and generate content authentically representing the user's voice, style, and platform-specific nuances, with full visibility into the prompting process.
 
 ## Prompt Engineering Playground
 
@@ -26,28 +26,28 @@ Digital Twin Lab's primary function is to serve as a playground for prompt engin
 - No hidden prompts or instructions
 - Designed for iterative experimentation with different prompt structures
 
-2. **Structured Prompt Templates**
-- JSON-based templates allow for clean organization and separation of:
-  - Character/Personality Cards (who the digital twin is)
-  - Generation Instructions (how the digital twin should respond)
-  - Together forming a complete Digital Twin representation
+2. **Structured Prompt Components**
+- **Character Card (JSON):** Defines core identity (traits, voice, background). Generated from content.
+- **System Prompt (Text):** Context-specific system message (e.g., for Chat, Post). Derived from Character Card, but editable.
+- **Instruction Template (Text):** Context-specific task instructions.
+- Stored separately in the database for modularity.
 
 3. **Unified Interface**
 - User Profile Management
 - Content Collection/Scraping
-- Digital Twin Generation
+- Character Card Generation
+- Contextual Prompt Editing (System Prompt & Instructions)
+- Interaction & Content Generation (Chat, Post)
 - Evaluation & Testing
-- Multi-platform Previews (Twitter, LinkedIn, etc.)
 
 4. **Immediate Feedback Loop**
-   - Make small changes to prompts and immediately see effects
-   - Compare outputs across different platforms
-   - Save variations for different contexts to test effectiveness
+   - Make small changes to System Prompts or Instructions and immediately see effects in chat or generated content.
+   - Compare outputs across different contexts.
 
 5. **Controlled Experimentation**
-   - Test different directive styles
-   - Experiment with output format requirements
-   - Adjust character attributes independently from generation instructions
+   - Test different directives within Character Cards or System Prompts.
+   - Experiment with different Instruction Templates for various tasks.
+   - Adjust character attributes (via re-generating card) independently from context-specific prompts/instructions.
 
 For complete documentation on the prompt structures and usage, see [PROMPTS.md](PROMPTS.md).
 
@@ -55,243 +55,111 @@ For complete documentation on the prompt structures and usage, see [PROMPTS.md](
 
 The project is built with a modular architecture, separating frontend and backend concerns:
 
-### Backend Structure (`src/`)
+### Backend Structure (`src/server/`)
 - `server.ts` - Express server setup and middleware.
-- **Routes** - API endpoints organized by domain:
-  - `assetRoutes.ts` - Content management (uploads, metadata).
-  - `userRoutes.ts` - User profile operations.
-  - `promptRoutes.ts` - Base prompt generation and variation management (formerly `personalityRoutes.ts`).
-  - `chatRoutes.ts` - Chat functionality using prompts.
-  - `oauthRoutes.ts` - Social media integration (LinkedIn).
-  - `scrapeRoutes.ts` - Website scraping for content ingestion.
-  - `uploadRoutes.ts` - File upload handling.
-  - `assessmentRoutes.ts` - Assessment functionality using prompts.
-- **Services** - Business logic encapsulation:
-  - `assetProcessor.ts` - Content handling, storage, metadata.
-  - `promptService.ts` - Base prompt and variation CRUD operations (formerly `personalityProfileService.ts`).
-  - `websiteScraper.ts` - Web content extraction.
-  - `oauthService.ts` - Social authentication flows.
-  - `userDataService.ts` - User profile management.
-  - `abstractionApproach.ts` - Logic for generating base prompts from assets.
-  - `aiService.ts` - AI service interaction (e.g., for assessment simulation).
-  - `claude.ts` (in `api/`) - Handles communication with the Claude API for prompt generation and potentially other tasks.
+- **Routes (`routes/`)**: API endpoints for different functional areas (`assetRoutes.ts`, `userRoutes.ts`, `promptRoutes.ts`, etc.).
+- **Services (`services/`)**: Core business logic (`promptService.ts`, `abstractionApproach.ts`, `claude.ts` in `api/`, etc.).
+- **Utilities (`lib/`)**: Database connection, helpers, etc.
 
-### Frontend Structure (`public/`)
+### Frontend Structure (`src/client/ts/` and `public/`)
 - `index.html` - Single page application UI container.
-- **TypeScript Modules** (`public/js/modules/`) - Modular frontend organization:
-  - `app.ts` - Main entry point and module initialization.
-  - `userModule.ts` - User management & LinkedIn integration.
-  - `contentModule.ts` - Asset collection and management.
-  - `promptModule.ts` - Base prompt generation and display (formerly `personalityModule.ts`).
-  - `contentMediumModule.ts` - Handle different content medium interactions (chat, blog, tweet, LinkedIn).
-  - `chatModule.ts` - Digital twin chat interactions, allowing prompt editing.
-  - `assessmentModule.ts` - Personality assessment simulation using prompts.
-  - `navigationModule.ts` - Tab navigation between sections.
-  - `utils.ts` - Shared utility functions and state management.
+- **TypeScript Modules (`src/client/ts/modules/`)**: Modular frontend organization (`app.ts`, `promptModule.ts`, `contentMediumModule.ts`, `utils.ts`, etc.).
+- **Compiled JS (`public/js/`)**: Output of TypeScript compilation.
 
-### Digital Twin Representation
-The system uses a standardized approach to represent digital twins:
+### Digital Twin Representation (Database-Driven)
 
-**Prompt Template (JSON Format)**: A structured JSON representation containing two main components:
+The system now relies on the database to manage prompt components:
 
-1. **Character/Personality Card**:
-   - Entity details (name, handle, form, occupation, gender, age)
-   - Personality traits including Big Five factors
-   - Voice style and communication patterns
-   - Relationship handling approaches
-   - Areas of expertise and background
+1. **Character Card (JSON Format)**: Generated via Claude from user assets and stored in the `character_cards` table. The card marked `is_current = 1` is considered the active one.
+2. **System Prompts (Text)**: Stored in the `system_prompts` table, linked to `user_id` and `type` ('chat' or 'post'). An `is_custom` flag tracks if it differs from the current character card.
+3. **Instruction Templates (Text)**: Stored in the `instruction_templates` table, linked to `user_id` and `type` ('chat' or 'post').
 
-2. **Generation Instructions**:
-   - Directives for behavior (never break character, avoid narration)
-   - Platform-specific adaptations (e.g., LinkedIn vs Twitter style)
-   - Output formatting rules and guidelines
-   - Default fallback instructions
+When interacting or generating content:
+- The frontend requests data for the specific context (`userId`, `type`) via `/api/prompts/:userId/generations-data`.
+- The backend retrieves the current `character_card`, the specific `system_prompt` (respecting `is_custom`), and the specific `instruction_template`.
+- The frontend displays these in the editors.
+- For generation, the *current text* from the editors is sent to the relevant backend API (e.g., `/api/chat/generate`).
+- The backend uses the provided text directly.
 
-This JSON template serves as the system prompt for the AI model. When using the digital twin in different contexts (chat, assessment, social media), the system automatically selects the appropriate instructions from the template.
-
-Users can edit both the character card and generation instructions through the user interface, allowing for flexible customization of their digital twin.
+This ensures persisted customizations are used while maintaining transparency.
 
 ### Data Storage (SQLite Database)
-- User data including profile information.
-- Asset metadata and references to asset files.
-- `base_prompts` table storing the primary generated system prompt string for each user.
-- `prompt_variations` table storing user modifications to the base prompt for specific modules (chat, assessment, etc.).
-- Assessment results and alignment metrics (linked to prompts used).
-- OAuth state information.
-- Potentially: Content generation examples, interaction histories, feedback data.
+- User data, asset metadata.
+- `character_cards` table (stores JSON character cards).
+- `system_prompts` table (stores context-specific system prompt text).
+- `instruction_templates` table (stores context-specific instruction text).
+- Assessment results, OAuth state, etc.
 
 ## Core User Journey
 
 1. **User Setup:** Create profile, connect accounts, optionally take TIPI assessment.
 2. **Content Collection:** Upload files, scrape websites/social media.
-3. **Base Prompt Generation:** Select content, generate an initial system prompt designed to capture the user's personality and voice.
-4. **Prompt Management:** View the generated base prompt.
-5. **Interactions:** Use the Interactions page to:
-   - Chat with the digital twin in real-time
-   - Configure how your digital twin communicates across different mediums (chat, blog, tweet, LinkedIn)
-   - Generate sample content for selected mediums
-   - View and edit system prompts for different contexts
-   - View the full structured prompt including examples and parameters
-6. **Assessment Simulation:** Run assessment simulations (e.g., TIPI) using the current prompt (base or variation) to compare AI responses to user's baseline. Edit the prompt for assessment context; save as 'assessment' variations.
-7. **Continuous Improvement:** Refine the base prompt or variations based on interaction quality, assessment results, and generated content.
+3. **Character Card Generation:** Select content in Content Library, generate Character Card JSON.
+4. **Context Customization (Generations Tab):**
+   - Select context ('chat' or 'post').
+   - View/Edit System Prompt (initially matches card).
+   - View/Edit Instruction Template.
+   - Save changes (updates DB for that context).
+   - Reset System Prompt (reverts DB entry to match current card).
+5. **Interaction / Generation:**
+   - Chat (uses 'chat' context prompts).
+   - Generate Post (uses 'post' context prompts).
+6. **Assessment Simulation:** Run assessment (likely uses dedicated 'assessment' context prompts, TBD).
+7. **Continuous Improvement:** Refine Character Card (by regenerating) or context-specific prompts/instructions based on results.
 
-## Complete User Flow (Revised)
+## Prompt Engineering Implementation (Database-Driven)
 
-1. Create user.
-2. Connect social accounts.
-3. Upload content or scrape websites. Categorize content source.
-4. Take TIPI assessment (baseline).
-5. **Prompt Module:** Select content, generate base system prompt. View/manage the base prompt.
-6. **Interactions Page:** 
-   - Select a medium (Chat, Blog, Tweet, LinkedIn)
-   - For Chat: Interact with AI using the current prompt. Edit prompt; saves as variation.
-   - For other mediums: Configure medium-specific instructions, examples, and parameters.
-   - Generate sample content for the selected medium.
-   - View the full structured prompt including all parameters and examples.
-7. **Assessment Module:** Run simulation using current prompt (defaults to base, loads variation if exists). Edit prompt; saves as 'assessment' variation. Compare results.
-8. Refine prompts based on results and feedback.
-
-## Prompt Engineering Implementation
+### Character Cards
+- Core identity (JSON) generated by Claude, stored in `character_cards`.
 
 ### System Prompts
-- The core of each digital twin is represented by a **prompt template** (JSON format) stored in the `base_prompts` table.
-- This template contains both the character/personality card and generation instructions.
-- The template is generated by Claude based on analysis of user assets, using the asset's metadata about source platform/medium to inform platform-specific adaptations.
-- The template serves as the system prompt and follows a structured JSON format with distinct sections for character information (personality traits, voice characteristics) and generation instructions (platform adaptations, directives).
-- Using JSON format ensures consistency and makes it easier to extract specific instructions for different contexts.
+- Context-specific system messages ('chat', 'post') stored in `system_prompts`.
+- Defaults match the current character card (`is_custom=0`).
+- User edits are saved, setting `is_custom=1`.
+- Reset reverts to current character card data (`is_custom=0`).
 
-### Prompt Variations
-- Users can edit both character cards and instruction sets within specific modules (Chat, Assessment, etc.).
-- Variations are stored in the database linked to the base prompt, allowing for rapid experimentation.
-- Variations can be saved for different platforms or contexts (e.g., a more professional LinkedIn version vs. a casual Twitter version).
+### Instruction Templates
+- Context-specific instructions ('chat', 'post') stored in `instruction_templates`.
+- Defaults are predefined.
+- User edits are saved.
 
-### Prompt Transparency
-- When generating content, the system displays exactly which instruction was extracted from the prompt template and used for generation.
-- No additional prompts or instructions are added by the backend beyond what's in your template.
-- This transparency is critical for effective prompt engineering.
+### Prompt Combination & Transparency
+- Frontend fetches the relevant System Prompt and Instruction Template text from the backend based on context.
+- Frontend sends the *current editor text* to generation endpoints.
+- Backend uses the received text directly.
 
-### Flexible Instruction Paths
-- The system supports multiple paths for defining generation instructions:
-  - `platform_adaptations.[medium].generation_instructions`
-  - `generation.platform_instructions.[medium]`
-  - `[medium]_instructions`
-  - `generation_instructions` or `generation.default_instruction`
-  - `main_goal`
-- This flexibility allows users to organize their prompt templates in the way that makes most sense for their use case.
-- The system has a clear priority order for which instructions to use, ensuring predictable behavior.
+### Implementation Task List (Updated)
 
-### Interactions Page
-- The Interactions page combines what was previously two separate pages (Content Medium and Digital Twin Chat)
-- It features a medium selector with tabs for Chat, Blog, Tweet, and LinkedIn
-- The UI uses dark mode styling with improved contrast for readability
-- Chat is the default medium and offers real-time interaction with the digital twin
-- Other mediums allow configuration of medium-specific instructions and parameters
-- Users can view the full structured prompt for any medium, showing how parameters and examples are combined
-- The page includes generate buttons to create sample content for each medium type
+1. **(Completed)** **Database Schema Refactor:** Implemented `character_cards`, `system_prompts`, `instruction_templates` tables.
+2. **(Completed)** **Backend API Refactor:** Updated `promptService` and `promptRoutes` for new schema and endpoints.
+3. **(Completed)** **Frontend Refactor:** Updated `promptModule` and `contentMediumModule` to fetch/save data via new API, manage UI state correctly.
+4. **(Completed)** **Documentation Updates:** Updated `README.md`, `PROMPTS.md`, `task-list.md`, `CLAUDE.md`.
+5. **Testing (Ongoing):** Verify data persistence, reset functionality, context switching, generation using correct prompts.
 
-## Implementation Task List
-
-### 1. Database Schema Updates
-- [ ] Create a new `character_cards` table to store character information separately
-- [ ] Create a new `generation_instructions` table to store instruction sets
-- [ ] Add relationship fields to link character cards and instructions to prompt templates
-- [ ] Update `base_prompts` table to reference these components
-- [ ] Create migration script for existing data
-
-### 2. Backend API Changes
-- [ ] Update `/api/prompts/:userId/generate` endpoint to create separate components
-- [ ] Update `/api/prompts/:userId/generate-character-card` to match new structure
-- [ ] Modify `chatRoutes.ts` to handle the new structure for content generation
-- [ ] Create new API endpoints for managing character cards and instructions separately
-- [ ] Update prompt service to support the new component-based approach
-
-### 3. Frontend Changes
-- [ ] Create UI components for editing character card and instructions separately
-- [ ] Update promptModule.js to handle separate character and instruction editing
-- [ ] Modify chatModule.js to display which instruction set is being used
-- [ ] Add interface for selecting/mixing different character cards with different instruction sets
-- [ ] Update JSON viewer component to show the structured format
-
-### 4. Data Migration
-- [ ] Write script to convert existing flat JSON to the new structured format
-- [ ] Separate character attributes from generation instructions in existing data
-- [ ] Handle edge cases where the separation isn't clean
-- [ ] Test migration on sample data before applying to production
-
-### 5. Documentation Updates
-- [ ] Update PROMPTS.md to include implementation details and examples
-- [ ] Update README.md to reflect the new structure in user workflows
-- [ ] Create developer documentation for the new component-based approach
-- [ ] Document migration process for future reference
-
-### 6. Testing
-- [ ] Test character card generation with the new structure
-- [ ] Test content generation across different platforms
-- [ ] Verify backward compatibility with existing features
-- [ ] Test mixing different character cards with different instruction sets
-
-### Implementation Priority
-1. Database schema and backend API changes (foundation)
-2. Data migration script (preserve existing data)
-3. Frontend UI updates (user experience)
-4. Documentation and testing (ensure quality)
-
-## Development Roadmap
+## Development Roadmap (Updated)
 
 ### Phase 1: Core Infrastructure & Stability (Completed)
-- ✅ Migrate to SQLite database storage
-- ✅ Implement proper TypeScript typing
-- ✅ Refactor monolithic server into modular routes
-- ✅ Clean up codebase and eliminate redundancies
-- ✅ Enhance asset caching and performance
-- ✅ Implement port auto-selection to prevent conflicts
+- ✅ Basic setup, SQLite migration, TS typing, modular routes.
 
 ### Phase 2: Prompt-Centric Architecture Refactoring (Completed)
-- ✅ Rename database tables and adjust schema for prompt-based approach
-- ✅ Update backend services to generate/save prompt strings instead of JSON personality objects
-- ✅ Refactor frontend to use prompt strings with module-specific variations
-- ✅ Implement variation management and saving in chat and assessment modules
-- ✅ Update UI to display and edit prompt text directly
-- ✅ Clean up old personality-based code and references
+- ✅ Database schema redesign (`character_cards`, `system_prompts`, `instruction_templates`).
+- ✅ Backend service/route updates (`promptService`, `promptRoutes`).
+- ✅ Frontend module refactoring (`promptModule`, `contentMediumModule`).
 
 ### Phase 3: UI Enhancement & Integration (Completed)
-- ✅ Combine Content Medium and Chat into unified Interactions page
-- ✅ Improve UI contrast and readability with dark mode styling
-- ✅ Implement medium selection tabs for different content types
-- ✅ Add full structured prompt display functionality
-- ✅ Add sample content generation for different mediums
-- ✅ Enhance chat experience with terminal-like interface
+- ✅ Unified Interactions page, medium tabs, dark mode, basic content generation.
+- ✅ Save/Reset buttons for context-specific prompts/instructions.
 
-### Phase 4: Content & Source Management (Next)
-- 🔲 Enhance asset metadata model to include source medium/platform
-- 🔲 Update database schema for categorizing content by source
-- 🔲 Extend asset upload UI to allow specifying content source
-- 🔲 Create filters to view content by platform/medium
-- 🔲 Enhance website scraper to better preserve content structure
-- 🔲 Implement selective scraping for specific content types
-- 🔲 Add support for scraping social media platforms
+### Phase 4: Feature Enhancements (Current Focus)
+- 🔲 Enhance Content & Source Management (Metadata, UI Integration).
+- 🔲 Refine Character Card Generation (`AbstractionApproach`, Claude instructions).
+- 🔲 Enhance Content Generation System (using correct context prompts).
+- 🔲 Enhance Chat & Assessment Features.
 
-### Phase 5: Prompt Generation Enhancement
-- 🔲 Refine prompt generation in `AbstractionApproach`
-- 🔲 Add source-specific prompt instructions
-- 🔲 Improve Claude API instructions for better quality prompts
-- 🔲 Create visualization for prompt variation effectiveness
-- 🔲 Support both individual and brand prompt types
-
-### Phase 6: Advanced Content Generation System
-- 🔲 Enhance the medium-specific content generation functionality
-- 🔲 Implement more robust backend for platform-specific content generation
-- 🔲 Add generated content to library with proper categorization
-- 🔲 Implement feedback collection for generated content
-- 🔲 Create optimization loop for content quality improvement
-
-### Phase 7: Advanced Assessment & Feedback Loop
-- 🔲 Implement parallel AI response generation during chat
-- 🔲 Create visual comparison interface for responses
-- 🔲 Add feedback collection system for AI performance
-- 🔲 Integrate assessment feedback into prompt refinement
-- 🔲 Design system for incorporating generated content into prompt models
-- 🔲 Implement analytics to track prompt improvement over time
+### Phase 5: Advanced Features & Polish (Future)
+- 🔲 Multi-Character Card Management.
+- 🔲 Advanced Feedback Loops.
+- 🔲 Cross-Platform Analysis UI.
 
 ## Long-Term Vision
 
@@ -317,15 +185,11 @@ The initial monolithic approach (4000+ line app.js) created significant technica
 
 ## Resources & Useful Commands
 
-- `npm run dev` - Start development server with auto-reload
-- `/api/migrate-assets` - Standardize legacy asset directory structure
-- Browser console logs show detailed path resolution for debugging
-- Use React Developer Tools to inspect component hierarchy
+- `npm run dev-frontend` - Start development server (watches backend & frontend TS).
+- `node scripts/reset.js` - Wipe and recreate database from `schema.sql`.
+- `node scripts/migrate.js` - Apply `schema.sql` (idempotent).
+- `npm run build` - Compile for production.
+- `npm start` - Run production build.
 
 ## TypeScript Migration
-- [x] **TypeScript Migration:** Convert the codebase from JavaScript to TypeScript.
--   [x] Setup `tsconfig.json`.
--   [x] Install necessary dependencies (`typescript`, `@types/node`).
--   [x] Convert frontend modules (`public/js/**`) to `.ts` and resolve compilation errors. (Completed)
--   [ ] Convert backend server (`src/**`, `server.ts`) to `.ts`.
--   [ ] Configure backend build/run process.
+- ✅ Backend and Frontend fully migrated to TypeScript.

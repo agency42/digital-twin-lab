@@ -10,27 +10,39 @@ interface UserProfile {
     bio?: string | null;
     linkedin_connected?: boolean;
     linkedin_profile_asset_id?: string | null;
+    current_character_card_id?: string | null; // Add field to link to current card
     // Add other simple user fields stored directly in the users table
 }
 
-// Interface for the base prompt structure stored in the 'base_prompts' table
-interface BasePrompt {
-    base_prompt_id: string;
+// Interface for the character card structure stored in the 'character_cards' table
+interface CharacterCard {
+    card_id: string;
     user_id: string;
-    prompt_name?: string | null;
-    prompt_text: string; // Stored as text string
+    prompt_name?: string | null; // Retain for consistency? Or remove if unused?
+    prompt_text: string; // Stored as JSON string
     based_on_assets?: string | null; // Stored as JSON string of asset IDs
+    is_current: boolean; // Added to track the active card
     created_at: string;
     updated_at: string;
 }
 
-// Interface for Prompt Variations
-interface PromptVariation {
-    variation_id: string;
+// Interface for System Prompts
+interface SystemPrompt {
+    prompt_id: string;
     user_id: string;
-    base_prompt_id: string;
-    module_context: string; // Renamed from 'module' to avoid conflict
-    system_prompt_override: string | null;
+    type: string; // 'chat', 'post', etc.
+    prompt_text: string;
+    is_custom: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+// Interface for Instruction Templates
+interface InstructionTemplate {
+    template_id: string;
+    user_id: string;
+    type: string; // 'chat', 'post', etc.
+    instruction_text: string;
     created_at: string;
     updated_at: string;
 }
@@ -41,8 +53,8 @@ interface AssessmentResult {
     user_id: string;
     assessment_type: string;
     source: 'user' | 'ai';
-    base_prompt_id?: string | null;
-    prompt_variation_id?: string | null;
+    base_prompt_id?: string | null; // May refer to an old base_prompt
+    prompt_variation_id?: string | null; // Refers to old prompt_variations
     temperature?: number | null;
     answers: string; // Raw answers JSON string
     scores: string; // Calculated scores JSON string
@@ -52,12 +64,13 @@ interface AssessmentResult {
 }
 
 // Structure for the comprehensive user data object returned by getUserData
-// This needs refinement based on actual usage and desired output structure
+// Updated to reflect new prompt structure
 interface ComprehensiveUserData extends UserProfile {
     user_id: string;
     created_at: string;
-    base_prompt?: BasePrompt | null; // Nested base prompt object
-    variations?: PromptVariation[]; // Array of variations
+    currentCharacterCard?: CharacterCard | null; // Current active character card
+    systemPrompts?: SystemPrompt[]; // All system prompts for the user
+    instructionTemplates?: InstructionTemplate[]; // All instruction templates for the user
     assessments?: { // Group assessments by type?
         [assessmentType: string]: {
             user?: AssessmentResult | null; // Latest user result
@@ -84,6 +97,7 @@ interface UserData {
     linkedin_profile_asset_id?: string | null;
     // Other profile info
     bio?: string | null;
+    current_character_card_id?: string | null; // Add field to users table if storing current card link there
     // Add more fields as needed (e.g., name, preferences, etc.)
 }
 
@@ -114,47 +128,67 @@ class UserDataService {
     /**
      * Maps database user data to the format expected by the frontend
      * This transforms snake_case properties to camelCase
+     * Updated to handle new prompt structure
      */
     private mapUserDataForFrontend(userData: any): any {
         if (!userData) return null;
-        
+
         const result: any = {
             ...userData,
             id: userData.user_id, // Frontend expects 'id' instead of 'user_id'
             userId: userData.user_id, // Include both for compatibility
             createdAt: userData.created_at,
-            updatedAt: userData.updated_at
+            updatedAt: userData.updated_at,
+            bio: userData.bio, // Ensure bio is mapped
+            linkedinConnected: !!userData.linkedin_connected, // Ensure boolean
         };
-        
-        // Convert base_prompt to basePrompt expected by frontend
-        if (userData.base_prompt) {
-            result.basePrompt = {
-                id: userData.base_prompt.base_prompt_id,
-                name: userData.base_prompt.prompt_name,
-                promptText: userData.base_prompt.prompt_text,
-                createdAt: userData.base_prompt.created_at,
-                updatedAt: userData.base_prompt.updated_at
+
+        // Map current Character Card
+        if (userData.currentCharacterCard) {
+            result.characterCard = {
+                id: userData.currentCharacterCard.card_id,
+                promptName: userData.currentCharacterCard.prompt_name,
+                promptText: userData.currentCharacterCard.prompt_text, // Needs parsing on frontend
+                basedOnAssets: userData.currentCharacterCard.based_on_assets, // Needs parsing on frontend
+                isCurrent: userData.currentCharacterCard.is_current,
+                createdAt: userData.currentCharacterCard.created_at,
+                updatedAt: userData.currentCharacterCard.updated_at,
             };
+            // Include ID for reference
+            result.currentCharacterCardId = userData.currentCharacterCard.card_id;
+        } else {
+            result.currentCharacterCardId = userData.current_character_card_id || null; // From users table if card wasn't joined
         }
-        
-        // Include base_prompt_id for debugging
-        if (userData.base_prompt_id) {
-            result.basePromptId = userData.base_prompt_id;
-        }
-        
-        // Handle variations if present
-        if (Array.isArray(userData.variations) && userData.variations.length > 0) {
-            result.promptVariations = {};
-            userData.variations.forEach((variation: any) => {
-                result.promptVariations[variation.module_context] = {
-                    id: variation.variation_id,
-                    moduleContext: variation.module_context,
-                    systemPromptOverride: variation.system_prompt_override,
-                    updatedAt: variation.updated_at
+
+        // Map System Prompts (keyed by type)
+        if (Array.isArray(userData.systemPrompts) && userData.systemPrompts.length > 0) {
+            result.systemPrompts = {};
+            userData.systemPrompts.forEach((sp: SystemPrompt) => {
+                result.systemPrompts[sp.type] = {
+                    id: sp.prompt_id,
+                    type: sp.type,
+                    promptText: sp.prompt_text,
+                    isCustom: sp.is_custom,
+                    createdAt: sp.created_at,
+                    updatedAt: sp.updated_at,
                 };
             });
         }
-        
+
+        // Map Instruction Templates (keyed by type)
+        if (Array.isArray(userData.instructionTemplates) && userData.instructionTemplates.length > 0) {
+            result.instructionTemplates = {};
+            userData.instructionTemplates.forEach((it: InstructionTemplate) => {
+                result.instructionTemplates[it.type] = {
+                    id: it.template_id,
+                    type: it.type,
+                    instructionText: it.instruction_text,
+                    createdAt: it.created_at,
+                    updatedAt: it.updated_at,
+                };
+            });
+        }
+
         // Handle assessments if present
         if (userData.assessments) {
             result.assessment = {
@@ -172,6 +206,7 @@ class UserDataService {
      * Retrieves comprehensive data for a single user.
      * @param userId The ID of the user to retrieve.
      * @returns {Promise<ComprehensiveUserData | null>}
+     * Updated to use new prompt tables.
      */
     async getUserData(userId: string): Promise<ComprehensiveUserData | null> {
         if (!userId) {
@@ -179,22 +214,52 @@ class UserDataService {
             return null;
         }
         try {
-            // 1. Get base user data
-            const userBase = await dbGet<UserProfile & { user_id: string, created_at: string, base_prompt_id?: string }>(`SELECT * FROM users WHERE user_id = ?`, [userId]);
+            // 1. Get base user data (ensure current_character_card_id is selected)
+            const userBase = await dbGet<UserProfile & { user_id: string, created_at: string, current_character_card_id?: string | null }>(
+                `SELECT * FROM users WHERE user_id = ?`,
+                [userId]
+            );
             if (!userBase) {
                 return null; // User not found
             }
 
-            // 2. Get Base Prompt (if linked)
-            let basePrompt: BasePrompt | null = null;
-            if (userBase.base_prompt_id) {
-                basePrompt = await dbGet<BasePrompt>('SELECT * FROM base_prompts WHERE base_prompt_id = ?', [userBase.base_prompt_id]) || null;
+            // 2. Get Current Character Card (if linked)
+            let currentCharacterCard: CharacterCard | null = null;
+            if (userBase.current_character_card_id) {
+                currentCharacterCard = await dbGet<CharacterCard>(
+                    'SELECT * FROM character_cards WHERE card_id = ? AND user_id = ? AND is_current = 1',
+                    [userBase.current_character_card_id, userId]
+                ) || null;
+                // Fallback if ID exists but card is missing/not current (should ideally not happen)
+                if (!currentCharacterCard) {
+                     currentCharacterCard = await dbGet<CharacterCard>(
+                         'SELECT * FROM character_cards WHERE user_id = ? AND is_current = 1 ORDER BY updated_at DESC LIMIT 1',
+                         [userId]
+                     ) || null;
+                     // Update userBase if we found a different current card
+                     if (currentCharacterCard && userBase.current_character_card_id !== currentCharacterCard.card_id) {
+                        userBase.current_character_card_id = currentCharacterCard.card_id;
+                        // Optionally update the users table here, though might be better elsewhere
+                     }
+                }
+            } else {
+                // If no ID is linked, find the latest current card
+                 currentCharacterCard = await dbGet<CharacterCard>(
+                     'SELECT * FROM character_cards WHERE user_id = ? AND is_current = 1 ORDER BY updated_at DESC LIMIT 1',
+                     [userId]
+                 ) || null;
+                  if (currentCharacterCard) {
+                      userBase.current_character_card_id = currentCharacterCard.card_id;
+                  }
             }
 
-            // 3. Get Prompt Variations
-            const variations = await dbAll<PromptVariation>('SELECT * FROM prompt_variations WHERE user_id = ? ORDER BY updated_at DESC', [userId]);
+            // 3. Get All System Prompts for the user
+            const systemPrompts = await dbAll<SystemPrompt>('SELECT * FROM system_prompts WHERE user_id = ?', [userId]);
 
-            // 4. Get Assessment Results (latest user and AI for each type)
+            // 4. Get All Instruction Templates for the user
+            const instructionTemplates = await dbAll<InstructionTemplate>('SELECT * FROM instruction_templates WHERE user_id = ?', [userId]);
+
+            // 5. Get Assessment Results (latest user and AI for each type)
             const assessmentTypes = await dbAll<{ assessment_type: string }>('SELECT DISTINCT assessment_type FROM assessment_results WHERE user_id = ?', [userId]);
             const assessments: ComprehensiveUserData['assessments'] = {};
 
@@ -240,20 +305,24 @@ class UserDataService {
             // Construct the comprehensive object
             const comprehensiveData: ComprehensiveUserData = {
                 ...userBase,
-                base_prompt: basePrompt,
-                variations: variations,
+                currentCharacterCard: currentCharacterCard,
+                systemPrompts: systemPrompts,
+                instructionTemplates: instructionTemplates,
                 assessments: assessments
             };
 
             // Transform data for frontend consumption
             const frontendData = this.mapUserDataForFrontend(comprehensiveData);
-            console.log(`Transformed user data for ${userId} for frontend consumption`);
-            
-            return frontendData;
+            // console.log(`Transformed user data for ${userId} for frontend consumption:`, JSON.stringify(frontendData, null, 2)); // Verbose logging
+            return frontendData; // Return the mapped data
 
         } catch (error: any) {
+            console.error(`[DB GET Error] ${error.message}`); // Log the specific error message
             console.error(`Error getting comprehensive user data for ${userId} from DB:`, error);
-            return null; // Return null on error
+            // Re-throw or handle appropriately - for now, return null or throw
+            // Depending on how the route handles errors, throwing might be better
+             // throw new Error(`Failed to retrieve user data: ${error.message}`);
+             return null; // Returning null might lead to 404 on frontend as seen before
         }
     }
 

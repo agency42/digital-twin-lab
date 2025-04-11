@@ -6,6 +6,7 @@
 // Import SQLite3 module
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
 // Connect to the database
 const dbPath = path.join(__dirname, 'digital_twin_lab.db');
@@ -146,58 +147,78 @@ function migratePersonasToBasePrompts() {
 
 function createTablesFromSchema() {
     // Read schema.sql file and execute it
-    const fs = require('fs');
-    fs.readFile(path.join(__dirname, 'schema.sql'), 'utf8', (err, schemaSQL) => {
+    const schemaSQL = readSchema();
+    
+    db.exec(schemaSQL, function(err) {
         if (err) {
-            rollbackAndExit(new Error(`Failed to read schema.sql: ${err.message}`));
+            rollbackAndExit(new Error(`Failed to execute schema.sql: ${err.message}`));
             return;
         }
         
-        db.exec(schemaSQL, function(err) {
-            if (err) {
-                rollbackAndExit(new Error(`Failed to execute schema.sql: ${err.message}`));
-                return;
-            }
-            
-            console.log('Created new tables from schema.sql');
-            finalizeMigration();
-        });
+        console.log('Created new tables from schema.sql');
+        finalizeMigration();
     });
 }
 
+// Function to read the schema file
+function readSchema() {
+    try {
+        return fs.readFileSync(path.join(__dirname, '../database/schema.sql'), 'utf8');
+    } catch (err) {
+        throw new Error(`Failed to read schema.sql: ${err.message}`);
+    }
+}
+
 function finalizeMigration() {
-    // Create indexes
+    // Attempt to drop old indexes, ignore errors if they don't exist
     db.run('DROP INDEX IF EXISTS idx_personas_user_id;', [], function(err) {
-        if (err) console.log('Warning:', err.message);
+        if (err) console.log('Ignoring error dropping old index idx_personas_user_id:', err.message);
+    });
+    db.run('DROP INDEX IF EXISTS idx_persona_variations_user_module;', [], function(err) {
+        if (err) console.log('Ignoring error dropping old index idx_persona_variations_user_module:', err.message);
+    });
+    db.run('DROP INDEX IF EXISTS idx_base_prompts_user_id;', [], function(err) { // Also try dropping this index if it exists from previous runs
+        if (err) console.log('Ignoring error dropping old index idx_base_prompts_user_id:', err.message);
+    });
+    db.run('DROP INDEX IF EXISTS idx_prompt_variations_user_module;', [], function(err) { // Also try dropping this index if it exists from previous runs
+        if (err) console.log('Ignoring error dropping old index idx_prompt_variations_user_module:', err.message);
+    });
+
+    // Create NEW indexes based on the current schema (character_cards, etc.)
+    // Ensure these match the latest schema.sql definitions
+    db.run('CREATE INDEX IF NOT EXISTS idx_character_cards_user_id ON character_cards(user_id);', [], (err) => {
+        if (err) console.error('Error creating idx_character_cards_user_id:', err.message);
+    });
+    db.run('CREATE INDEX IF NOT EXISTS idx_assessment_results_user_prompt_base ON assessment_results(user_id, base_prompt_id);', [], (err) => {
+        if (err) console.error('Error creating idx_assessment_results_user_prompt_base:', err.message);
+    });
+    db.run('CREATE INDEX IF NOT EXISTS idx_alignment_metrics_user_assessment ON alignment_metrics(user_id, assessment_type);', [], (err) => {
+        if (err) console.error('Error creating idx_alignment_metrics_user_assessment:', err.message);
+    });
+    db.run('CREATE INDEX IF NOT EXISTS idx_oauth_state_expires ON oauth_state(expires_at);', [], (err) => {
+        if (err) console.error('Error creating idx_oauth_state_expires:', err.message);
+    });
+    // Add index creation for system_prompts and instruction_templates if desired, mirroring schema.sql
+    // Example:
+    // db.run('CREATE INDEX IF NOT EXISTS idx_system_prompts_user_type ON system_prompts(user_id, type);', [], (err) => {
+    //    if (err) console.error('Error creating idx_system_prompts_user_type:', err.message);
+    // });
+
+    // Re-enable foreign keys and commit transaction
+    db.run('PRAGMA foreign_keys = ON;', [], function(err) {
+        if (err) {
+            rollbackAndExit(err);
+            return;
+        }
         
-        db.run('CREATE INDEX IF NOT EXISTS idx_base_prompts_user_id ON base_prompts(user_id);', [], function(err) {
-            if (err) console.log('Warning:', err.message);
+        db.run('COMMIT;', [], function(err) {
+            if (err) {
+                rollbackAndExit(err);
+                return;
+            }
             
-            db.run('DROP INDEX IF EXISTS idx_persona_variations_user_module;', [], function(err) {
-                if (err) console.log('Warning:', err.message);
-                
-                db.run('CREATE INDEX IF NOT EXISTS idx_prompt_variations_user_module ON prompt_variations(user_id, module_context);', [], function(err) {
-                    if (err) console.log('Warning:', err.message);
-                    
-                    // Re-enable foreign keys and commit transaction
-                    db.run('PRAGMA foreign_keys = ON;', [], function(err) {
-                        if (err) {
-                            rollbackAndExit(err);
-                            return;
-                        }
-                        
-                        db.run('COMMIT;', [], function(err) {
-                            if (err) {
-                                rollbackAndExit(err);
-                                return;
-                            }
-                            
-                            console.log('Migration completed successfully!');
-                            db.close();
-                        });
-                    });
-                });
-            });
+            console.log('Migration completed successfully!');
+            db.close();
         });
     });
 }

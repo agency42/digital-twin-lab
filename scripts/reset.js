@@ -36,11 +36,12 @@ setTimeout(() => {
     const db = new sqlite3.Database(dbPath);
     console.log('New database file created.');
 
-    // Read the schema.sql file
-    const schemaSQL = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+    // Read the schema file
+    console.log('Applying schema from database/schema.sql...');
+    const schema = fs.readFileSync(path.join(__dirname, '../database/schema.sql'), 'utf8');
 
     // Execute the schema SQL
-    db.exec(schemaSQL, function(err) {
+    db.exec(schema, function(err) {
         if (err) {
             console.error('Error executing schema SQL:', err.message);
             db.close();

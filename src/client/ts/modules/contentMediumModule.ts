@@ -1,921 +1,540 @@
 /**
- * contentMediumModule.ts - Handles content medium instructions for different platforms
+ * contentMediumModule.ts - Manages the Interactions page, including switching between mediums,
+ *                          editing system prompts and instructions per medium, and generating content.
  */
-import { state, showStatus, generateUniqueId } from './utils.js';
-import { ContentMediumType, ContentMediumInstruction } from '../types.js';
+import { state, showStatus } from './utils.js';
+// import { BasePromptText } from '../types'; // Assuming types define relevant structures - REMOVED
 
-// UI Elements cache
-interface ContentMediumElements {
-    // Medium tabs
-    mediumTabs: NodeListOf<Element>;
-    // Medium content areas
-    mediumContents: NodeListOf<Element>;
-    // Instruction fields for each medium
-    chatInstruction: HTMLTextAreaElement | null;
-    chatMainCharacter: HTMLInputElement | null;
-    chatMainGoal: HTMLInputElement | null;
-    chatDescription: HTMLTextAreaElement | null;
-    chatExamplesContainer: HTMLDivElement | null;
-    addChatExampleButton: HTMLButtonElement | null;
-    saveChatMediumButton: HTMLButtonElement | null;
-    resetChatMediumButton: HTMLButtonElement | null;
-    chatMediumStatus: HTMLDivElement | null;
-    
-    blogInstruction: HTMLTextAreaElement | null;
-    blogMainCharacter: HTMLInputElement | null;
-    blogMainGoal: HTMLInputElement | null;
-    blogDescription: HTMLTextAreaElement | null;
-    blogExamplesContainer: HTMLDivElement | null;
-    addBlogExampleButton: HTMLButtonElement | null;
-    saveBlogMediumButton: HTMLButtonElement | null;
-    resetBlogMediumButton: HTMLButtonElement | null;
-    blogMediumStatus: HTMLDivElement | null;
-    
-    tweetInstruction: HTMLTextAreaElement | null;
-    tweetMainCharacter: HTMLInputElement | null;
-    tweetMainGoal: HTMLInputElement | null;
-    tweetDescription: HTMLTextAreaElement | null;
-    tweetExamplesContainer: HTMLDivElement | null;
-    addTweetExampleButton: HTMLButtonElement | null;
-    saveTweetMediumButton: HTMLButtonElement | null;
-    resetTweetMediumButton: HTMLButtonElement | null;
-    tweetMediumStatus: HTMLDivElement | null;
-    
-    linkedinInstruction: HTMLTextAreaElement | null;
-    linkedinMainCharacter: HTMLInputElement | null;
-    linkedinMainGoal: HTMLInputElement | null;
-    linkedinDescription: HTMLTextAreaElement | null;
-    linkedinExamplesContainer: HTMLDivElement | null;
-    addLinkedinExampleButton: HTMLButtonElement | null;
-    saveLinkedinMediumButton: HTMLButtonElement | null;
-    resetLinkedinMediumButton: HTMLButtonElement | null;
-    linkedinMediumStatus: HTMLDivElement | null;
+// Interfaces matching backend data structures
+interface CharacterCard {
+    id: string;
+    user_id: string;
+    card_name?: string | null;
+    card_data: string; // JSON string
+    is_current: number; // 0 or 1
+    based_on_assets?: string | null; // JSON string of asset IDs
+    created_at: string;
+    updated_at: string;
 }
 
-// Shared default instruction templates for each medium
-const DEFAULT_INSTRUCTIONS: Record<ContentMediumType, ContentMediumInstruction> = {
-    chat: {
-        id: 'default-chat',
-        medium_type: 'chat',
-        instruction: 'Respond to user messages in a conversational and helpful manner, maintaining the personality and knowledge of the subject.',
-        mainCharacter: 'Digital twin of the user',
-        mainGoal: 'Provide helpful, accurate, and authentic responses that reflect the real person',
-        parameters: {
-            description: 'Chat interactions should be casual yet informative, reflecting the real person\'s communication style and knowledge areas.'
-        },
-        metadata: {
-            id: 'default-chat-metadata',
-            createdBy: 'system',
-            timestamp: new Date().toISOString()
-        },
-        examples: ['User: How would you approach solving this problem?\nAssistant: I would start by breaking it down into smaller parts, then...']
-    },
-    blog: {
-        id: 'default-blog',
-        medium_type: 'blog',
-        instruction: 'Create long-form content that reflects the subject\'s writing style, expertise, and perspectives on relevant topics.',
-        mainCharacter: 'Digital twin of the user as a content creator',
-        mainGoal: 'Write informative, engaging articles that authentically represent the subject\'s voice and knowledge',
-        parameters: {
-            description: 'Blog posts should be well-structured with clear headings, coherent paragraphs, and the subject\'s typical tone and depth.'
-        },
-        metadata: {
-            id: 'default-blog-metadata',
-            createdBy: 'system',
-            timestamp: new Date().toISOString()
-        },
-        examples: ['# How I Approach Problem Solving\n\nWhen faced with complex challenges, I\'ve found that the best approach is to first understand the problem completely before attempting solutions...']
-    },
-    tweet: {
-        id: 'default-tweet',
-        medium_type: 'tweet',
-        instruction: 'Create concise, engaging tweets that capture the subject\'s voice, interests, and perspectives in the format of Twitter.',
-        mainCharacter: 'Digital twin of the user as a Twitter user',
-        mainGoal: 'Write authentic tweets that reflect the subject\'s communication style and interests',
-        parameters: {
-            description: 'Tweets should be concise, engaging, and reflect the typical hashtags, references, and style the subject would use.'
-        },
-        metadata: {
-            id: 'default-tweet-metadata',
-            createdBy: 'system',
-            timestamp: new Date().toISOString()
-        },
-        examples: ['Just finished reading an amazing book on AI ethics - really makes you think about where we\'re heading with this technology. #AIEthics #TechFuture']
-    },
-    linkedin: {
-        id: 'default-linkedin',
-        medium_type: 'linkedin',
-        instruction: 'Create professional, insightful content appropriate for LinkedIn that reflects the subject\'s professional voice and expertise.',
-        mainCharacter: 'Digital twin of the user as a professional',
-        mainGoal: 'Produce content that authentically represents the subject\'s professional identity and insights',
-        parameters: {
-            description: 'LinkedIn posts should be professional yet personable, focusing on industry insights, career achievements, and professional perspectives.'
-        },
-        metadata: {
-            id: 'default-linkedin-metadata',
-            createdBy: 'system',
-            timestamp: new Date().toISOString()
-        },
-        examples: ['Excited to share that our team just launched a new project after months of hard work. This initiative will help address [industry problem] by leveraging [technology/approach]. Looking forward to seeing its impact! #ProfessionalAchievement #Innovation']
-    }
-};
+interface SystemPrompt {
+    id: string;
+    user_id: string;
+    type: 'chat' | 'post';
+    prompt_text: string;
+    is_custom: number; // 0 or 1
+    created_at: string;
+    updated_at: string;
+}
 
-// Current UI elements cache
-let uiElements: ContentMediumElements | null = null;
-let currentMedium: ContentMediumType = 'chat';
+interface InstructionTemplate {
+    id: string;
+    user_id: string;
+    type: 'chat' | 'post';
+    instruction_text: string;
+    created_at: string;
+    updated_at: string;
+}
+
+interface GenerationsData {
+    characterCard: CharacterCard | null;
+    systemPrompt: SystemPrompt | null;
+    instructionTemplate: InstructionTemplate | null;
+}
+
+// --- Interfaces ---
+
+interface ContentMediumInstruction {
+    // Using a simplified structure for now, adjust based on actual needs
+    instruction: string;
+    // Add other fields if necessary based on agent-data-structures.mdc or specific needs
+}
+
+interface ContentMediumElements {
+    mediumTabsContainer: HTMLElement | null;
+    systemPromptEditor: HTMLTextAreaElement | null;
+    instructionEditor: HTMLTextAreaElement | null; // Added instruction editor element
+    saveVariationButton: HTMLButtonElement | null; // May remove later if auto-saving
+    resetPromptButton: HTMLButtonElement | null; // Renamed from resetToBasePromptButton
+    generateContentButton: HTMLButtonElement | null;
+    generatedContentOutput: HTMLElement | null;
+    generationStatusDiv: HTMLDivElement | null;
+    showSystemPromptCheckbox: HTMLInputElement | null;
+    // Remove elements related to character card/instruction set selection
+}
+
+type ContentMediumType = 'chat' | 'post';
+
+// --- Module State ---
+
+let systemPromptEditor: HTMLTextAreaElement | null = null;
+let instructionEditor: HTMLTextAreaElement | null = null;
+let resetPromptButton: HTMLButtonElement | null = null;
+let generateContentButton: HTMLButtonElement | null = null;
+let generatedContentOutput: HTMLElement | null = null;
+let generationStatusDiv: HTMLDivElement | null = null; // Status for generation
+let systemPromptStatusDiv: HTMLDivElement | null = null; // Status for sys prompt save/reset
+let instructionStatusDiv: HTMLDivElement | null = null; // Status for instruction save
+let mediumTabsContainer: HTMLElement | null = null;
+let showSystemPromptCheckbox: HTMLInputElement | null = null;
+let saveSystemPromptButton: HTMLButtonElement | null = null; // ADDED
+let saveInstructionsButton: HTMLButtonElement | null = null; // ADDED
+
+let currentMedium: ContentMediumType = 'chat'; // Default medium
+let currentCharacterCardData: string | null = null; // Store the raw card data for reset reference
+let isInitialized = false;
+
+
+// --- Initialization ---
 
 /**
- * Initialize the content medium module
+ * Initialize the content medium module by finding its elements in the DOM.
  */
 export function initContentMediumModule(): void {
-    console.log('Initializing Content Medium Module');
+    console.log("Initializing Content Medium Module...");
+
+    // Query elements directly within the init function
+    mediumTabsContainer = document.querySelector('#generations-page .medium-tabs');
+    systemPromptEditor = document.getElementById('system-prompt-editor') as HTMLTextAreaElement | null;
+    instructionEditor = document.getElementById('instruction-editor') as HTMLTextAreaElement | null;
+    resetPromptButton = document.getElementById('reset-prompt-button') as HTMLButtonElement | null;
+    generateContentButton = document.getElementById('generate-content-button') as HTMLButtonElement | null;
+    generatedContentOutput = document.getElementById('generated-content-output');
+    generationStatusDiv = document.getElementById('generation-status') as HTMLDivElement | null;
+    showSystemPromptCheckbox = document.getElementById('show-system-prompt-checkbox') as HTMLInputElement | null;
     
-    // Cache UI elements
-    uiElements = {
-        mediumTabs: document.querySelectorAll('.medium-tab'),
-        mediumContents: document.querySelectorAll('.medium-content'),
-        
-        // Chat medium elements
-        chatInstruction: document.getElementById('chat-instruction') as HTMLTextAreaElement,
-        chatMainCharacter: document.getElementById('chat-main-character') as HTMLInputElement,
-        chatMainGoal: document.getElementById('chat-main-goal') as HTMLInputElement,
-        chatDescription: document.getElementById('chat-description') as HTMLTextAreaElement,
-        chatExamplesContainer: document.getElementById('chat-examples-container') as HTMLDivElement,
-        addChatExampleButton: document.getElementById('add-chat-example') as HTMLButtonElement,
-        saveChatMediumButton: document.getElementById('save-chat-medium') as HTMLButtonElement,
-        resetChatMediumButton: document.getElementById('reset-chat-medium') as HTMLButtonElement,
-        chatMediumStatus: document.getElementById('chat-medium-status') as HTMLDivElement,
-        
-        // Blog medium elements
-        blogInstruction: document.getElementById('blog-instruction') as HTMLTextAreaElement,
-        blogMainCharacter: document.getElementById('blog-main-character') as HTMLInputElement,
-        blogMainGoal: document.getElementById('blog-main-goal') as HTMLInputElement,
-        blogDescription: document.getElementById('blog-description') as HTMLTextAreaElement,
-        blogExamplesContainer: document.getElementById('blog-examples-container') as HTMLDivElement,
-        addBlogExampleButton: document.getElementById('add-blog-example') as HTMLButtonElement,
-        saveBlogMediumButton: document.getElementById('save-blog-medium') as HTMLButtonElement,
-        resetBlogMediumButton: document.getElementById('reset-blog-medium') as HTMLButtonElement,
-        blogMediumStatus: document.getElementById('blog-medium-status') as HTMLDivElement,
-        
-        // Tweet medium elements
-        tweetInstruction: document.getElementById('tweet-instruction') as HTMLTextAreaElement,
-        tweetMainCharacter: document.getElementById('tweet-main-character') as HTMLInputElement,
-        tweetMainGoal: document.getElementById('tweet-main-goal') as HTMLInputElement,
-        tweetDescription: document.getElementById('tweet-description') as HTMLTextAreaElement,
-        tweetExamplesContainer: document.getElementById('tweet-examples-container') as HTMLDivElement,
-        addTweetExampleButton: document.getElementById('add-tweet-example') as HTMLButtonElement,
-        saveTweetMediumButton: document.getElementById('save-tweet-medium') as HTMLButtonElement,
-        resetTweetMediumButton: document.getElementById('reset-tweet-medium') as HTMLButtonElement,
-        tweetMediumStatus: document.getElementById('tweet-medium-status') as HTMLDivElement,
-        
-        // LinkedIn medium elements
-        linkedinInstruction: document.getElementById('linkedin-instruction') as HTMLTextAreaElement,
-        linkedinMainCharacter: document.getElementById('linkedin-main-character') as HTMLInputElement,
-        linkedinMainGoal: document.getElementById('linkedin-main-goal') as HTMLInputElement,
-        linkedinDescription: document.getElementById('linkedin-description') as HTMLTextAreaElement,
-        linkedinExamplesContainer: document.getElementById('linkedin-examples-container') as HTMLDivElement,
-        addLinkedinExampleButton: document.getElementById('add-linkedin-example') as HTMLButtonElement,
-        saveLinkedinMediumButton: document.getElementById('save-linkedin-medium') as HTMLButtonElement,
-        resetLinkedinMediumButton: document.getElementById('reset-linkedin-medium') as HTMLButtonElement,
-        linkedinMediumStatus: document.getElementById('linkedin-medium-status') as HTMLDivElement,
-    };
-    
-    // Set up tab switching
-    uiElements.mediumTabs.forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            const target = e.target as HTMLElement;
-            const medium = target.getAttribute('data-medium') as ContentMediumType;
-            if (medium) {
-                switchMedium(medium);
-            }
+    // ADD selectors for new elements
+    systemPromptStatusDiv = document.getElementById('system-prompt-status') as HTMLDivElement | null;
+    instructionStatusDiv = document.getElementById('instruction-status') as HTMLDivElement | null;
+    saveSystemPromptButton = document.getElementById('save-system-prompt-button') as HTMLButtonElement | null;
+    saveInstructionsButton = document.getElementById('save-instructions-button') as HTMLButtonElement | null;
+
+    // --- Add Robust Element Checks ---
+    if (!mediumTabsContainer) console.error("ContentMediumModule Error: Could not find mediumTabsContainer (.medium-tabs)");
+    if (!systemPromptEditor) console.error("ContentMediumModule Error: Could not find systemPromptEditor (#system-prompt-editor)");
+    if (!instructionEditor) console.error("ContentMediumModule Error: Could not find instructionEditor (#instruction-editor)");
+    if (!resetPromptButton) console.error("ContentMediumModule Error: Could not find resetPromptButton (#reset-prompt-button)");
+    if (!generateContentButton) console.error("ContentMediumModule Error: Could not find generateContentButton (#generate-content-button)");
+    if (!generatedContentOutput) console.error("ContentMediumModule Error: Could not find generatedContentOutput (#generated-content-output)");
+    if (!generationStatusDiv) console.error("ContentMediumModule Error: Could not find generationStatusDiv (#generation-status)"); 
+    if (!showSystemPromptCheckbox) console.error("ContentMediumModule Error: Could not find showSystemPromptCheckbox (#show-system-prompt-checkbox)");
+    if (!systemPromptStatusDiv) console.error("ContentMediumModule Error: Could not find systemPromptStatusDiv (#system-prompt-status)");
+    if (!instructionStatusDiv) console.error("ContentMediumModule Error: Could not find instructionStatusDiv (#instruction-status)");
+    if (!saveSystemPromptButton) console.error("ContentMediumModule Error: Could not find saveSystemPromptButton (#save-system-prompt-button)");
+    if (!saveInstructionsButton) console.error("ContentMediumModule Error: Could not find saveInstructionsButton (#save-instructions-button)");
+    // --- End Element Checks ---
+
+    // Add listeners only if elements exist
+    if (mediumTabsContainer) {
+        mediumTabsContainer.querySelectorAll('.medium-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const medium = tab.getAttribute('data-medium') as ContentMediumType | null;
+                if (medium) {
+                    switchMedium(medium); // Will now fetch data
+                }
+            });
         });
-    });
-    
-    // Set up example adding for each medium
-    if (uiElements.addChatExampleButton) {
-        uiElements.addChatExampleButton.addEventListener('click', () => addExample('chat'));
+    } else {
+         console.error("ContentMediumModule Error: Cannot add tab listeners because mediumTabsContainer was not found.");
     }
-    if (uiElements.addBlogExampleButton) {
-        uiElements.addBlogExampleButton.addEventListener('click', () => addExample('blog'));
-    }
-    if (uiElements.addTweetExampleButton) {
-        uiElements.addTweetExampleButton.addEventListener('click', () => addExample('tweet'));
-    }
-    if (uiElements.addLinkedinExampleButton) {
-        uiElements.addLinkedinExampleButton.addEventListener('click', () => addExample('linkedin'));
-    }
-    
-    // Set up save buttons
-    if (uiElements.saveChatMediumButton) {
-        uiElements.saveChatMediumButton.addEventListener('click', () => saveMediumInstructions('chat'));
-    }
-    if (uiElements.saveBlogMediumButton) {
-        uiElements.saveBlogMediumButton.addEventListener('click', () => saveMediumInstructions('blog'));
-    }
-    if (uiElements.saveTweetMediumButton) {
-        uiElements.saveTweetMediumButton.addEventListener('click', () => saveMediumInstructions('tweet'));
-    }
-    if (uiElements.saveLinkedinMediumButton) {
-        uiElements.saveLinkedinMediumButton.addEventListener('click', () => saveMediumInstructions('linkedin'));
-    }
-    
-    // Set up reset buttons
-    if (uiElements.resetChatMediumButton) {
-        uiElements.resetChatMediumButton.addEventListener('click', () => resetMediumInstructions('chat'));
-    }
-    if (uiElements.resetBlogMediumButton) {
-        uiElements.resetBlogMediumButton.addEventListener('click', () => resetMediumInstructions('blog'));
-    }
-    if (uiElements.resetTweetMediumButton) {
-        uiElements.resetTweetMediumButton.addEventListener('click', () => resetMediumInstructions('tweet'));
-    }
-    if (uiElements.resetLinkedinMediumButton) {
-        uiElements.resetLinkedinMediumButton.addEventListener('click', () => resetMediumInstructions('linkedin'));
-    }
-    
-    // Add event handlers for remove example buttons
-    document.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        if (target.classList.contains('remove-example')) {
-            const exampleItem = target.closest('.example-item');
-            if (exampleItem && exampleItem.parentNode) {
-                exampleItem.parentNode.removeChild(exampleItem);
-            }
+
+    resetPromptButton?.addEventListener('click', handleResetSystemPrompt);
+    generateContentButton?.addEventListener('click', generateContent);
+    saveSystemPromptButton?.addEventListener('click', handleSaveSystemPrompt);
+    saveInstructionsButton?.addEventListener('click', handleSaveInstructions);
+    // Remove blur listeners, rely on explicit save buttons
+    // systemPromptEditor?.addEventListener('blur', saveCurrentMediumState);
+    // instructionEditor?.addEventListener('blur', saveCurrentMediumState);
+
+    // Listen for user changes to trigger initial data load
+    document.addEventListener('user-data-loaded', () => {
+        console.log("ContentMediumModule: User data loaded, fetching initial generations data for", currentMedium);
+        if (state.currentUserId) {
+            fetchAndLoadGenerationsData(state.currentUserId, currentMedium);
         }
     });
-    
-    // Listen for user data loaded event
-    document.addEventListener('user-data-loaded', (e) => {
-        console.log('Content Medium Module: User data loaded');
-        loadUserInstructions();
-    });
-    
-    // Initialize with default instructions
-    resetAllMediumInstructions();
 
-    // Set up toggle full prompt button
-    const toggleFullPromptButton = document.getElementById('toggle-full-prompt');
-    const fullStructuredPrompt = document.getElementById('full-structured-prompt');
-    
-    if (toggleFullPromptButton && fullStructuredPrompt) {
-        toggleFullPromptButton.addEventListener('click', () => {
-            const isHidden = fullStructuredPrompt.style.display === 'none';
-            fullStructuredPrompt.style.display = isHidden ? 'block' : 'none';
-            toggleFullPromptButton.textContent = isHidden ? 'Hide Full Structured Prompt' : 'Show Full Structured Prompt';
-            
-            // If showing, generate the full structured prompt
-            if (isHidden) {
-                generateFullStructuredPrompt();
+    // Listen for character card updates to potentially refresh/reset data
+    document.addEventListener('character-card-updated', (event: Event) => {
+        const customEvent = event as CustomEvent<{ cardData: CharacterCard | null }>; // Expect full card object now
+        console.log("%cContentMediumModule: Received 'character-card-updated' event!", "color: blue; font-weight: bold;");
+
+        if (customEvent.detail && customEvent.detail.cardData) {
+            const newCard = customEvent.detail.cardData;
+            currentCharacterCardData = newCard.card_data; // Update the raw data for reset reference
+            console.log("ContentMediumModule: Updated internal character card reference.");
+
+            // If the current system prompt *was* the old character card (is_custom = 0),
+            // automatically update the editor to reflect the new base card.
+            // The backend handles updating non-custom prompts in the DB.
+            if (systemPromptEditor && systemPromptEditor.getAttribute('data-is-custom') === '0') {
+                console.log("ContentMediumModule: Current prompt was default, updating editor with new card data.");
+                systemPromptEditor.value = currentCharacterCardData || '';
+                // Optionally: Indicate that the prompt *is still* the default (maybe via UI styling or a message)
+                showStatus(systemPromptStatusDiv, 'System prompt updated to match new character card.', 'info', 3000);
+            } else {
+                console.log("ContentMediumModule: Current prompt was custom, leaving editor as is. Reset button available.");
+                // Optionally: Notify user that a new base card is available and they can reset
+                showStatus(systemPromptStatusDiv, 'New character card generated. You can reset the system prompt if desired.', 'info', 5000);
             }
+        } else {
+            console.warn("ContentMediumModule: 'character-card-updated' event received, but no cardData in detail.");
+        }
+    });
+
+    isInitialized = true;
+    console.log("Content Medium Module Initialized.");
+}
+
+// --- Core Logic ---
+
+/**
+ * Fetches character card, system prompt, and instructions from the backend.
+ * @param userId 
+ * @param type 
+ */
+async function fetchAndLoadGenerationsData(userId: string, type: ContentMediumType): Promise<void> {
+    console.log(`Fetching generations data for user ${userId}, type ${type}...`);
+    try {
+        const response = await fetch(`/api/prompts/${userId}/generations-data?type=${type}`);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
+            throw new Error(errorData.error || `Failed to fetch generations data (${response.status})`);
+        }
+        const data: GenerationsData = await response.json();
+        console.log("Received generations data:", data);
+
+        // Update global state
+        state.currentSystemPrompt = data.systemPrompt;
+        state.currentInstructionTemplate = data.instructionTemplate;
+        state.currentCharacterCardData = data.characterCard; // Also store the card from this response
+        console.log("[State Update] Set state.currentSystemPrompt:", state.currentSystemPrompt);
+
+        // Update UI
+        if (systemPromptEditor) {
+            systemPromptEditor.value = data.systemPrompt?.prompt_text ?? data.characterCard?.card_data ?? '';
+            // Store is_custom status and current character card data for comparison/reset
+            systemPromptEditor.setAttribute('data-is-custom', (data.systemPrompt?.is_custom ?? 0).toString());
+            currentCharacterCardData = data.characterCard?.card_data ?? null;
+             // Disable reset button if prompt is already default or no base card
+            if (resetPromptButton) {
+                resetPromptButton.disabled = !currentCharacterCardData || !data.systemPrompt?.is_custom;
+            }
+        } else {
+            console.error("Cannot load system prompt, editor not found");
+        }
+
+        if (instructionEditor) {
+            instructionEditor.value = data.instructionTemplate?.instruction_text ?? getDefaultInstructionText(type);
+        } else {
+            console.error("Cannot load instructions, editor not found");
+        }
+
+        // Dispatch event indicating data has been loaded for the current medium
+        console.log("[Event Dispatch] Dispatching generations-data-loaded"); // Log before dispatch
+        const event = new CustomEvent('generations-data-loaded', {
+            detail: { userId: userId, type: type, systemPrompt: data.systemPrompt }
         });
+        document.dispatchEvent(event);
+
+    } catch (error: any) {
+        console.error("Error fetching or loading generations data:", error);
+        // Clear state on error
+        state.currentSystemPrompt = null;
+        state.currentInstructionTemplate = null;
+        state.currentCharacterCardData = null; 
+        showStatus(systemPromptStatusDiv, `Error loading data: ${error.message}`, 'error');
+        // Optionally clear editors or show placeholder text on error
+        if (systemPromptEditor) systemPromptEditor.value = 'Error loading prompt.';
+        if (instructionEditor) instructionEditor.value = 'Error loading instructions.';
     }
-    
-    // Set up generate content buttons for each medium
-    const generateChatContentButton = document.getElementById('generate-chat-content');
-    const generateBlogContentButton = document.getElementById('generate-blog-content');
-    
-    if (generateChatContentButton) {
-        generateChatContentButton.addEventListener('click', () => generateSampleContent('chat'));
-    }
-    
-    if (generateBlogContentButton) {
-        generateBlogContentButton.addEventListener('click', () => generateSampleContent('blog'));
-    }
-    
-    // Additional generate buttons would be added here for other mediums
-    
-    console.log('Content Medium module initialized with interactive features');
 }
 
 /**
- * Switch between different medium tabs
+ * Switch the active medium tab and load its state by fetching from backend.
+ * @param newMedium - The medium to switch to.
  */
-function switchMedium(medium: ContentMediumType): void {
-    if (!uiElements) return;
+function switchMedium(newMedium: ContentMediumType): void {
+    if (newMedium === currentMedium && isInitialized) return; // No change or not ready
+    if (!state.currentUserId) {
+        console.warn("Cannot switch medium, no current user selected.");
+        // Maybe show a status message
+        return;
+    }
+
+    console.log(`Switching medium from ${currentMedium} to ${newMedium}`);
+
+    // No need to save state locally, rely on explicit save buttons
+    // saveCurrentMediumState(); 
+
+    currentMedium = newMedium;
+    setActiveTab(newMedium);
+
+    // Fetch and load state for the new medium
+    fetchAndLoadGenerationsData(state.currentUserId, newMedium);
+
+    // Toggle UI elements visibility (Chat vs. Post)
+    const chatInterface = document.getElementById('chat-interface');
+    const contentGenerationArea = document.getElementById('content-generation-area');
+    const mediumContentArea = document.getElementById('medium-content-area');
+
+    // Logging added previously
+    if (!chatInterface) console.error("switchMedium ERROR: Could not find chat-interface element");
+    if (!contentGenerationArea) console.error("switchMedium ERROR: Could not find content-generation-area element");
+    if (!mediumContentArea) console.error("switchMedium ERROR: Could not find medium-content-area element");
+
+    if (chatInterface && contentGenerationArea) {
+        if (newMedium === 'chat') {
+            chatInterface.style.display = 'block';
+            contentGenerationArea.style.display = 'none';
+        } else { // 'post'
+            chatInterface.style.display = 'none';
+            contentGenerationArea.style.display = 'block';
+        }
+    }
+
+    if (mediumContentArea) {
+        mediumContentArea.style.display = 'block'; // Ensure main container visible
+    }
+
+    // Update Instruction Editor Label
+    const instructionLabel = document.querySelector('.instruction-label');
+    if (instructionLabel) {
+        const mediumName = newMedium.charAt(0).toUpperCase() + newMedium.slice(1);
+        instructionLabel.textContent = `Instructions for ${mediumName}:`;
+    }
+
+    // Clear previous generated output for 'post' mode
+    if (newMedium === 'post' && generatedContentOutput) {
+         generatedContentOutput.innerHTML = '';
+         showStatus(generationStatusDiv, '', 'info'); // Clear generation status
+    }
+}
+
+/**
+ * Handles saving the system prompt via API call.
+ */
+async function handleSaveSystemPrompt(): Promise<void> {
+    if (!state.currentUserId || !systemPromptEditor || !saveSystemPromptButton || !systemPromptStatusDiv) return;
+
+    const userId = state.currentUserId;
+    const promptText = systemPromptEditor.value;
+    const type = currentMedium;
+
+    saveSystemPromptButton.disabled = true;
+    showStatus(systemPromptStatusDiv, `Saving ${type} system prompt...`, 'loading');
+
+    try {
+        const response = await fetch(`/api/prompts/${userId}/system-prompts/${type}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ promptText })
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
+            throw new Error(errorData.error || `Failed to save system prompt (${response.status})`);
+        }
+        const savedPrompt: SystemPrompt = await response.json();
+        
+        // Update custom status attribute and disable reset button if needed
+        systemPromptEditor.setAttribute('data-is-custom', savedPrompt.is_custom.toString());
+        if (resetPromptButton) {
+            resetPromptButton.disabled = !savedPrompt.is_custom;
+        }
+
+        showStatus(systemPromptStatusDiv, `${type.charAt(0).toUpperCase() + type.slice(1)} system prompt saved successfully.`, 'success', 3000);
+    } catch (error: any) {
+        console.error("Error saving system prompt:", error);
+        showStatus(systemPromptStatusDiv, `Error saving: ${error.message}`, 'error');
+    } finally {
+        saveSystemPromptButton.disabled = false;
+    }
+}
+
+/**
+ * Handles resetting the system prompt via API call.
+ */
+async function handleResetSystemPrompt(): Promise<void> {
+    if (!state.currentUserId || !resetPromptButton || !systemPromptEditor || !systemPromptStatusDiv) return;
     
-    currentMedium = medium;
-    state.currentContentMedium = medium;
-    
-    // Update tab UI
-    uiElements.mediumTabs.forEach(tab => {
-        const tabMedium = tab.getAttribute('data-medium');
-        if (tabMedium === medium) {
+    const userId = state.currentUserId;
+    const type = currentMedium;
+
+    if (!confirm(`Are you sure you want to reset the ${type} system prompt to the current character card?`)) {
+        return;
+    }
+
+    resetPromptButton.disabled = true;
+    showStatus(systemPromptStatusDiv, `Resetting ${type} system prompt...`, 'loading');
+
+    try {
+        const response = await fetch(`/api/prompts/${userId}/system-prompts/${type}/reset`, {
+            method: 'POST' // Using POST for actions with side effects
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
+            throw new Error(errorData.error || `Failed to reset system prompt (${response.status})`);
+        }
+        const resetPrompt: SystemPrompt = await response.json();
+
+        // Update editor and custom status
+        systemPromptEditor.value = resetPrompt.prompt_text;
+        systemPromptEditor.setAttribute('data-is-custom', resetPrompt.is_custom.toString());
+        // Reset button should now be disabled as is_custom is 0
+        resetPromptButton.disabled = true; 
+
+        showStatus(systemPromptStatusDiv, `${type.charAt(0).toUpperCase() + type.slice(1)} system prompt reset successfully.`, 'success', 3000);
+    } catch (error: any) {
+        console.error("Error resetting system prompt:", error);
+        showStatus(systemPromptStatusDiv, `Error resetting: ${error.message}`, 'error');
+        // Re-enable button on error if appropriate (depends if state is known)
+        // resetPromptButton.disabled = false; 
+    } 
+}
+
+/**
+ * Handles saving the instructions via API call.
+ */
+async function handleSaveInstructions(): Promise<void> {
+     if (!state.currentUserId || !instructionEditor || !saveInstructionsButton || !instructionStatusDiv) return;
+
+    const userId = state.currentUserId;
+    const instructionText = instructionEditor.value;
+    const type = currentMedium;
+
+    saveInstructionsButton.disabled = true;
+    showStatus(instructionStatusDiv, `Saving ${type} instructions...`, 'loading');
+
+    try {
+        const response = await fetch(`/api/prompts/${userId}/instruction-templates/${type}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instructionText })
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
+            throw new Error(errorData.error || `Failed to save instructions (${response.status})`);
+        }
+        await response.json(); // Consume response body
+
+        showStatus(instructionStatusDiv, `${type.charAt(0).toUpperCase() + type.slice(1)} instructions saved successfully.`, 'success', 3000);
+    } catch (error: any) {
+        console.error("Error saving instructions:", error);
+        showStatus(instructionStatusDiv, `Error saving: ${error.message}`, 'error');
+    } finally {
+        saveInstructionsButton.disabled = false;
+    }
+}
+
+/**
+ * Set the visual active state for the medium tabs.
+ * @param medium - The medium to set as active.
+ */
+function setActiveTab(medium: ContentMediumType): void {
+    mediumTabsContainer?.querySelectorAll('.medium-tab').forEach(tab => {
+        if (tab.getAttribute('data-medium') === medium) {
             tab.classList.add('active');
         } else {
             tab.classList.remove('active');
         }
     });
-    
-    // Update content UI
-    uiElements.mediumContents.forEach(content => {
-        const contentId = content.id;
-        if (contentId === `${medium}-medium-content`) {
-            content.classList.add('active');
-        } else {
-            content.classList.remove('active');
-        }
-    });
 }
 
-/**
- * Add a new example to the specified medium
- */
-function addExample(medium: ContentMediumType): void {
-    if (!uiElements) return;
-    
-    const container = getExampleContainer(medium);
-    if (!container) return;
-    
-    const exampleItem = document.createElement('div');
-    exampleItem.className = 'example-item';
-    
-    const textarea = document.createElement('textarea');
-    textarea.className = 'example-text';
-    textarea.rows = medium === 'tweet' ? 2 : 3;
-    textarea.placeholder = `Example ${getMediumTypeName(medium)}...`;
-    
-    const removeButton = document.createElement('button');
-    removeButton.className = 'remove-example action-button danger-button';
-    removeButton.style.width = 'auto';
-    removeButton.textContent = 'Remove';
-    
-    exampleItem.appendChild(textarea);
-    exampleItem.appendChild(removeButton);
-    container.appendChild(exampleItem);
-}
+// Keep getCombinedPromptForAPI as it's used by generateContent
+export function getCombinedPromptForAPI(): { systemPrompt: string; instructions: string } | null {
+    const systemPrompt = systemPromptEditor?.value;
+    const instructions = instructionEditor?.value;
 
-/**
- * Get the appropriate example container element based on medium type
- */
-function getExampleContainer(medium: ContentMediumType): HTMLDivElement | null {
-    if (!uiElements) return null;
-    
-    switch (medium) {
-        case 'chat':
-            return uiElements.chatExamplesContainer;
-        case 'blog':
-            return uiElements.blogExamplesContainer;
-        case 'tweet':
-            return uiElements.tweetExamplesContainer;
-        case 'linkedin':
-            return uiElements.linkedinExamplesContainer;
-        default:
-            return null;
+    if (systemPrompt !== undefined && instructions !== undefined) {
+        return { systemPrompt, instructions };
     }
+    console.error("Could not get combined prompt: Editors not ready.");
+    return null;
 }
 
-/**
- * Get appropriate status element based on medium type
- */
-function getStatusElement(medium: ContentMediumType): HTMLDivElement | null {
-    if (!uiElements) return null;
-    
-    switch (medium) {
-        case 'chat':
-            return uiElements.chatMediumStatus;
-        case 'blog':
-            return uiElements.blogMediumStatus;
-        case 'tweet':
-            return uiElements.tweetMediumStatus;
-        case 'linkedin':
-            return uiElements.linkedinMediumStatus;
-        default:
-            return null;
-    }
-}
 
-/**
- * Get a human-readable name for the medium type
- */
-function getMediumTypeName(medium: ContentMediumType): string {
-    switch (medium) {
-        case 'chat':
-            return 'chat exchange';
-        case 'blog':
-            return 'blog post';
-        case 'tweet':
-            return 'tweet';
-        case 'linkedin':
-            return 'LinkedIn post';
-        default:
-            return 'content';
-    }
-}
+// --- Content Generation (Largely unchanged, uses getCombinedPromptForAPI) ---
 
-/**
- * Get form values for the specified medium
- */
-function getMediumFormValues(medium: ContentMediumType): ContentMediumInstruction | null {
-    if (!uiElements) return null;
-    
-    let instruction = '';
-    let mainCharacter = '';
-    let mainGoal = '';
-    let description = '';
-    let examplesContainer: HTMLDivElement | null = null;
-    
-    switch (medium) {
-        case 'chat':
-            instruction = uiElements.chatInstruction?.value || '';
-            mainCharacter = uiElements.chatMainCharacter?.value || '';
-            mainGoal = uiElements.chatMainGoal?.value || '';
-            description = uiElements.chatDescription?.value || '';
-            examplesContainer = uiElements.chatExamplesContainer;
-            break;
-        case 'blog':
-            instruction = uiElements.blogInstruction?.value || '';
-            mainCharacter = uiElements.blogMainCharacter?.value || '';
-            mainGoal = uiElements.blogMainGoal?.value || '';
-            description = uiElements.blogDescription?.value || '';
-            examplesContainer = uiElements.blogExamplesContainer;
-            break;
-        case 'tweet':
-            instruction = uiElements.tweetInstruction?.value || '';
-            mainCharacter = uiElements.tweetMainCharacter?.value || '';
-            mainGoal = uiElements.tweetMainGoal?.value || '';
-            description = uiElements.tweetDescription?.value || '';
-            examplesContainer = uiElements.tweetExamplesContainer;
-            break;
-        case 'linkedin':
-            instruction = uiElements.linkedinInstruction?.value || '';
-            mainCharacter = uiElements.linkedinMainCharacter?.value || '';
-            mainGoal = uiElements.linkedinMainGoal?.value || '';
-            description = uiElements.linkedinDescription?.value || '';
-            examplesContainer = uiElements.linkedinExamplesContainer;
-            break;
-        default:
-            return null;
-    }
-    
-    // Collect examples
-    const examples: string[] = [];
-    if (examplesContainer) {
-        const exampleTextareas = examplesContainer.querySelectorAll('.example-text') as NodeListOf<HTMLTextAreaElement>;
-        exampleTextareas.forEach(textarea => {
-            if (textarea.value.trim()) {
-                examples.push(textarea.value.trim());
-            }
-        });
-    }
-    
-    // Get existing instruction data if available, or create a new one
-    const existingInstructions = state.currentUserData?.contentMediumInstructions?.[medium];
-    
-    return {
-        id: existingInstructions?.id || `${medium}-${generateUniqueId()}`,
-        medium_type: medium,
-        instruction,
-        mainCharacter,
-        mainGoal,
-        parameters: {
-            description,
-            ...existingInstructions?.parameters
-        },
-        metadata: {
-            id: existingInstructions?.metadata?.id || `${medium}-metadata-${generateUniqueId()}`,
-            createdBy: existingInstructions?.metadata?.createdBy || 'user',
-            timestamp: new Date().toISOString()
-        },
-        examples
-    };
-}
-
-/**
- * Set form values for the specified medium
- */
-function setMediumFormValues(medium: ContentMediumType, data: ContentMediumInstruction): void {
-    if (!uiElements) return;
-    
-    switch (medium) {
-        case 'chat':
-            if (uiElements.chatInstruction) uiElements.chatInstruction.value = data.instruction || '';
-            if (uiElements.chatMainCharacter) uiElements.chatMainCharacter.value = data.mainCharacter || '';
-            if (uiElements.chatMainGoal) uiElements.chatMainGoal.value = data.mainGoal || '';
-            if (uiElements.chatDescription) uiElements.chatDescription.value = data.parameters.description || '';
-            setExamples('chat', data.examples || []);
-            break;
-        case 'blog':
-            if (uiElements.blogInstruction) uiElements.blogInstruction.value = data.instruction || '';
-            if (uiElements.blogMainCharacter) uiElements.blogMainCharacter.value = data.mainCharacter || '';
-            if (uiElements.blogMainGoal) uiElements.blogMainGoal.value = data.mainGoal || '';
-            if (uiElements.blogDescription) uiElements.blogDescription.value = data.parameters.description || '';
-            setExamples('blog', data.examples || []);
-            break;
-        case 'tweet':
-            if (uiElements.tweetInstruction) uiElements.tweetInstruction.value = data.instruction || '';
-            if (uiElements.tweetMainCharacter) uiElements.tweetMainCharacter.value = data.mainCharacter || '';
-            if (uiElements.tweetMainGoal) uiElements.tweetMainGoal.value = data.mainGoal || '';
-            if (uiElements.tweetDescription) uiElements.tweetDescription.value = data.parameters.description || '';
-            setExamples('tweet', data.examples || []);
-            break;
-        case 'linkedin':
-            if (uiElements.linkedinInstruction) uiElements.linkedinInstruction.value = data.instruction || '';
-            if (uiElements.linkedinMainCharacter) uiElements.linkedinMainCharacter.value = data.mainCharacter || '';
-            if (uiElements.linkedinMainGoal) uiElements.linkedinMainGoal.value = data.mainGoal || '';
-            if (uiElements.linkedinDescription) uiElements.linkedinDescription.value = data.parameters.description || '';
-            setExamples('linkedin', data.examples || []);
-            break;
-    }
-}
-
-/**
- * Set examples for a medium
- */
-function setExamples(medium: ContentMediumType, examples: string[]): void {
-    const container = getExampleContainer(medium);
-    if (!container) return;
-    
-    // Clear existing examples
-    container.innerHTML = '';
-    
-    // Add examples
-    examples.forEach(example => {
-        const exampleItem = document.createElement('div');
-        exampleItem.className = 'example-item';
-        
-        const textarea = document.createElement('textarea');
-        textarea.className = 'example-text';
-        textarea.rows = medium === 'tweet' ? 2 : 3;
-        textarea.value = example;
-        
-        const removeButton = document.createElement('button');
-        removeButton.className = 'remove-example action-button danger-button';
-        removeButton.style.width = 'auto';
-        removeButton.textContent = 'Remove';
-        
-        exampleItem.appendChild(textarea);
-        exampleItem.appendChild(removeButton);
-        container.appendChild(exampleItem);
-    });
-    
-    // Add an empty example if there are none
-    if (examples.length === 0) {
-        const exampleItem = document.createElement('div');
-        exampleItem.className = 'example-item';
-        
-        const textarea = document.createElement('textarea');
-        textarea.className = 'example-text';
-        textarea.rows = medium === 'tweet' ? 2 : 3;
-        textarea.placeholder = `Example ${getMediumTypeName(medium)}...`;
-        
-        const removeButton = document.createElement('button');
-        removeButton.className = 'remove-example action-button danger-button';
-        removeButton.style.width = 'auto';
-        removeButton.textContent = 'Remove';
-        
-        exampleItem.appendChild(textarea);
-        exampleItem.appendChild(removeButton);
-        container.appendChild(exampleItem);
-    }
-}
-
-/**
- * Save medium instructions to the server
- */
-async function saveMediumInstructions(medium: ContentMediumType): Promise<void> {
+async function generateContent(): Promise<void> {
+    if (!generateContentButton || !generationStatusDiv || !generatedContentOutput) return;
     if (!state.currentUserId) {
-        const statusElement = getStatusElement(medium);
-        showStatus(statusElement, 'Please select a user first', 'error');
+        showStatus(generationStatusDiv, 'Please select a user first', 'error');
         return;
     }
-    
-    const instruction = getMediumFormValues(medium);
-    if (!instruction) {
-        console.error(`Could not get form values for ${medium} medium`);
+    const combinedPrompt = getCombinedPromptForAPI();
+    if (!combinedPrompt) {
+        showStatus(generationStatusDiv, 'Prompt or instructions are missing.', 'error');
         return;
     }
-    
-    const statusElement = getStatusElement(medium);
-    showStatus(statusElement, `Saving ${getMediumTypeName(medium)} instructions...`, 'loading');
-    
+    let platformType = 'generic';
+    const instructionText = combinedPrompt.instructions.toLowerCase();
+    if (instructionText.includes('tweet') || instructionText.includes('twitter')) {
+        platformType = 'twitter';
+    } else if (instructionText.includes('linkedin') || instructionText.includes('professional')) {
+        platformType = 'linkedin';
+    } else if (instructionText.includes('blog') || instructionText.includes('article')) {
+        platformType = 'blog';
+    }
+    generateContentButton.disabled = true;
+    showStatus(generationStatusDiv, `Generating ${platformType} content...`, 'loading');
+    generatedContentOutput.innerHTML = '';
     try {
-        const response = await fetch(`/api/users/${state.currentUserId}/content-medium-instructions`, {
+        console.log(`Generating content for platform: ${platformType}`);
+        console.log("System Prompt Used:", combinedPrompt.systemPrompt);
+        console.log("Instruction Used:", combinedPrompt.instructions);
+        const response = await fetch(`/api/chat/${state.currentUserId}/generate-content`, { 
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(instruction)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                systemPrompt: combinedPrompt.systemPrompt,
+                userMessage: combinedPrompt.instructions,
+                medium: currentMedium,
+                stream: false
+            })
         });
-        
         if (!response.ok) {
-            throw new Error(`Failed to save ${medium} instructions: ${response.status}`);
+            let errorMsg = `Error generating content (${response.status})`;
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.error || errorMsg;
+            } catch (e) {
+                errorMsg = `${errorMsg}: ${await response.text()}`;
+            }
+            throw new Error(errorMsg);
         }
-        
-        const data = await response.json();
-        
-        // Update the state
-        if (!state.currentUserData) {
-            state.currentUserData = { id: state.currentUserId };
+        const result = await response.json();
+        if (result.reply) {
+            if (platformType === 'twitter') {
+                generatedContentOutput.innerHTML = `<div class="twitter-post">${result.reply}</div>`;
+            } else if (platformType === 'linkedin') {
+                generatedContentOutput.innerHTML = `<div class="linkedin-post">${result.reply}</div>`;
+            } else if (platformType === 'blog') {
+                generatedContentOutput.innerHTML = `<div class="blog-post">${result.reply}</div>`;
+            } else {
+                generatedContentOutput.textContent = result.reply;
+            }
+            showStatus(generationStatusDiv, `${platformType.charAt(0).toUpperCase() + platformType.slice(1)} content generated successfully!`, 'success', 3000);
+        } else {
+            throw new Error('No reply content received from the server.');
         }
-        
-        if (!state.currentUserData.contentMediumInstructions) {
-            state.currentUserData.contentMediumInstructions = {} as Record<ContentMediumType, ContentMediumInstruction>;
-        }
-        
-        state.currentUserData.contentMediumInstructions[medium] = data;
-        
-        showStatus(statusElement, `${getMediumTypeName(medium)} instructions saved successfully`, 'success', 3000);
-        
-        // Notify other modules that content medium instructions have been updated
-        document.dispatchEvent(new CustomEvent('content-medium-updated', {
-            detail: { medium, instruction: data }
-        }));
-        
     } catch (error) {
-        console.error(`Error saving ${medium} instructions:`, error);
-        showStatus(statusElement, `Error saving instructions: ${error instanceof Error ? error.message : String(error)}`, 'error');
+        console.error('Error generating content:', error);
+        showStatus(generationStatusDiv, `Error: ${error instanceof Error ? error.message : String(error)}`, 'error');
+        generatedContentOutput.textContent = 'Failed to generate content.';
+    } finally {
+        generateContentButton.disabled = false;
     }
 }
 
-/**
- * Reset the medium instructions to defaults
- */
-function resetMediumInstructions(medium: ContentMediumType): void {
-    const defaultInstructions = DEFAULT_INSTRUCTIONS[medium];
-    setMediumFormValues(medium, defaultInstructions);
-    
-    // Show status message
-    const statusElement = getStatusElement(medium);
-    showStatus(statusElement, `${getMediumTypeName(medium)} instructions reset to default`, 'success', 3000);
+// Remove resetMediumInstructions - backend handles defaults
+// Remove loadBaseCharacterCard
+
+// Re-add the helper function for default instructions
+function getDefaultInstructionText(type: 'chat' | 'post'): string {
+    if (type === 'chat') {
+        return "Engage in a helpful and informative conversation.";
+    }
+    return "Generate content for a specific platform (e.g., Twitter, LinkedIn, Blog). Specify platform requirements in your instructions, such as 'Create a tweet under 280 characters' or 'Write a professional LinkedIn post'.";
 }
 
-/**
- * Reset all medium instructions to defaults
- */
-function resetAllMediumInstructions(): void {
-    resetMediumInstructions('chat');
-    resetMediumInstructions('blog');
-    resetMediumInstructions('tweet');
-    resetMediumInstructions('linkedin');
-}
-
-/**
- * Load the user's instructions from the server
- */
-async function loadUserInstructions(): Promise<void> {
-    if (!state.currentUserId || !state.currentUserData) return;
-    
-    try {
-        // If the instructions already exist in state, use them
-        if (state.currentUserData.contentMediumInstructions) {
-            const instructions = state.currentUserData.contentMediumInstructions;
-            
-            // Load each medium's instructions if they exist, otherwise use defaults
-            if (instructions.chat) {
-                setMediumFormValues('chat', instructions.chat);
-            } else {
-                resetMediumInstructions('chat');
-            }
-            
-            if (instructions.blog) {
-                setMediumFormValues('blog', instructions.blog);
-            } else {
-                resetMediumInstructions('blog');
-            }
-            
-            if (instructions.tweet) {
-                setMediumFormValues('tweet', instructions.tweet);
-            } else {
-                resetMediumInstructions('tweet');
-            }
-            
-            if (instructions.linkedin) {
-                setMediumFormValues('linkedin', instructions.linkedin);
-            } else {
-                resetMediumInstructions('linkedin');
-            }
-            
-            return;
-        }
-        
-        // Otherwise, fetch them from the server
-        const response = await fetch(`/api/users/${state.currentUserId}/content-medium-instructions`);
-        
-        if (!response.ok) {
-            // If the instructions don't exist yet, just use defaults
-            if (response.status === 404) {
-                resetAllMediumInstructions();
-                return;
-            }
-            
-            throw new Error(`Failed to load content medium instructions: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Update the state
-        if (!state.currentUserData.contentMediumInstructions) {
-            state.currentUserData.contentMediumInstructions = {} as Record<ContentMediumType, ContentMediumInstruction>;
-        }
-        
-        // For each medium, load the instructions if they exist
-        ['chat', 'blog', 'tweet', 'linkedin'].forEach((medium) => {
-            const mediumType = medium as ContentMediumType;
-            if (data[mediumType]) {
-                state.currentUserData!.contentMediumInstructions![mediumType] = data[mediumType];
-                setMediumFormValues(mediumType, data[mediumType]);
-            } else {
-                resetMediumInstructions(mediumType);
-            }
-        });
-        
-    } catch (error) {
-        console.error('Error loading content medium instructions:', error);
-        resetAllMediumInstructions();
-    }
-}
-
-/**
- * Generate the full structured prompt based on current medium selections
- */
-function generateFullStructuredPrompt(): void {
-    const fullPromptDisplay = document.getElementById('full-prompt-display') as HTMLTextAreaElement;
-    const systemPromptEditor = document.getElementById('system-prompt-editor') as HTMLTextAreaElement;
-    
-    if (!fullPromptDisplay || !systemPromptEditor) return;
-    
-    // Get the current medium
-    const activeTab = document.querySelector('.medium-tab.active');
-    const medium = activeTab?.getAttribute('data-medium') || 'chat';
-    
-    // Get the medium instructions
-    let mainInstruction = '';
-    let mainCharacter = '';
-    let mainGoal = '';
-    let description = '';
-    let examples: string[] = [];
-    
-    try {
-        switch (medium) {
-            case 'chat':
-                mainInstruction = (document.getElementById('chat-instruction') as HTMLTextAreaElement)?.value || '';
-                mainCharacter = (document.getElementById('chat-main-character') as HTMLInputElement)?.value || '';
-                mainGoal = (document.getElementById('chat-main-goal') as HTMLInputElement)?.value || '';
-                description = (document.getElementById('chat-description') as HTMLTextAreaElement)?.value || '';
-                
-                // Get chat examples
-                const chatExampleContainers = document.querySelectorAll('#chat-examples-container .example-item');
-                chatExampleContainers.forEach(container => {
-                    const textArea = container.querySelector('.example-text') as HTMLTextAreaElement;
-                    if (textArea && textArea.value.trim()) {
-                        examples.push(textArea.value.trim());
-                    }
-                });
-                break;
-                
-            case 'blog':
-                mainInstruction = (document.getElementById('blog-instruction') as HTMLTextAreaElement)?.value || '';
-                mainCharacter = (document.getElementById('blog-main-character') as HTMLInputElement)?.value || '';
-                mainGoal = (document.getElementById('blog-main-goal') as HTMLInputElement)?.value || '';
-                description = (document.getElementById('blog-description') as HTMLTextAreaElement)?.value || '';
-                
-                // Get blog examples
-                const blogExampleContainers = document.querySelectorAll('#blog-examples-container .example-item');
-                blogExampleContainers.forEach(container => {
-                    const textArea = container.querySelector('.example-text') as HTMLTextAreaElement;
-                    if (textArea && textArea.value.trim()) {
-                        examples.push(textArea.value.trim());
-                    }
-                });
-                break;
-                
-            // Additional cases for other mediums would be added here
-        }
-        
-        // Generate a structured prompt
-        const baseSystemPrompt = systemPromptEditor.value || '';
-        
-        const structuredPrompt = {
-            instruction: mainInstruction || "Respond to user messages in a conversational and helpful manner.",
-            mainCharacter: mainCharacter || "Digital twin of the user",
-            mainGoal: mainGoal || "Provide accurate, authentic responses that reflect the real person.",
-            parameters: {
-                description: description || "Chat interactions should be casual yet informative, reflecting the real person's style.",
-                medium: medium,
-                examples: examples
-            },
-            baseSystemPrompt: baseSystemPrompt
-        };
-        
-        // Display the structured prompt
-        fullPromptDisplay.value = JSON.stringify(structuredPrompt, null, 2);
-        
-    } catch (error) {
-        console.error('Error generating full structured prompt:', error);
-        fullPromptDisplay.value = `Error generating structured prompt: ${error instanceof Error ? error.message : String(error)}`;
-    }
-}
-
-/**
- * Generate sample content for the selected medium
- * @param medium - The medium to generate content for (chat, blog, etc.)
- */
-async function generateSampleContent(medium: string): Promise<void> {
-    if (!state.currentUserId) {
-        alert('Please select a user first');
-        return;
-    }
-    
-    // Get the relevant UI elements
-    const chatStatus = document.getElementById('chat-status');
-    const blogStatus = document.getElementById('blog-medium-status');
-    
-    try {
-        // Generate the full structured prompt first
-        generateFullStructuredPrompt();
-        
-        // Get the structured prompt
-        const fullPromptDisplay = document.getElementById('full-prompt-display') as HTMLTextAreaElement;
-        let structuredPrompt: any = {};
-        
-        try {
-            structuredPrompt = JSON.parse(fullPromptDisplay.value);
-        } catch (error) {
-            throw new Error('Could not parse the structured prompt. Please check the format.');
-        }
-        
-        // Show loading status
-        switch (medium) {
-            case 'chat':
-                showStatus(chatStatus, 'Generating sample chat interaction...', 'loading');
-                break;
-            case 'blog':
-                showStatus(blogStatus, 'Generating blog article...', 'loading');
-                break;
-            // Add cases for other mediums
-        }
-        
-        // Simulate a delay (in a real app, this would be an API call)
-        // In a production app, you would call your backend API here
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // For the demo, generate some placeholder content
-        switch (medium) {
-            case 'chat':
-                // Get chat history div
-                const chatHistory = document.getElementById('chat-history');
-                if (chatHistory) {
-                    // Add a user message
-                    const userMessage = document.createElement('div');
-                    userMessage.className = 'message-wrapper user-message';
-                    userMessage.innerHTML = `<div class="message">How would you describe yourself?</div>`;
-                    chatHistory.appendChild(userMessage);
-                    
-                    // Add an assistant message
-                    const assistantMessage = document.createElement('div');
-                    assistantMessage.className = 'message-wrapper assistant-message';
-                    assistantMessage.innerHTML = `<div class="message">I would describe myself as ${structuredPrompt.mainCharacter || 'a digital twin'} focused on ${structuredPrompt.mainGoal || 'helping you'}. My communication style is thoughtful and responsive, and I try to reflect the authentic voice of the person I represent.</div>`;
-                    chatHistory.appendChild(assistantMessage);
-                    
-                    // Scroll to bottom
-                    chatHistory.scrollTop = chatHistory.scrollHeight;
-                    
-                    showStatus(chatStatus, 'Sample chat interaction generated!', 'success', 3000);
-                }
-                break;
-                
-            case 'blog':
-                // Get blog output container
-                const blogOutputContainer = document.getElementById('blog-output-container');
-                const blogOutputTitle = document.getElementById('blog-output-title');
-                const blogOutputContent = document.getElementById('blog-output-content');
-                
-                if (blogOutputContainer && blogOutputTitle && blogOutputContent) {
-                    blogOutputTitle.textContent = "The Future of Digital Communication";
-                    blogOutputContent.textContent = `As ${structuredPrompt.mainCharacter || 'someone'} who has spent years thinking about technology, I believe we're at an inflection point in how we interact with digital systems.
-
-The evolution of AI and natural language processing has fundamentally changed what's possible in human-computer interaction. Gone are the days of rigid command structures and limited response patterns.
-
-What I find most interesting about this shift is how it's forcing us to reconsider what makes communication "human." When a computer can generate prose that's indistinguishable from human writing, what unique value do we bring to the conversation?
-
-${structuredPrompt.parameters?.description || 'This is something I think about frequently.'}
-
-I believe the answer lies not in the words themselves, but in the authentic lived experiences behind them. Technology can mimic our communication patterns, but it cannot yet live a human life with all its complexity and contradiction.
-
-What are your thoughts on this technological evolution? I'd love to continue this conversation in the comments.`;
-
-                    // Show the output container
-                    blogOutputContainer.style.display = 'block';
-                    
-                    showStatus(blogStatus, 'Blog article generated successfully!', 'success', 3000);
-                }
-                break;
-                
-            // Add cases for other mediums
-        }
-        
-    } catch (error) {
-        console.error(`Error generating ${medium} content:`, error);
-        
-        // Show error status
-        switch (medium) {
-            case 'chat':
-                showStatus(chatStatus, `Error generating chat: ${error instanceof Error ? error.message : String(error)}`, 'error');
-                break;
-            case 'blog':
-                showStatus(blogStatus, `Error generating blog: ${error instanceof Error ? error.message : String(error)}`, 'error');
-                break;
-            // Add cases for other mediums
-        }
-    }
-} 
+// (Add any other helper functions needed) 

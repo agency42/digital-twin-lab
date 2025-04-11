@@ -119,6 +119,20 @@ app.use('/api/scrape', createScrapeRouter());
 app.use('/api/upload', createUploadRouter());
 app.use('/api/components', createComponentRouter());
 
+// Route aliases for backward compatibility
+app.get('/api/users/:userId/character-cards', async (req: Request, res: Response): Promise<void> => {
+  try {
+    console.log(`Redirecting /api/users/${req.params.userId}/character-cards to /api/components/${req.params.userId}/character-cards`);
+    // Forward the request to the component router
+    const response = await fetch(`http://localhost:${req.socket.localPort}/api/components/${req.params.userId}/character-cards`);
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error('Error in character-cards alias route:', error);
+    res.status(500).json({ error: 'Internal server error', details: String(error) });
+  }
+});
+
 // Direct LinkedIn authentication endpoint - legacy support
 app.get('/api/auth/linkedin', (req: Request, res: Response): void => {
   try {
@@ -180,8 +194,11 @@ const tryPort = (port: number, maxAttempts: number = 10): Promise<number> => {
 // Start the server asynchronously
 async function startServer() {
   try {
-    await initializeDatabase();
+    const dbConnection = await initializeDatabase();
     console.log('Database initialized successfully.');
+    
+    // Store database connection in app.locals for route handlers to access
+    app.locals.db = dbConnection;
 
     // Find an available port
     const port = await tryPort(DEFAULT_PORT);

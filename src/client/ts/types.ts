@@ -89,15 +89,17 @@ export interface UserData {
 
 // Main AppState interface (using new prompt terminology)
 export interface AppState {
-  currentUserId: string | null;
-  currentBasePromptText: BasePromptText | null; 
-  selectedAssets: Set<string>;
-  currentChatHistory: ChatMessage[]; 
-  userTipiScores: Record<string, number> | null;
-  aiTipiScores: Record<string, number> | null; 
-  currentUserData?: UserData | null; 
-  currentChatSessionId?: string | null;
-  currentContentMedium?: ContentMediumType | null;
+    currentUserId: string | null;
+    selectedAssets: Set<string>;
+    userTipiScores: Record<string, number> | null;
+    aiTipiScores: Record<string, number> | null;
+    currentUserData: any | null; // TODO: Define a proper UserData type if needed
+    currentChatSessionId: string | null;
+    currentContentMedium: 'chat' | 'post' | null;
+    currentCharacterCardData: CharacterCard | null; 
+    currentSystemPrompt: SystemPrompt | null;
+    currentInstructionTemplate: InstructionTemplate | null;
+    currentChatHistory?: any[]; // TODO: Use specific ChatMessage type if available
 }
 
 // --- Assessment Module Specific Types ---
@@ -130,4 +132,35 @@ export interface AlignmentResult {
     user_result_id: string;
     ai_result_id: string;
     alignment_scores: AlignmentScores;
+}
+
+// Add the new interfaces from promptService
+export interface CharacterCard {
+    id: string;
+    user_id: string;
+    card_name?: string | null;
+    card_data: string; // JSON string
+    is_current: number; // 0 or 1
+    based_on_assets?: string | null; // JSON string of asset IDs
+    created_at: string;
+    updated_at: string;
+}
+
+export interface SystemPrompt {
+    id: string;
+    user_id: string;
+    type: 'chat' | 'post';
+    prompt_text: string;
+    is_custom: number; // 0 or 1
+    created_at: string;
+    updated_at: string;
+}
+
+export interface InstructionTemplate {
+    id: string;
+    user_id: string;
+    type: 'chat' | 'post';
+    instruction_text: string;
+    created_at: string;
+    updated_at: string;
 } 

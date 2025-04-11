@@ -2,24 +2,28 @@ import { UploadedFile } from 'express-fileupload';
 import fs from 'fs/promises';
 import path from 'path';
 // import crypto from 'crypto'; // Removed unused import
-import { dbRun, dbGet, dbAll } from '../lib/database'; // Import DB helpers
+import { dbRun, dbGet, dbAll, getDbConnection } from '../lib/database'; // Import DB helpers
 import { v4 as uuidv4 } from 'uuid';
+import * as sqlite3 from 'sqlite3'; // Import sqlite3 types for direct use
 // import WebsiteScraper from './scrapers/websiteScraper'; // Commented out - currently unused
 import PdfProcessor from './pdfProcessor'; // Import the PDF processor service
 
 // Define the shape of Asset data in the database
 interface Asset {
-    asset_id: string;
+    id: string;
     user_id: string;
-    type: 'text' | 'image' | 'pdf' | 'url' | 'json'; // Added 'json' type
-    filepath: string;
-    source_platform?: string | null; // Added
-    source_medium?: string | null; // Added
-    original_filename?: string | null;
+    file_type: 'text' | 'image' | 'pdf' | 'url' | 'json'; // Use schema name: file_type
+    file_path: string;        // Use schema name: file_path
+    source_platform?: string | null;
+    source_medium?: string | null;
+    filename: string;         // Use schema name: filename
     mime_type?: string | null;
     size_bytes?: number | null;
-    created_at: string;
-    metadata?: string | null; // JSON string for arbitrary metadata
+    upload_time: string;
+    metadata?: string | null;
+    // Added missing columns from schema if needed
+    source_url?: string | null; // Added from schema
+    content?: string | null;    // Added from schema
 }
 
 // Define the shape of expected metadata for processing
@@ -84,7 +88,7 @@ class AssetProcessor {
         await fs.mkdir(userAssetsDir, { recursive: true });
 
         const assetId = uuidv4();
-        let assetType: Asset['type'] = 'text'; // Default type
+        let assetType: Asset['file_type'] = 'text'; // Use interface type
         let filePathSuffix = '';
         const originalFilename = file.name;
         const fileExtension = path.extname(originalFilename).toLowerCase();
@@ -111,9 +115,9 @@ class AssetProcessor {
         }
 
         // Construct final filepath
-        const filename = `${assetId}${filePathSuffix}`;
-        const fullFilePath = path.join(userAssetsDir, filename);
-        const relativeFilePath = path.join(sanitizedOwnerId, filename); // Path relative to assetsDir
+        const dbFilename = `${assetId}${filePathSuffix}`; // Filename stored in DB uses ID
+        const fullFilePath = path.join(userAssetsDir, dbFilename);
+        const relativeFilePath = path.join(sanitizedOwnerId, dbFilename); // Path relative to assetsDir
 
         // Move the uploaded file
         await file.mv(fullFilePath);
@@ -131,26 +135,45 @@ class AssetProcessor {
 
         const dbQuery = `
             INSERT INTO assets (
-                asset_id, user_id, type, filepath, 
-                source_platform, source_medium, -- Added columns
-                original_filename, mime_type, size_bytes, created_at, metadata
+                id, user_id, file_type, file_path, 
+                source_platform, source_medium, filename, 
+                mime_type, size_bytes, upload_time, metadata, source_url
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         
-        await dbRun(dbQuery, [
-            assetId,
+        const params = [
+            assetId, 
             userId,
-            assetType,
-            relativeFilePath,
-            sourcePlatform, // Added value
-            sourceMedium, // Added value
-            originalFilename,
-            mimeType,
+            assetType,          
+            relativeFilePath,   
+            sourcePlatform, 
+            sourceMedium, 
+            originalFilename,   
+            mimeType,           // Corrected variable name
             sizeBytes,
-            now,
-            metadataJson
-        ]);
+            now,                
+            metadataJson,
+            sourceUrl           
+        ];
+        
+        // Use db.run directly to bypass potential transaction issues in dbRun wrapper
+        const dbInstance = getDbConnection(); // Get the DB instance
+        await new Promise<void>((resolve, reject) => {
+            dbInstance.run(dbQuery, params, function (this: sqlite3.RunResult, err: Error | null) {
+                 if (err) {
+                    // Log error here as dbRun wrapper is bypassed
+                    console.error('[Direct DB RUN Error] Inserting Asset:', { sql: dbQuery, params, error: err.message });
+                    reject(err);
+                 } else {
+                     // Log success or details if needed
+                     // console.log(`Direct DB RUN Success: Inserted asset ${assetId}, changes: ${this.changes}`);
+                    resolve();
+                 }
+            });
+        });
+
+        // await dbRun(dbQuery, params); // Original call using wrapper
 
         console.log(`Asset processed and saved: ID ${assetId}, User ${userId}, Type ${assetType}, Platform ${sourcePlatform}, Medium ${sourceMedium}, Path ${relativeFilePath}`);
         
@@ -169,7 +192,7 @@ class AssetProcessor {
      * @returns The Asset object or null if not found.
      */
     async getAsset(assetId: string): Promise<Asset | null> {
-        const asset = await dbGet<Asset>('SELECT * FROM assets WHERE asset_id = ?', [assetId]);
+        const asset = await dbGet<Asset>('SELECT * FROM assets WHERE id = ?', [assetId]);
         return asset || null;
     }
 
@@ -179,27 +202,35 @@ class AssetProcessor {
      * @returns An array of Asset objects formatted for frontend compatibility.
      */
     async getAllAssets(userId: string): Promise<any[]> {
-        const assets = await dbAll<Asset>('SELECT * FROM assets WHERE user_id = ? ORDER BY created_at DESC', [userId]);
+        const assets = await dbAll<Asset>('SELECT * FROM assets WHERE user_id = ? ORDER BY upload_time DESC', [userId]);
         
         // Transform assets to match frontend expected format
         return assets.map(asset => {
-            const metadata = asset.metadata ? JSON.parse(asset.metadata) : {};
+            // Parse metadata carefully
+            let metadata = {};
+            if (asset.metadata) {
+                try {
+                    metadata = JSON.parse(asset.metadata);
+                } catch (e) {
+                    console.error(`Failed to parse metadata for asset ${asset.id}:`, asset.metadata, e);
+                }
+            }
             
             return {
-                id: asset.asset_id,
+                id: asset.id,
                 userId: asset.user_id,
-                contentType: asset.type,
+                contentType: asset.file_type,
                 mimetype: asset.mime_type,
-                fileName: asset.original_filename,
-                filePath: asset.filepath,
-                sourcePlatform: asset.source_platform || 'unknown', // Added
-                sourceMedium: asset.source_medium || 'unknown', // Added
-                createdAt: asset.created_at,
-                sourceType: metadata.sourceType || 'upload', // Kept for potential backward compat? Review if needed.
-                context: metadata.context || '',
-                contentPreview: metadata.preview || '',
-                // Include other metadata fields
-                ...metadata
+                fileName: asset.filename,
+                filePath: asset.file_path,
+                sourcePlatform: asset.source_platform || 'unknown', 
+                sourceMedium: asset.source_medium || 'unknown', 
+                createdAt: asset.upload_time,
+                // sourceType: metadata.sourceType || 'upload', // Re-evaluate if needed
+                // context: metadata.context || '',
+                // contentPreview: metadata.preview || '',
+                // Include other metadata fields dynamically
+                ...(typeof metadata === 'object' && metadata !== null ? metadata : {}), // Spread parsed metadata
             };
         });
     }
@@ -217,8 +248,8 @@ class AssetProcessor {
             return false; // Or maybe true indicating it's already gone?
         }
 
-        // Construct the full path to the asset file
-        const fullFilePath = path.join(this.assetsDir, asset.filepath);
+        // Construct the full path to the asset file using file_path from DB
+        const fullFilePath = path.join(this.assetsDir, asset.file_path);
 
         try {
             // Attempt to delete the file from the filesystem
@@ -237,7 +268,7 @@ class AssetProcessor {
         }
 
         // Delete the asset record from the database
-        const result = await dbRun('DELETE FROM assets WHERE asset_id = ?', [assetId]);
+        const result = await dbRun('DELETE FROM assets WHERE id = ?', [assetId]);
         
         return result.changes > 0;
     }
@@ -256,7 +287,7 @@ class AssetProcessor {
         // Fetch assets first to verify ownership and get filepaths
         const placeholders = assetIds.map(() => '?').join(',');
         const assetsToDelete = await dbAll<Asset>(
-            `SELECT asset_id, filepath FROM assets WHERE user_id = ? AND asset_id IN (${placeholders})`,
+            `SELECT id, file_path FROM assets WHERE user_id = ? AND id IN (${placeholders})`,
             [userId, ...assetIds]
         );
 
@@ -269,16 +300,16 @@ class AssetProcessor {
         const successfullyDeletedIds: string[] = [];
 
         for (const asset of assetsToDelete) {
-            const fullFilePath = path.join(this.assetsDir, asset.filepath);
+            const fullFilePath = path.join(this.assetsDir, asset.file_path);
             try {
                 await fs.unlink(fullFilePath);
-                successfullyDeletedIds.push(asset.asset_id);
+                successfullyDeletedIds.push(asset.id);
                 deletedCount++;
             } catch (error: any) {
                 if (error.code === 'ENOENT') {
                     console.warn(`Asset file not found during bulk deletion (already deleted?): ${fullFilePath}`);
                     // Still mark for DB deletion if file is missing
-                    successfullyDeletedIds.push(asset.asset_id);
+                    successfullyDeletedIds.push(asset.id);
                     // Note: deletedCount doesn't increment here, reflects actual file deletions attempted
                 } else {
                     console.error(`Error deleting asset file during bulk delete ${fullFilePath}:`, error);
@@ -290,7 +321,7 @@ class AssetProcessor {
         // Delete records from DB only for assets where file deletion was successful or file was already missing
         if (successfullyDeletedIds.length > 0) {
             const dbPlaceholders = successfullyDeletedIds.map(() => '?').join(',');
-            const result = await dbRun(`DELETE FROM assets WHERE asset_id IN (${dbPlaceholders})`, successfullyDeletedIds);
+            const result = await dbRun(`DELETE FROM assets WHERE id IN (${dbPlaceholders})`, successfullyDeletedIds);
             console.log(`Bulk deleted ${result.changes} asset records from DB for user ${userId}.`);
             // Note: result.changes reflects DB deletions, deletedCount reflects attempted file deletions
              return result.changes; // Return number of DB records deleted

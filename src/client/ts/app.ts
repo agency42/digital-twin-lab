@@ -4,7 +4,7 @@
  */
 
 // Import modules (add .js extension for browser compatibility)
-import { initUserModule } from './modules/userModule.js';
+import { initUserModule, loadUserData } from './modules/userModule.js';
 import { initNavigationModule, addDisabledTabStyling } from './modules/navigationModule.js';
 import { initPromptModule } from './modules/promptModule.js';
 import { initChatModule } from './modules/chatModule.js';
@@ -37,10 +37,13 @@ interface UIElements {
   saveCustomGenerationPromptButton: HTMLButtonElement | null;
   resetCustomGenerationPromptButton: HTMLButtonElement | null;
   customGenerationPromptStatusDiv: HTMLDivElement | null;
-  generateBasePromptButton: HTMLButtonElement | null;
-  basePromptGenerationStatusDiv: HTMLDivElement | null;
-  basePromptOutputTextarea: HTMLTextAreaElement | null;
-  copyBasePromptButton: HTMLButtonElement | null;
+
+  // Character card generation & display elements
+  generateCharacterCardButton: HTMLButtonElement | null;
+  characterCardGenerationStatusDiv: HTMLDivElement | null;
+  jsonOutputContainer: HTMLElement | null;
+  jsonOutput: HTMLElement | null;
+  copyJsonButton: HTMLButtonElement | null;
 
   // Asset management elements (content module)
   fileInputElement: HTMLInputElement | null;
@@ -99,10 +102,6 @@ interface UIElements {
   uploadFileInput: HTMLInputElement | null;
   contentLibraryPage: HTMLDivElement | null;
   selectAllImagesButton: HTMLButtonElement | null;
-
-  // Character card generation elements
-  generateCharacterCardButton: HTMLButtonElement | null;
-  characterCardGenerationStatusDiv: HTMLDivElement | null;
 }
 
 // Initialize application on DOM content loaded
@@ -134,10 +133,12 @@ document.addEventListener('DOMContentLoaded', function() {
     saveCustomGenerationPromptButton: document.getElementById('save-custom-generation-prompt-button') as HTMLButtonElement | null,
     resetCustomGenerationPromptButton: document.getElementById('reset-custom-generation-prompt-button') as HTMLButtonElement | null,
     customGenerationPromptStatusDiv: document.getElementById('custom-generation-prompt-status') as HTMLDivElement | null,
-    generateBasePromptButton: document.getElementById('generate-base-prompt-button') as HTMLButtonElement | null,
-    basePromptGenerationStatusDiv: document.getElementById('base-prompt-generation-status') as HTMLDivElement | null,
-    basePromptOutputTextarea: document.getElementById('base-prompt-output') as HTMLTextAreaElement | null,
-    copyBasePromptButton: document.getElementById('copy-base-prompt-button') as HTMLButtonElement | null,
+
+    generateCharacterCardButton: document.getElementById('generate-character-card-button') as HTMLButtonElement | null,
+    characterCardGenerationStatusDiv: document.getElementById('character-card-generation-status') as HTMLDivElement | null,
+    jsonOutputContainer: document.getElementById('json-output-container') as HTMLElement | null,
+    jsonOutput: document.getElementById('json-output') as HTMLElement | null,
+    copyJsonButton: document.getElementById('copy-json-button') as HTMLButtonElement | null,
 
     fileInputElement: document.getElementById('file-input') as HTMLInputElement | null,
     uploadButton: document.getElementById('upload-button') as HTMLButtonElement | null,
@@ -190,11 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     uploadFileInput: document.getElementById('file-input') as HTMLInputElement | null,
     contentLibraryPage: document.getElementById('content-library-page') as HTMLDivElement | null,
-    selectAllImagesButton: document.getElementById('select-all-image-button') as HTMLButtonElement | null,
-
-    // Character card generation elements
-    generateCharacterCardButton: document.getElementById('generate-character-card-button') as HTMLButtonElement | null,
-    characterCardGenerationStatusDiv: document.getElementById('character-card-generation-status') as HTMLDivElement | null
+    selectAllImagesButton: document.getElementById('select-all-image-button') as HTMLButtonElement | null
   };
 
   // Initialize modules 
@@ -202,7 +199,13 @@ document.addEventListener('DOMContentLoaded', function() {
   initNavigationModule(elements);
   initPromptModule(elements);
   initContentModule(elements);
-  initChatModule(elements);
+  initChatModule({
+    chatHistoryDiv: document.getElementById('chat-history') as HTMLDivElement,
+    chatInput: document.getElementById('chat-input') as HTMLInputElement,
+    sendMessageButton: document.getElementById('send-message-button') as HTMLButtonElement,
+    clearChatButton: document.getElementById('clear-chat-button') as HTMLButtonElement,
+    chatStatusDiv: document.getElementById('chat-status') as HTMLDivElement
+  });
   initAssessmentModule(elements);
   initContentMediumModule();
   

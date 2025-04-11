@@ -459,9 +459,9 @@ class WebsiteScraper {
         try {
             const asset = await this.assetProcessor.processAsset(fakeFile, metadata);
             this.textAssetsCreated++;
-            this.assetResults.push({ type: 'text', id: asset.asset_id, url: pageUrl });
+            this.assetResults.push({ type: 'text', id: asset.id, url: pageUrl });
             await this.updateStatus({ textAssetsCreated: this.textAssetsCreated });
-            console.log(`Saved text asset for ${pageUrl}, ID: ${asset.asset_id}`);
+            console.log(`Saved text asset for ${pageUrl}, ID: ${asset.id}`);
         } catch (error) {
             console.error(`Failed to save text asset for ${pageUrl}:`, error);
             // Continue scraping other content
@@ -525,8 +525,8 @@ class WebsiteScraper {
 
             const asset = await this.assetProcessor.processAsset(fakeFile, metadata);
             this.imageDownloadCount++;
-            this.assetResults.push({ type: 'image', id: asset.asset_id, url: imageUrl });
-            console.log(`Saved image asset from ${imageUrl}, ID: ${asset.asset_id}`);
+            this.assetResults.push({ type: 'image', id: asset.id, url: imageUrl });
+            console.log(`Saved image asset from ${imageUrl}, ID: ${asset.id}`);
 
         } catch (error: any) {
             console.error(`Failed to download or save image ${imageUrl}:`, error.message);

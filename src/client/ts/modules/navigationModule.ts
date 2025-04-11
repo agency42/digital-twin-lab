@@ -15,31 +15,42 @@ export function updateNavigationTabsState(): void {
     
     // Check state to determine which tabs should be enabled
     const hasUser = !!state.currentUserId;
-    const hasBasePrompt = !!(state.currentUserData?.basePrompt?.promptText || state.currentBasePromptText);
-    const hasAssets = state.selectedAssets.size > 0;
+    // Check if the loaded user data includes a character card
+    const hasCharacterCard = !!state.currentUserData?.characterCard;
     
     // Get tabs by their data-page attribute
     const interactionsTab = Array.from(navTabs).find(tab => tab.getAttribute('data-page') === 'interactions-page');
+    const generationsTab = Array.from(navTabs).find(tab => tab.getAttribute('data-page') === 'generations-page');
     const evaluationTab = Array.from(navTabs).find(tab => tab.getAttribute('data-page') === 'evaluation-page');
     
     // Enable/disable tabs based on prerequisites
     if (interactionsTab) {
-        if (hasUser && hasBasePrompt) {
+        if (hasUser && hasCharacterCard) {
             interactionsTab.classList.remove('disabled-tab');
             interactionsTab.removeAttribute('title');
         } else {
             interactionsTab.classList.add('disabled-tab');
-            interactionsTab.setAttribute('title', 'First select a user and generate a base prompt');
+            interactionsTab.setAttribute('title', 'First select a user and generate a character card');
+        }
+    }
+    
+    if (generationsTab) {
+        if (hasUser && hasCharacterCard) {
+            generationsTab.classList.remove('disabled-tab');
+            generationsTab.removeAttribute('title');
+        } else {
+            generationsTab.classList.add('disabled-tab');
+            generationsTab.setAttribute('title', 'First select a user and generate a character card');
         }
     }
     
     if (evaluationTab) {
-        if (hasUser && hasBasePrompt) {
+        if (hasUser && hasCharacterCard) {
             evaluationTab.classList.remove('disabled-tab');
             evaluationTab.removeAttribute('title');
         } else {
             evaluationTab.classList.add('disabled-tab');
-            evaluationTab.setAttribute('title', 'First select a user and generate a base prompt');
+            evaluationTab.setAttribute('title', 'First select a user and generate a character card');
         }
     }
 }
@@ -83,6 +94,12 @@ export function initNavigationModule(elements: { navTabs: NodeListOf<Element>, p
                         document.dispatchEvent(interactionsActivatedEvent);
                     }
                     
+                    // Dispatch event when generations-page is activated
+                    if (targetPage === 'generations-page') {
+                        const generationsActivatedEvent = new CustomEvent('generations-page-activated');
+                        document.dispatchEvent(generationsActivatedEvent);
+                    }
+                    
                     // Dispatch event when evaluation-page is activated
                     if (targetPage === 'evaluation-page') {
                         const evaluationActivatedEvent = new CustomEvent('evaluation-page-activated');
@@ -95,7 +112,6 @@ export function initNavigationModule(elements: { navTabs: NodeListOf<Element>, p
     
     // Call updateNavigationTabsState on user data changes
     document.addEventListener('user-data-loaded', updateNavigationTabsState);
-    document.addEventListener('base-prompt-generated', updateNavigationTabsState);
     
     // Initial update of navigation tabs
     updateNavigationTabsState();

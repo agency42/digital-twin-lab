@@ -135,6 +135,26 @@ export function initContentModule(elements: ContentModuleElements): void {
         }
     });
 
+    // Listen for user selection/data loaded to load initial assets
+    document.addEventListener('user-data-loaded', (event: Event) => {
+        const detail = (event as CustomEvent).detail;
+        log(3, 'Content module received user-data-loaded event', detail);
+        if (detail && detail.userId) {
+            // Check if the content library is the active page before loading
+            const contentPage = document.getElementById('content-library-page');
+            if (contentPage && contentPage.classList.contains('active')) {
+                 log(3, `User data loaded for ${detail.userId}, loading assets as content page is active.`);
+                 loadAssets(detail.userId);
+            } else {
+                log(3, `User data loaded for ${detail.userId}, but content page is not active. Assets will load on activation.`);
+            }
+        } else {
+            log(2, 'User data loaded event received, but no userId found in detail.');
+            // Potentially clear assets if user is deselected?
+            // clearAssetsDisplay(); 
+        }
+    });
+
     log(3, 'Content module initialized');
 }
 
@@ -861,7 +881,9 @@ async function clearContentLibrary(): Promise<void> {
 
         // Reset relevant state
         state.selectedAssets.clear();
-        state.currentBasePromptText = null; // Clear the base prompt text instead
+        // if (state.currentBasePromptText) { // Potential reference
+        //     state.currentBasePromptText = null;
+        // }
 
         // Reload assets (which will show empty state)
         loadAssets(currentUserId);
@@ -875,4 +897,8 @@ async function clearContentLibrary(): Promise<void> {
         const message = error instanceof Error ? error.message : String(error);
         showStatus(clearLibraryStatusDiv, `Error clearing library: ${message}`, 'error');
     }
-} 
+}
+
+// The handleCharacterCardResponse function is removed as it duplicates functionality 
+// that exists in promptModule.ts and contains multiple undefined references
+// If this functionality is needed, it should be imported from promptModule.ts instead 

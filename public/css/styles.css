@@ -139,7 +139,8 @@ input, select, textarea, button {
 }
 
 input::placeholder, textarea::placeholder {
-  color: var(--text-muted);
+  /* color: var(--text-muted); */
+  color: #b0b0b0; /* Brighter placeholder */
 }
 
 select {
@@ -155,6 +156,29 @@ label {
   margin-bottom: 5px;
   font-weight: 600;
   display: block;
+}
+
+/* Specific label for instructions in Generations tab */
+.instruction-label {
+    color: var(--text-heading); /* Ensure label is bright enough */
+}
+
+/* CRITICAL FIX for instruction label visibility */
+#generations-module .instruction-label {
+    color: white !important; 
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8) !important;
+    letter-spacing: 0.5px !important;
+    margin-bottom: 10px !important;
+}
+
+#generations-module label {
+    color: var(--text-primary); /* Brighter labels specifically within this module */
+}
+
+#generations-module .sub-label { /* Ensure sub-labels like 'System Prompt:' are also brighter */
+    color: var(--text-primary);
 }
 
 button {
@@ -283,8 +307,14 @@ button:disabled {
 
 .status.info {
   background-color: var(--status-info-bg);
-  color: var(--status-info-text);
+  /* color: var(--status-info-text); */
+  color: #8cc9ff; /* Brighter blue text for info status */
   border-left: 3px solid var(--status-info-border);
+}
+
+#generations-module .status.info {
+    color: #ace6ff; /* Even brighter info text */
+    background-color: #273c50; /* Slightly adjust background if needed */
 }
 
 .status.warning {
@@ -387,8 +417,17 @@ button:disabled {
 }
 
 .system-message .message {
-  color: var(--accent-grey);
+  background-color: var(--bg-tertiary);
+  /* color: var(--accent-grey); */
+  color: var(--text-secondary); /* Increase contrast for system messages */
+  border-left: 2px solid var(--border-primary);
   font-style: italic;
+}
+
+/* More specific rule for chat system messages */
+#generations-module #chat-history .system-message .message {
+    color: #bdbdbd; /* Further brighten system message text */
+    background-color: #2a2e37; /* Slightly adjust background */
 }
 
 /* Chat Input area */
@@ -422,6 +461,17 @@ button:disabled {
 
 #chat-input::placeholder {
   color: var(--text-muted);
+}
+
+#generations-module textarea::placeholder {
+    color: #cccccc; /* Very bright placeholder for this module */
+}
+
+/* CRITICAL FIX for placeholder visibility */
+#instruction-editor::placeholder {
+    color: white !important;
+    opacity: 0.8 !important;
+    font-size: 14px !important;
 }
 
 #send-chat-button {
@@ -677,7 +727,8 @@ textarea {
 
 #chat-history .system-message .message {
   background-color: var(--bg-tertiary);
-  color: var(--accent-grey);
+  /* color: var(--accent-grey); */
+  color: var(--text-secondary); /* Increase contrast for system messages */
   border-left: 2px solid var(--border-primary);
   font-style: italic;
 }
@@ -859,14 +910,14 @@ textarea {
 }
 
 /* Dark mode styling for medium tabs */
-#interactions-module .medium-tabs {
+#generations-module .medium-tabs {
   background-color: #1e2127;
   border-color: #333;
   gap: 10px;
   padding-bottom: 15px;
 }
 
-#interactions-module .medium-tab {
+#generations-module .medium-tab {
   background-color: #2c3e50;
   color: #ccc;
   border-color: #34495e;
@@ -874,18 +925,18 @@ textarea {
   padding: 10px 15px;
 }
 
-#interactions-module .medium-tab:hover {
+#generations-module .medium-tab:hover {
   background-color: #3d5572;
 }
 
-#interactions-module .medium-tab.active {
+#generations-module .medium-tab.active {
   background-color: #3498db;
   color: white;
   border-color: #2980b9;
 }
 
 /* Dark mode styling for system prompt container */
-#interactions-module .system-prompt-container {
+#generations-module .system-prompt-container {
   background-color: #1e2127;
   border: 1px solid #333;
   margin-bottom: 20px;
@@ -893,30 +944,30 @@ textarea {
   border-radius: 5px;
 }
 
-#interactions-module .system-prompt-container h3 {
+#generations-module .system-prompt-container h3 {
   color: #e0e0e0;
   margin: 0;
 }
 
-#interactions-module .info-tooltip-text {
+#generations-module .info-tooltip-text {
   background-color: #333;
   border: 1px solid #444;
   color: #e0e0e0;
 }
 
-#interactions-module textarea, 
-#interactions-module input[type="text"] {
+#generations-module textarea, 
+#generations-module input[type="text"] {
   background-color: #2d2d2d;
   color: #e0e0e0;
   border: 1px solid #444;
 }
 
-#interactions-module label {
+#generations-module label {
   color: #e0e0e0;
 }
 
 /* Chat container styling */
-#interactions-module #chat-container {
+#generations-module #chat-container {
   background-color: #1e2127;
   border: 1px solid #333;
   border-radius: 5px;
@@ -924,27 +975,27 @@ textarea {
   margin-bottom: 20px;
 }
 
-#interactions-module #chat-container > div:first-child {
+#generations-module #chat-container > div:first-child {
   background-color: #2c3e50;
 }
 
-#interactions-module #chat-history {
+#generations-module #chat-history {
   background-color: #1e2127;
   color: #e0e0e0;
 }
 
-#interactions-module #chat-input {
+#generations-module #chat-input {
   background-color: transparent;
   border: none;
   color: #e0e0e0;
   outline: none;
 }
 
-#interactions-module .prompt-symbol {
+#generations-module .prompt-symbol {
   color: #27ae60;
 }
 
-#interactions-module .system-message .message {
+#generations-module .system-message .message {
   background-color: #2c3e50;
   color: #e0e0e0;
 }
@@ -963,7 +1014,98 @@ textarea {
 }
 
 /* Button styling */
-#interactions-module .action-button.primary {
+#generations-module .action-button.primary {
   background-color: #2980b9;
   color: white;
+}
+
+/* CRITICAL FIX for white background in content generation area */
+#content-generation-area {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    padding: 15px !important;
+    border-radius: 6px !important;
+    border: 1px solid var(--border-secondary) !important;
+}
+
+/* CRITICAL FIX for the "generated output" area */
+#generated-content-output {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    padding: 15px !important;
+    border: 1px solid var(--border-secondary) !important;
+    border-radius: 6px !important;
+    min-height: 100px !important;
+    margin-top: 15px !important;
+}
+
+/* CRITICAL OVERALL FIX for medium-content*/
+#medium-content-area {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-secondary) !important;
+    padding: 20px !important;
+    border-radius: 6px !important;
+}
+
+/* CRITICAL FIX for blue divider lines */
+#generations-module hr, 
+#generations-module .progress-bar, 
+#generations-module .divider, 
+#generations-module .separator {
+    display: none !important; /* Hide any horizontal rules or dividers */
+}
+
+/* Target specific blue horizontal progress-like elements */
+#generations-module > div > div > div > div[style*="background"],
+#chat-interface > div[style*="background"],
+#content-generation-area > div[style*="background"] {
+    display: none !important; /* Hide progress bar divs */
+}
+
+/* Specifically target any blue elements */
+#generations-module *[style*="background-color: #"] {
+    background-color: transparent !important; /* Make blue elements transparent */
+}
+
+/* Platform-specific post styling */
+.twitter-post {
+    font-family: var(--font-sans);
+    padding: 15px;
+    background-color: #15202b;
+    border: 1px solid #38444d;
+    border-radius: 10px;
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 15px;
+    max-width: 600px;
+}
+
+.linkedin-post {
+    font-family: var(--font-sans);
+    padding: 20px;
+    background-color: #1b2226;
+    border: 1px solid #38434f;
+    border-radius: 8px;
+    font-size: 15px;
+    line-height: 1.5;
+    margin-bottom: 15px;
+    max-width: 600px;
+}
+
+.blog-post {
+    font-family: var(--font-sans);
+    padding: 25px;
+    background-color: #1f1f1f;
+    border: 1px solid #444;
+    border-radius: 6px;
+    font-size: 16px;
+    line-height: 1.8;
+    margin-bottom: 20px;
+}
+
+.blog-post h1, .blog-post h2, .blog-post h3 {
+    color: var(--text-heading);
+    margin-top: 20px;
+    margin-bottom: 15px;
 } 

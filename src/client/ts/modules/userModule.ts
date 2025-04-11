@@ -190,7 +190,6 @@ export async function handleUserSelectChange(): Promise<void> {
         console.log('handleUserSelectChange: No user selected, clearing state.');
         // Also update nav state when user is deselected
         state.currentUserId = null;
-        state.currentBasePromptText = null;
         updateNavigationTabsState();
         return;
     }
@@ -201,7 +200,6 @@ export async function handleUserSelectChange(): Promise<void> {
     // After loading user data, verify state
     console.log('handleUserSelectChange finished loading user data. Current state:', {
         currentUserId: state.currentUserId,
-        hasCurrentBasePrompt: !!state.currentBasePromptText,
     });
 
     // Force re-check of navigation state (already called within loadUserData, but belt-and-suspenders)
@@ -264,13 +262,6 @@ export async function loadUserData(userId: string): Promise<any | null> {
         state.currentUserData = userData;
         console.log(`loadUserData: currentUserId set to: ${state.currentUserId}`);
 
-        // Clear derived state that depends on user data
-        state.currentBasePromptText = state.currentUserData?.basePrompt?.promptText || null;
-        state.currentChatHistory = [];
-        state.currentChatSessionId = null;
-        state.userTipiScores = userData.assessment?.userTipiScores || null;
-        state.aiTipiScores = userData.assessment?.aiTipiScores || null;
-
         // Update UI based on loaded data
         updateUIWithUserData(userData);
 
@@ -322,9 +313,6 @@ export function updateUIWithUserData(userData: User): void {
     // Log final state for debugging
     console.log('Final state after updateUIWithUserData:', {
         currentUserId: state.currentUserId,
-        hasCurrentBasePrompt: !!state.currentBasePromptText,
-        hasUserDataBasePrompt: !!state.currentUserData?.basePrompt?.promptText,
-        userDataBasePromptId: state.currentUserData?.basePrompt?.id || 'none'
     });
     
     // Persist selected user ID
@@ -415,14 +403,15 @@ export async function handleSaveBio(): Promise<void> {
     }
 
     const bioText = userBioTextarea.value; // Keep whitespace potentially
+    const currentUserId = state.currentUserId; // Cache the ID
 
     try {
         showStatus(bioStatusDiv, 'Saving bio...', 'loading');
 
-        const response = await fetch(`/api/users/${state.currentUserId}/bio`, {
-            method: 'POST',
+        const response = await fetch(`/api/users/${currentUserId}`, { // Correct endpoint
+            method: 'PUT', // Correct method
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bio: bioText })
+            body: JSON.stringify({ bio: bioText }) // Send only the bio field
         });
 
         if (!response.ok) {
@@ -435,6 +424,11 @@ export async function handleSaveBio(): Promise<void> {
         }
 
         showStatus(bioStatusDiv, 'Bio saved successfully', 'success', 2000);
+        
+        // Optionally, fetch updated user data and re-render UI if needed
+        // E.g., await loadUserData(currentUserId); 
+        // updateUIWithUserData(updatedData);
+        
     } catch (error) {
         console.error('Error saving bio:', error);
         const message = error instanceof Error ? error.message : String(error);
@@ -962,7 +956,6 @@ export function clearUIState(): void {
     console.log('Clearing UI state');
     // Reset state variables
     state.currentUserId = null;
-    state.currentBasePromptText = null;
     state.selectedAssets = new Set<string>();
     state.currentChatHistory = [];
     state.userTipiScores = null;
@@ -996,7 +989,6 @@ function handleUserDeselect(): void {
     console.log('User deselected');
     // Reset the state related to the current user
     state.currentUserId = null;
-    state.currentBasePromptText = null;
     state.selectedAssets.clear();
     state.currentChatHistory = [];
     state.currentChatSessionId = null;

@@ -136,12 +136,12 @@ function createOAuthRouter(): Router {
                 };
 
                 const asset = await assetProcessor.processAsset(assetData as any, metadata);
-                console.log(`LinkedIn profile saved as asset: ${asset.asset_id}`);
+                console.log(`LinkedIn profile saved as asset: ${asset.id}`);
 
                 // Update user data
                 await userDataService.updateUserData(userId, {
                     linkedin_connected: true,
-                    linkedin_profile_asset_id: asset.asset_id
+                    linkedin_profile_asset_id: asset.id
                 });
                  console.log(`Updated user data to mark LinkedIn as connected for user: ${userId}`);
 

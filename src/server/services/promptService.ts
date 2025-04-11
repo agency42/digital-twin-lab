@@ -1,220 +1,334 @@
 import { dbRun, dbGet, dbAll } from '../lib/database';
 import { v4 as uuidv4 } from 'uuid';
+// import { logger } from '../lib/logger'; // Assume logger is set up - REMOVED FOR NOW
 
-// Interfaces using new terminology
-interface BasePrompt {
-    base_prompt_id: string;
+// Basic logger replacement
+const logger = {
+    info: console.log,
+    warn: console.warn,
+    error: console.error
+};
+
+// Interfaces for the new schema
+interface CharacterCard {
+    id: string;
     user_id: string;
-    prompt_name?: string | null;
-    prompt_text: string; // Stores the actual prompt string
+    card_name?: string | null;
+    card_data: string; // JSON string
+    is_current: number; // 0 or 1
     based_on_assets?: string | null; // JSON string of asset IDs
     created_at: string;
     updated_at: string;
 }
 
-interface PromptVariation {
-    variation_id: string;
+interface SystemPrompt {
+    id: string;
     user_id: string;
-    base_prompt_id: string;
-    module_context: string;
-    system_prompt_override: string | null; // Prompt override text
+    type: 'chat' | 'post';
+    prompt_text: string;
+    is_custom: number; // 0 or 1
     created_at: string;
     updated_at: string;
 }
 
-interface SavePromptOptions {
-    promptName?: string;
+interface InstructionTemplate {
+    id: string;
+    user_id: string;
+    type: 'chat' | 'post';
+    instruction_text: string;
+    created_at: string;
+    updated_at: string;
+}
+
+interface SaveCharacterCardOptions {
+    cardName?: string;
     basedOnAssetIds?: string[];
 }
 
+interface GenerationsData {
+    characterCard: CharacterCard | null;
+    systemPrompt: SystemPrompt | null;
+    instructionTemplate: InstructionTemplate | null;
+}
+
 /**
- * Service for managing base prompts and variations.
+ * Service for managing character cards, system prompts, and instructions.
  */
 class PromptService {
 
     constructor() {}
 
     /**
-     * Saves or updates the base prompt for a user.
-     * @param userId The user ID.
-     * @param promptText The base system prompt text.
-     * @param options Optional data like name and asset IDs.
-     * @returns {Promise<BasePrompt>} The saved or updated prompt data.
+     * Saves a new character card for a user, marking it as current and others as not current.
+     * Also ensures default system prompts and instructions are created/updated.
+     * @param userId 
+     * @param cardData Stringified JSON of the character card
+     * @param options Optional parameters like card name and source asset IDs
+     * @returns The saved character card record.
      */
-    async saveBasePrompt(userId: string, promptText: string, options: SavePromptOptions = {}): Promise<BasePrompt> {
-        const basePromptId = uuidv4(); // Generate new ID for potential insert
+    async saveCharacterCard(userId: string, cardData: string, options: SaveCharacterCardOptions = {}): Promise<CharacterCard> {
+        const { cardName = 'Character Card', basedOnAssetIds = [] } = options;
+        const newCardId = uuidv4();
         const now = new Date().toISOString();
-        const basedOnAssetsJson = options.basedOnAssetIds ? JSON.stringify(options.basedOnAssetIds) : null;
-        const promptName = options.promptName || null;
+        const basedOnAssetsJson = JSON.stringify(basedOnAssetIds);
 
-        const upsertQuery = `
-            INSERT INTO base_prompts (base_prompt_id, user_id, prompt_name, prompt_text, based_on_assets, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                prompt_name = excluded.prompt_name,
-                prompt_text = excluded.prompt_text,
-                based_on_assets = excluded.based_on_assets,
-                updated_at = excluded.updated_at
-            RETURNING *;
-        `;
-        const params = [basePromptId, userId, promptName, promptText, basedOnAssetsJson, now, now];
+        // Use transaction for multiple steps
+        await dbRun('BEGIN TRANSACTION;');
 
         try {
-            const savedOrUpdatedPrompt = await dbGet<BasePrompt>(upsertQuery, params);
-            if (!savedOrUpdatedPrompt) {
-                 console.warn(`Upsert RETURNING failed for base_prompt user ${userId}, attempting fallback SELECT.`);
-                 const existingPrompt = await dbGet<BasePrompt>('SELECT * FROM base_prompts WHERE user_id = ?', [userId]);
-                 if (!existingPrompt) {
-                     throw new Error('Failed to save or retrieve base prompt after upsert.');
-                 }
-                 await dbRun('UPDATE users SET base_prompt_id = ? WHERE user_id = ?', [existingPrompt.base_prompt_id, userId]);
-                 return existingPrompt;
+            // 1. Set all existing cards for this user to is_current = 0
+            await dbRun('UPDATE character_cards SET is_current = 0 WHERE user_id = ?', [userId]);
+
+            // 2. Insert the new character card with is_current = 1 using 'id' column
+            const insertQuery = `
+                INSERT INTO character_cards (id, user_id, card_name, card_data, is_current, based_on_assets, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 1, ?, ?, ?)
+            `;
+            await dbRun(insertQuery, [
+                newCardId,
+                userId,
+                cardName,
+                cardData,
+                basedOnAssetsJson,
+                now,
+                now
+            ]);
+
+            // 3. Fetch the newly inserted card using 'id'
+            const newCard = await dbGet<CharacterCard>('SELECT * FROM character_cards WHERE id = ?', [newCardId]);
+            if (!newCard) {
+                throw new Error('Failed to retrieve character card immediately after insertion.');
             }
-            await dbRun('UPDATE users SET base_prompt_id = ? WHERE user_id = ?', [savedOrUpdatedPrompt.base_prompt_id, userId]);
-            return savedOrUpdatedPrompt;
+
+            // 4. Update the user's current_character_card_id (Optional, depending on if users table has this column)
+            // await dbRun('UPDATE users SET current_character_card_id = ? WHERE user_id = ?', [newCardId, userId]);
+
+            // 5. Ensure default system prompts and instructions exist/are updated
+            // Pass the actual card data string to the helper function
+            await this.ensureDefaultPromptsAndInstructions(userId, newCard.card_data);
+
+            // Commit transaction
+            await dbRun('COMMIT;');
+            logger.info(`Successfully saved new character card ${newCardId} for user ${userId}`);
+            return newCard;
+
         } catch (error: any) {
-            console.error(`Error in saveBasePrompt for user ${userId}:`, error);
-            throw new Error(`Failed to save base prompt: ${error.message}`);
+            // Rollback transaction on error
+            await dbRun('ROLLBACK;');
+            logger.error(`Error saving character card for user ${userId}:`, error);
+            throw new Error(`Failed to save character card: ${error.message}`);
         }
     }
 
-    /**
-     * Retrieves the base prompt for a user.
-     * @param userId The user ID.
-     * @returns {Promise<BasePrompt | null>} The base prompt or null if not found.
+     /**
+     * Ensure default system prompts and instruction templates exist for a user.
+     * If they exist and are not custom, update them to match the latest card data.
+     * @param userId 
+     * @param characterCardData 
      */
-    async getUserBasePrompt(userId: string): Promise<BasePrompt | null> {
+     private async ensureDefaultPromptsAndInstructions(userId: string, characterCardData: string): Promise<void> {
+        const promptTypes: ('chat' | 'post')[] = ['chat', 'post'];
+        const now = new Date().toISOString();
+
+        for (const type of promptTypes) {
+            // Ensure system prompt
+            const upsertPromptQuery = `
+                INSERT INTO system_prompts (id, user_id, type, prompt_text, is_custom, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 0, ?, ?)
+                ON CONFLICT(user_id, type) DO UPDATE SET
+                    prompt_text = CASE WHEN is_custom = 0 THEN excluded.prompt_text ELSE prompt_text END,
+                    updated_at = excluded.updated_at
+                WHERE is_custom = 0; -- Only update if not custom
+            `;
+            await dbRun(upsertPromptQuery, [uuidv4(), userId, type, characterCardData, now, now]);
+
+            // Ensure instruction template
+            const defaultInstruction = this.getDefaultInstructionText(type);
+            const upsertInstructionQuery = `
+                INSERT INTO instruction_templates (id, user_id, type, instruction_text, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, type) DO NOTHING; -- Don't overwrite existing instructions
+            `;
+            await dbRun(upsertInstructionQuery, [uuidv4(), userId, type, defaultInstruction, now, now]);
+        }
+        logger.info(`Ensured default prompts and instructions for user ${userId}`);
+    }
+
+    private getDefaultInstructionText(type: 'chat' | 'post'): string {
+        if (type === 'chat') {
+            return "Engage in a helpful and informative conversation.";
+        }
+        return "Generate content for a specific platform (e.g., Twitter, LinkedIn, Blog). Specify platform requirements in your instructions, such as 'Create a tweet under 280 characters' or 'Write a professional LinkedIn post'.";
+    }
+
+    /**
+     * Retrieves the current character card for a user.
+     * @param userId The user ID.
+     * @returns {Promise<CharacterCard | null>} The current card or null.
+     */
+    async getCurrentCharacterCard(userId: string): Promise<CharacterCard | null> {
         try {
-            const prompt = await dbGet<BasePrompt>('SELECT * FROM base_prompts WHERE user_id = ?', [userId]);
-            return prompt || null;
+            const card = await dbGet<CharacterCard>('SELECT * FROM character_cards WHERE user_id = ? AND is_current = 1', [userId]);
+            return card || null;
         } catch (error: any) {
-            console.error(`Error getting base prompt for user ${userId}:`, error);
+            logger.error(`Error getting current character card for user ${userId}:`, error);
             return null;
         }
     }
     
-    /**
-     * Deletes the base prompt for a user.
-     * @param userId The user ID.
-     * @returns {Promise<{ success: boolean; message?: string; changes?: number }>} Result object.
-     */
-    async deleteBasePrompt(userId: string): Promise<{ success: boolean; message?: string; changes?: number }> {
-        try {
-            const result = await dbRun('DELETE FROM base_prompts WHERE user_id = ?', [userId]);
-            if (result.changes > 0) {
-                 await dbRun('UPDATE users SET base_prompt_id = NULL WHERE user_id = ?', [userId]);
-                 return { success: true, changes: result.changes };
-            } else {
-                 return { success: true, message: 'No base prompt found to delete.', changes: 0 };
-            }
-        } catch (error: any) {
-            console.error(`Error deleting base prompt for user ${userId}:`, error);
-            return { success: false, message: error.message };
-        }
-    }
-
-    /**
-     * Saves or updates a module-specific prompt variation override.
-     * @param userId The user ID.
-     * @param moduleContext The module context (e.g., 'chat', 'assessment').
-     * @param systemPromptOverride The overriding prompt text for this context.
-     * @returns {Promise<{ variationId: string }>} The ID of the saved/updated variation.
-     */
-    async saveVariation(userId: string, moduleContext: string, systemPromptOverride: string | null): Promise<{ variationId: string }> {
-        if (!userId || !moduleContext) {
-            throw new Error('User ID and module context are required to save a variation.');
-        }
-        try {
-            const basePrompt = await this.getUserBasePrompt(userId);
-            if (!basePrompt) {
-                throw new Error('Cannot save variation: Base prompt not found for user.');
-            }
-            const basePromptId = basePrompt.base_prompt_id;
-            const now = new Date().toISOString();
-            const variationId = uuidv4();
-
-            const upsertQuery = `
-                INSERT INTO prompt_variations (variation_id, user_id, base_prompt_id, module_context, system_prompt_override, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(user_id, module_context) DO UPDATE SET
-                    system_prompt_override = excluded.system_prompt_override,
-                    updated_at = excluded.updated_at,
-                    base_prompt_id = excluded.base_prompt_id
-                RETURNING variation_id;
-            `;
-            const params = [variationId, userId, basePromptId, moduleContext, systemPromptOverride, now, now];
-            const result = await dbGet<{ variation_id: string }>(upsertQuery, params);
-
-            if (!result || !result.variation_id) {
-                 console.warn(`Variation upsert RETURNING failed for user ${userId}, module ${moduleContext}. Falling back to SELECT.`);
-                 const existing = await dbGet<{ variation_id: string }>('SELECT variation_id FROM prompt_variations WHERE user_id = ? AND module_context = ?', [userId, moduleContext]);
-                 if (!existing || !existing.variation_id) {
-                     throw new Error('Failed to save or retrieve variation after upsert.');
-                 }
-                 return { variationId: existing.variation_id };
-            }
-            return { variationId: result.variation_id };
-        } catch (error: any) {
-            console.error(`Error saving variation for user ${userId}, module ${moduleContext}:`, error);
-            throw new Error(`Failed to save variation: ${error.message}`);
-        }
-    }
-
-    /**
-     * Retrieves a specific variation for a user and module.
-     * @param userId User ID.
-     * @param moduleContext Module context.
-     * @returns {Promise<PromptVariation | null>}
-     */
-    async getVariation(userId: string, moduleContext: string): Promise<PromptVariation | null> {
-         if (!userId || !moduleContext) return null;
-         try {
-             const variation = await dbGet<PromptVariation>('SELECT * FROM prompt_variations WHERE user_id = ? AND module_context = ?', [userId, moduleContext]);
-             return variation || null;
-         } catch (error: any) {
-              console.error(`Error getting variation for user ${userId}, module ${moduleContext}:`, error);
-              return null;
-         }
-    }
-    
      /**
-     * Retrieves all variations for a specific user.
-     * @param userId User ID.
-     * @returns {Promise<PromptVariation[]>}
+     * Retrieves the data needed for the Generations tab.
+     * @param userId 
+     * @param type 
+     * @returns {Promise<GenerationsData>}
      */
-    async getAllVariations(userId: string): Promise<PromptVariation[]> {
-         if (!userId) return [];
-         try {
-             const variations = await dbAll<PromptVariation>('SELECT * FROM prompt_variations WHERE user_id = ? ORDER BY module_context, updated_at DESC', [userId]);
-             return variations;
-         } catch (error: any) {
-              console.error(`Error getting all variations for user ${userId}:`, error);
-              return [];
-         }
+     async getGenerationsData(userId: string, type: 'chat' | 'post'): Promise<GenerationsData> {
+        try {
+            const characterCard = await this.getCurrentCharacterCard(userId);
+            const systemPrompt = await this.getSystemPrompt(userId, type);
+            const instructionTemplate = await this.getInstructionTemplate(userId, type);
+            
+             // If system prompt is missing, create a default one based on current card
+            let finalSystemPrompt = systemPrompt;
+            if (!finalSystemPrompt && characterCard) {
+                logger.warn(`No system prompt found for ${userId}/${type}, creating default.`);
+                await this.ensureDefaultPromptsAndInstructions(userId, characterCard.card_data);
+                finalSystemPrompt = await this.getSystemPrompt(userId, type);
+            }
+
+            // If instruction template is missing, create a default one
+            let finalInstructionTemplate = instructionTemplate;
+             if (!finalInstructionTemplate) {
+                logger.warn(`No instruction template found for ${userId}/${type}, creating default.`);
+                 await this.ensureDefaultPromptsAndInstructions(userId, characterCard?.card_data || ''); // Need card data even if prompt exists
+                finalInstructionTemplate = await this.getInstructionTemplate(userId, type);
+            }
+
+            return {
+                characterCard,
+                systemPrompt: finalSystemPrompt,
+                instructionTemplate: finalInstructionTemplate,
+            };
+        } catch (error: any) {
+            logger.error(`Error fetching generations data for user ${userId}, type ${type}:`, error);
+            throw error; // Re-throw error to be handled by the route
+        }
     }
 
     /**
-     * Deletes a specific variation.
-     * @param userId User ID.
-     * @param moduleContext Module context.
-     * @returns {Promise<{ success: boolean; changes: number }>} 
+     * Retrieves a specific system prompt.
+     * @param userId 
+     * @param type 
+     * @returns 
      */
-    async deleteVariation(userId: string, moduleContext: string): Promise<{ success: boolean; changes: number }> {
-        if (!userId || !moduleContext) {
-             console.warn('Attempted deleteVariation with missing userId or moduleContext');
-             return { success: false, changes: 0 };
-        }
+    async getSystemPrompt(userId: string, type: 'chat' | 'post'): Promise<SystemPrompt | null> {
         try {
-            const query = 'DELETE FROM prompt_variations WHERE user_id = ? AND module_context = ?';
-            const params = [userId, moduleContext];
-            const result = await dbRun(query, params);
-            return { success: true, changes: result.changes }; 
+            const prompt = await dbGet<SystemPrompt>('SELECT * FROM system_prompts WHERE user_id = ? AND type = ?', [userId, type]);
+            return prompt || null;
         } catch (error: any) {
-            console.error(`Error during DB operation in deleteVariation for user ${userId}, module ${moduleContext}:`, error);
-            return { success: false, changes: 0 }; 
+            logger.error(`Error getting system prompt for user ${userId}, type ${type}:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Retrieves a specific instruction template.
+     * @param userId 
+     * @param type 
+     * @returns 
+     */
+    async getInstructionTemplate(userId: string, type: 'chat' | 'post'): Promise<InstructionTemplate | null> {
+        try {
+            const template = await dbGet<InstructionTemplate>('SELECT * FROM instruction_templates WHERE user_id = ? AND type = ?', [userId, type]);
+            return template || null;
+        } catch (error: any) {
+            logger.error(`Error getting instruction template for user ${userId}, type ${type}:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Saves/Updates a system prompt, marking it as custom if it differs from the current character card.
+     * @param userId 
+     * @param type 
+     * @param promptText 
+     * @returns 
+     */
+    async saveSystemPrompt(userId: string, type: 'chat' | 'post', promptText: string): Promise<SystemPrompt> {
+        const now = new Date().toISOString();
+        const currentCard = await this.getCurrentCharacterCard(userId);
+        const isCustom = (currentCard && currentCard.card_data !== promptText) ? 1 : 0;
+
+        const upsertQuery = `
+            INSERT INTO system_prompts (id, user_id, type, prompt_text, is_custom, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, type) DO UPDATE SET
+                prompt_text = excluded.prompt_text,
+                is_custom = excluded.is_custom,
+                updated_at = excluded.updated_at
+            RETURNING *;
+        `;
+        const params = [uuidv4(), userId, type, promptText, isCustom, now, now];
+
+        try {
+            const savedPrompt = await dbGet<SystemPrompt>(upsertQuery, params);
+            if (!savedPrompt) {
+                throw new Error('Failed to save system prompt.');
+            }
+            logger.info(`Saved system prompt for ${userId}/${type}, custom: ${isCustom}`);
+            return savedPrompt;
+        } catch (error: any) {
+            logger.error(`Error saving system prompt for ${userId}/${type}:`, error);
+            throw new Error(`Failed to save system prompt: ${error.message}`);
+        }
+    }
+
+    /**
+     * Resets a system prompt to match the current character card.
+     * @param userId 
+     * @param type 
+     * @returns 
+     */
+     async resetSystemPrompt(userId: string, type: 'chat' | 'post'): Promise<SystemPrompt | null> {
+        const currentCard = await this.getCurrentCharacterCard(userId);
+        if (!currentCard) {
+            throw new Error('Cannot reset prompt: No current character card found.');
+        }
+        // Use saveSystemPrompt to update/insert with is_custom = 0
+        return this.saveSystemPrompt(userId, type, currentCard.card_data);
+    }
+
+    /**
+     * Saves/Updates an instruction template.
+     * @param userId 
+     * @param type 
+     * @param instructionText 
+     * @returns 
+     */
+    async saveInstructionTemplate(userId: string, type: 'chat' | 'post', instructionText: string): Promise<InstructionTemplate> {
+        const now = new Date().toISOString();
+        const upsertQuery = `
+            INSERT INTO instruction_templates (id, user_id, type, instruction_text, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, type) DO UPDATE SET
+                instruction_text = excluded.instruction_text,
+                updated_at = excluded.updated_at
+            RETURNING *;
+        `;
+        const params = [uuidv4(), userId, type, instructionText, now, now];
+
+        try {
+            const savedTemplate = await dbGet<InstructionTemplate>(upsertQuery, params);
+            if (!savedTemplate) {
+                throw new Error('Failed to save instruction template.');
+            }
+            logger.info(`Saved instruction template for ${userId}/${type}`);
+            return savedTemplate;
+        } catch (error: any) {
+            logger.error(`Error saving instruction template for ${userId}/${type}:`, error);
+            throw new Error(`Failed to save instruction template: ${error.message}`);
         }
     }
 }
 
-// Rename the export
 export default PromptService; 

@@ -689,7 +689,7 @@
 <body>
   <div class="app-container">
     <header>
-      <h1>digital twin lab</h1>
+      <h1>digital twin lab.</h1>
       <p class="tagline">Experiment with AI personalities generated from web content and files</p>
     </header>
 
@@ -699,7 +699,7 @@
       <ul class="nav-tabs">
         <li class="nav-tab active" data-page="user-setup-page">User Setup</li>
         <li class="nav-tab" data-page="content-library-page">Content Library</li>
-        <li class="nav-tab" data-page="interactions-page">Generations</li>
+        <li class="nav-tab" data-page="generations-page">Generations</li>
         <li class="nav-tab" data-page="evaluation-page">Evaluation</li>
       </ul>
       
@@ -924,8 +924,8 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
         </div>
         
         <!-- Page 3: Interactions -->
-        <div id="interactions-page" class="page">
-          <div class="module" id="interactions-module">
+        <div id="generations-page" class="page">
+          <div class="module" id="generations-module">
             <div class="module-header">
               <div class="module-icon" style="background-color: #27ae60;">💬</div>
               <h2 class="module-title">Generations</h2>
@@ -936,178 +936,67 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
             <div class="medium-selector">
               <div class="medium-tabs" style="background-color: #1e2127; border-color: #333;">
                 <button class="medium-tab active" data-medium="chat" style="background-color: #2c3e50; color: white; border-color: #34495e;">Chat</button>
-                <button class="medium-tab" data-medium="twitter" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">Twitter</button>
-                <button class="medium-tab" data-medium="linkedin" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">LinkedIn</button>
-                <button class="medium-tab" data-medium="blog" style="background-color: #2c3e50; color: #ccc; border-color: #34495e;">Blog</button>
+                <button class="medium-tab" data-medium="post" style="background-color: #2c3e50; border-color: #34495e;">Post</button>
               </div>
             </div>
 
-            <!-- System Prompt Container -->
-            <div class="system-prompt-container" style="background-color: #1e2127; border: 1px solid #333; margin-bottom: 20px; padding: 15px; border-radius: 5px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 class="section-title" style="color: #e0e0e0; margin: 0;">System Prompt 
-                  <button class="info-button" data-tooltip-target="system-prompt-tooltip" style="background-color: #333; color: #fff; border: 1px solid #444;">?</button>
-                </h3>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <label style="font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #aaa;">
-                    <input type="checkbox" id="show-system-prompt" style="width: auto; margin: 0;" checked> Show System Prompt
-                  </label>
-                </div>
-              </div>
-              <div id="system-prompt-tooltip" class="info-tooltip-text" style="display: none; background-color: #333; border: 1px solid #444; color: #e0e0e0;">
-                <p><strong>What it is:</strong><br>The system prompt contains all the instructions sent to the AI model that determine how your digital twin will respond.</p>
-                <p><strong>How to use it:</strong><br>You can edit this text directly to modify how your digital twin behaves and responds.</p>
-              </div>
-              
-              <div id="system-prompt-controls" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                <button id="save-medium-prompt-variation-button" class="action-button" style="background-color: #2b5278; border: none; color: white; flex-grow: 1;">Save Variation</button>
-                <button id="reset-medium-prompt-button" class="action-button" style="background-color: #6c757d; flex-grow: 1;">Reset to Base Prompt</button>
-                <button id="toggle-json-prompt-button" class="action-button" style="background-color: #5a6268; flex-grow: 1;">Show As JSON</button>
-              </div>
-              
-              <textarea id="system-prompt-editor" rows="15" style="width: 100%; font-family: monospace; margin-bottom: 15px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 5px; padding: 10px;"></textarea>
-            </div>
-            
-            <!-- Chat Interface (Default) -->
-            <div class="medium-content active" id="chat-medium-content">
-              <!-- Component Selection -->
-              <div style="margin-bottom: 20px; background-color: #2d3748; padding: 15px; border-radius: 5px; border: 1px solid #4a5568;">
-                <h3 style="margin-bottom: 15px; color: #e2e8f0; font-size: 18px;">Digital Twin Components</h3>
-                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                  <div style="flex: 1;">
-                    <label for="character-card-select" style="display: block; margin-bottom: 8px; color: #cbd5e0; font-size: 14px;">Character Card:</label>
-                    <select id="character-card-select" style="width: 100%; padding: 8px; background-color: #1a202c; color: #e2e8f0; border: 1px solid #4a5568; border-radius: 4px;">
-                      <option value="">Select Character Card</option>
-                    </select>
+            <!-- Combined Content Area for all Mediums -->
+            <div class="medium-content active" id="medium-content-area" style="margin-top: 20px;">
+
+              <!-- System Prompt Editor -->
+              <div class="system-prompt-container" style="margin-bottom: 20px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                      <label for="system-prompt-editor" class="sub-label">System Prompt:</label>
+                      <div>
+                        <!-- Keep show checkbox for now, can be removed if definitely not needed -->
+                        <input type="checkbox" id="show-system-prompt-checkbox" checked style="margin-right: 5px;">
+                        <label for="show-system-prompt-checkbox" style="font-size: 12px;">Show</label>
+                      </div>
                   </div>
-                  <div style="flex: 1;">
-                    <label for="instruction-set-select" style="display: block; margin-bottom: 8px; color: #cbd5e0; font-size: 14px;">Instruction Set:</label>
-                    <select id="instruction-set-select" style="width: 100%; padding: 8px; background-color: #1a202c; color: #e2e8f0; border: 1px solid #4a5568; border-radius: 4px;">
-                      <option value="">Select Instruction Set</option>
-                    </select>
+                  <textarea id="system-prompt-editor" rows="10" placeholder="Base character card or medium-specific variation will appear here..."></textarea>
+                  <div class="button-group" style="margin-top: 10px; text-align: right; display: flex; justify-content: flex-end; gap: 10px;">
+                    <!-- ADDED Save button -->
+                    <button id="save-system-prompt-button" class="action-button primary-button" style="width: auto;">Save Prompt</button>
+                    <!-- Keep Reset button -->
+                    <button id="reset-prompt-button" class="action-button secondary-button" style="width: auto;" disabled>Reset</button>
                   </div>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                  <button id="manage-character-cards-btn" class="action-button" style="background-color: #2d3748; border: 1px solid #4a5568; color: #e2e8f0; font-size: 13px; padding: 6px 12px;">Manage Character Cards</button>
-                  <button id="manage-instruction-sets-btn" class="action-button" style="background-color: #2d3748; border: 1px solid #4a5568; color: #e2e8f0; font-size: 13px; padding: 6px 12px;">Manage Instruction Sets</button>
-                </div>
+                  <div id="system-prompt-status" class="status info" style="display: none; margin-top: 5px;"></div> <!-- Ensured visibility/margin -->
               </div>
-            
-              <!-- Chat container styled as terminal -->
-              <div id="chat-container" style="background-color: #1e2127; border: 1px solid #333; border-radius: 5px; overflow: hidden; margin-bottom: 20px;">
-                <div style="padding: 5px 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background-color: #2c3e50;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-family: 'Courier New', monospace; color: #e0e0e0;">digital-twin@localhost:~</span>
+
+              <!-- Instruction Editor -->
+              <div class="instruction-editor-container" style="margin-bottom: 20px;">
+                  <label for="instruction-editor" class="sub-label instruction-label">Instructions for Chat:</label> <!-- Label will be updated dynamically -->
+                  <textarea id="instruction-editor" rows="4" placeholder="Enter specific instructions for this medium (e.g., 'Generate a tweet under 280 characters')..."></textarea>
+                  <!-- ADDED Save button -->
+                  <div class="button-group" style="margin-top: 10px; text-align: right;">
+                     <button id="save-instructions-button" class="action-button primary-button" style="width: auto;">Save Instructions</button>
                   </div>
-                  <button id="clear-chat-button" class="action-button" style="background-color: transparent; border: 1px solid #444; color: #aaa; padding: 3px 8px; font-size: 12px; font-family: 'Courier New', monospace;">clear</button>
-                </div>
-                
-                <div id="chat-history" style="background-color: #1e2127; color: #e0e0e0; padding: 15px; height: 450px; overflow-y: auto; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
-                  <!-- Terminal welcome message -->
-                  <div class="message-wrapper system-message">
-                    <div class="message" style="background-color: #2c3e50; color: #e0e0e0;"># Digital Twin Terminal v1.0</div>
-                  </div>
-                  <div class="message-wrapper system-message">
-                    <div class="message" style="background-color: #2c3e50; color: #e0e0e0;"># Type your messages and press Enter to communicate with your digital twin</div>
-                  </div>
-                  <div class="message-wrapper system-message">
-                    <div class="message" style="background-color: #2c3e50; color: #e0e0e0;"># Type 'clear' to clear the terminal</div>
-                  </div>
-                </div>
-                
-                <div style="padding: 10px; border-top: 1px solid #333; display: flex; align-items: center; background-color: #2c3e50;">
-                  <span class="prompt-symbol" style="color: #27ae60; margin-right: 8px;">$</span>
-                  <input type="text" id="chat-input" placeholder="Type a message..." style="background-color: transparent; border: none; color: #e0e0e0; flex-grow: 1; outline: none;">
-                  <div id="terminal-cursor" class="terminal-cursor"></div>
-                </div>
+                  <div id="instruction-status" class="status info" style="display: none; margin-top: 5px;"></div> <!-- Ensured visibility/margin -->
               </div>
-            </div>
-            
-            <!-- Twitter Medium Content -->
-            <div class="medium-content" id="twitter-medium-content" style="display: none;">
-              <!-- Component Selection -->
-              <div style="margin-bottom: 20px; background-color: #15202B; padding: 15px; border-radius: 5px; border: 1px solid #38444d;">
-                <h3 style="margin-bottom: 15px; color: #f5f8fa; font-size: 18px;">Tweet Generation Components</h3>
-                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                  <div style="flex: 1;">
-                    <label for="twitter-character-select" style="display: block; margin-bottom: 8px; color: #8899a6; font-size: 14px;">Character Card:</label>
-                    <select id="twitter-character-select" class="character-card-select" style="width: 100%; padding: 8px; background-color: #192734; color: #f5f8fa; border: 1px solid #38444d; border-radius: 4px;">
-                      <option value="">Select Character Card</option>
-                    </select>
-                  </div>
-                  <div style="flex: 1;">
-                    <label for="twitter-instruction-select" style="display: block; margin-bottom: 8px; color: #8899a6; font-size: 14px;">Instruction Set:</label>
-                    <select id="twitter-instruction-select" class="instruction-set-select" style="width: 100%; padding: 8px; background-color: #192734; color: #f5f8fa; border: 1px solid #38444d; border-radius: 4px;">
-                      <option value="">Select Instruction Set</option>
-                    </select>
-                  </div>
+
+              <!-- Chat Interface (for Chat Medium) -->
+              <div id="chat-interface" style="display: block; /* Start visible as chat is default */">
+                <div id="chat-history" class="chat-history">
+                    <!-- REMOVED Default '#' Messages -->
                 </div>
-              </div>
-              
-              <div style="margin-bottom: 20px;">
-                <button id="generate-twitter-content" class="action-button" style="background-color: #1DA1F2; color: white;">Generate Tweet</button>
-              </div>
-              
-              <!-- Twitter Output Area -->
-              <div id="twitter-output-container" style="display: none; background-color: #15202B; border-radius: 12px; border: 1px solid #38444d; padding: 15px; margin-bottom: 20px;">
-                <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                  <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #2C3E50; margin-right: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">DT</div>
-                  <div>
-                    <div style="font-weight: bold; color: #FFFFFF;">Digital Twin</div>
-                    <div style="color: #8899A6; font-size: 14px;">@DigitalTwin</div>
-                  </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Type your message...">
+                    <button id="send-message-button" class="action-button">Send</button>
                 </div>
-                <div id="twitter-content" style="color: white; margin-bottom: 10px; font-size: 16px; line-height: 1.5; word-wrap: break-word;">
-                  <!-- Tweet content will be inserted here -->
+                <div class="button-group" style="margin-top: 10px;">
+                  <button id="clear-chat-button" class="action-button secondary-button">Clear Chat</button>
                 </div>
-                <div style="color: #8899A6; font-size: 14px;">Just now · Twitter for Web</div>
+                <div id="chat-status" class="status info"></div>
               </div>
-            </div>
-            
-            <!-- LinkedIn Medium Content -->
-            <div class="medium-content" id="linkedin-medium-content" style="display: none;">
-              <div style="margin-bottom: 20px;">
-                <button id="generate-linkedin-content" class="action-button" style="background-color: #0077B5; color: white;">Generate LinkedIn Post</button>
+
+              <!-- Content Generation Area (for other mediums) -->
+              <div id="content-generation-area" style="display: none; /* Start hidden */ margin-top: 20px;">
+                <button id="generate-content-button" class="action-button">Generate Content</button>
+                <div id="generation-status" class="status info" style="margin-top: 10px;"></div>
+                <div id="generated-content-output" class="generated-output" style="margin-top: 15px; white-space: pre-wrap; /* Preserve formatting */"></div>
               </div>
-              
-              <!-- LinkedIn Output Area -->
-              <div id="linkedin-output-container" style="display: none; background-color: #FFFFFF; border-radius: 8px; border: 1px solid #E0E0E0; padding: 15px; margin-bottom: 20px; color: #000000;">
-                <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                  <div style="width: 60px; height: 60px; border-radius: 50%; background-color: #0077B5; margin-right: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">DT</div>
-                  <div>
-                    <div style="font-weight: bold; font-size: 16px;">Digital Twin</div>
-                    <div style="color: #666666; font-size: 14px;">AI Personality • Connected</div>
-                    <div style="color: #666666; font-size: 12px;">Just now • 🌐</div>
-                  </div>
-                </div>
-                <div id="linkedin-content" style="margin-bottom: 15px; font-size: 14px; line-height: 1.5;">
-                  <!-- LinkedIn content will be inserted here -->
-                </div>
-                <div style="border-top: 1px solid #E0E0E0; padding-top: 10px; color: #666666;">
-                  <span style="margin-right: 15px;">👍 Like</span>
-                  <span style="margin-right: 15px;">💬 Comment</span>
-                  <span>↪️ Share</span>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Blog Medium Content -->
-            <div class="medium-content" id="blog-medium-content" style="display: none;">
-              <div style="margin-bottom: 20px;">
-                <button id="generate-blog-content" class="action-button" style="background-color: #2C3E50; color: white;">Generate Blog Post</button>
-              </div>
-              
-              <!-- Blog Output Area -->
-              <div id="blog-output-container" style="display: none; background-color: #FFFFFF; border-radius: 5px; border: 1px solid #E0E0E0; padding: 25px; margin-bottom: 20px; color: #333333;">
-                <h2 id="blog-title" style="margin-bottom: 15px; border-bottom: 1px solid #EEEEEE; padding-bottom: 10px; font-size: 24px;">Blog Title</h2>
-                <div style="color: #666666; margin-bottom: 20px; font-size: 14px;">By Digital Twin • Published just now</div>
-                <div id="blog-content" style="font-size: 16px; line-height: 1.8; font-family: Georgia, serif;">
-                  <!-- Blog content will be inserted here -->
-                </div>
-              </div>
-            </div>
-            
-            <div id="medium-status" class="status" style="color: #aaa;"></div>
+
+            </div> <!-- End medium-content-area -->
           </div>
         </div>
         
@@ -1227,6 +1116,99 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
         <button id="save-template-button" class="action-button" style="width: auto;">Save Template</button>
       </div>
       <div id="template-edit-status" class="status"></div>
+    </div>
+  </div>
+
+  <!-- Character Card Creation Modal -->
+  <div id="character-card-modal" class="modal">
+    <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+      <span id="close-character-card-modal" class="close-button">&times;</span>
+      <h3>Create Character Card</h3>
+      <p style="font-size: 14px; color: #555; margin-bottom: 15px;">
+        Create a new character card. This will define WHO your digital twin is.
+      </p>
+      
+      <div style="margin-bottom: 15px;">
+        <label for="character-card-name">Card Name:</label>
+        <input type="text" id="character-card-name" placeholder="My Character Card" style="width: 100%; margin-bottom: 10px;">
+        
+        <label for="character-card-data">Card JSON Data:</label>
+        <textarea id="character-card-data" rows="15" style="width: 100%; font-family: monospace; font-size: 14px;"></textarea>
+      </div>
+      
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="cancel-character-card-button" class="action-button" style="background-color: #6c757d; width: auto;">Cancel</button>
+        <button id="save-character-card-button" class="action-button" style="width: auto;">Create Character Card</button>
+      </div>
+      <div id="character-card-modal-status" class="status"></div>
+    </div>
+  </div>
+  
+  <!-- Instruction Set Creation Modal -->
+  <div id="instruction-set-modal" class="modal">
+    <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+      <span id="close-instruction-set-modal" class="close-button">&times;</span>
+      <h3>Create Instruction Set</h3>
+      <p style="font-size: 14px; color: #555; margin-bottom: 15px;">
+        Create a new instruction set. This will define HOW your digital twin responds.
+      </p>
+      
+      <div style="margin-bottom: 15px;">
+        <label for="instruction-set-name">Instruction Set Name:</label>
+        <input type="text" id="instruction-set-name" placeholder="My Instruction Set" style="width: 100%; margin-bottom: 10px;">
+        
+        <label for="instruction-set-medium">Platform/Medium (optional):</label>
+        <select id="instruction-set-medium" style="width: 100%; margin-bottom: 10px;">
+          <option value="">Generic (All Platforms)</option>
+          <option value="twitter">Twitter</option>
+          <option value="linkedin">LinkedIn</option>
+          <option value="blog">Blog/Article</option>
+          <option value="chat">Chat</option>
+        </select>
+        
+        <label for="instruction-set-data">Instruction JSON Data:</label>
+        <textarea id="instruction-set-data" rows="15" style="width: 100%; font-family: monospace; font-size: 14px;"></textarea>
+      </div>
+      
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="cancel-instruction-set-button" class="action-button" style="background-color: #6c757d; width: auto;">Cancel</button>
+        <button id="save-instruction-set-button" class="action-button" style="width: auto;">Create Instruction Set</button>
+      </div>
+      <div id="instruction-set-modal-status" class="status"></div>
+    </div>
+  </div>
+  
+  <!-- Manage Character Cards Modal -->
+  <div id="manage-character-cards-modal" class="modal">
+    <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+      <span id="close-manage-character-cards-modal" class="close-button">&times;</span>
+      <h3>Manage Character Cards</h3>
+      
+      <div id="character-cards-list" style="margin-bottom: 20px;">
+        <p>Loading character cards...</p>
+      </div>
+      
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="create-new-character-card-button" class="action-button" style="width: auto;">Create New Card</button>
+        <button id="close-manage-character-cards-button" class="action-button" style="background-color: #6c757d; width: auto;">Close</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Manage Instruction Sets Modal -->
+  <div id="manage-instruction-sets-modal" class="modal">
+    <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+      <span id="close-manage-instruction-sets-modal" class="close-button">&times;</span>
+      <h3>Manage Instruction Sets</h3>
+      
+      <div id="instruction-sets-list" style="margin-bottom: 20px;">
+        <p>Loading instruction sets...</p>
+      </div>
+      
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="create-new-instruction-set-button" class="action-button" style="width: auto;">Create New Set</button>
+        <button id="close-manage-instruction-sets-button" class="action-button" style="background-color: #6c757d; width: auto;">Close</button>
+      </div>
     </div>
   </div>
 

@@ -4,6 +4,7 @@ import { dbAll } from '../lib/database'; // Only dbAll is needed here
 // import AssetProcessor from './assetProcessor'; // Removed unused import
 import ClaudeAPI from '../api/claude';
 import PromptService from '../services/promptService';
+import PdfProcessor from '../services/pdfProcessor';
 
 // Define interfaces (or import if moved)
 interface Asset {
@@ -36,76 +37,61 @@ class AbstractionApproach {
      * @param userId The user ID to verify asset ownership.
      * @returns Combined text content formatted with source markers.
      */
-    private async gatherAssetContent(assetIds: string[], userId: string): Promise<{ textContent: string }> {
+    async gatherAssetContent(userId: string, assetIds: string[]): Promise<string> {
+        if (!assetIds || assetIds.length === 0) {
+            return '';
+        }
+
+        // Fetch asset details using the correct column names
         const placeholders = assetIds.map(() => '?').join(',');
-        // Fetch source_platform and source_medium along with other fields
-        const query = `SELECT asset_id, user_id, type, filepath, source_platform, source_medium, original_filename, mime_type FROM assets WHERE user_id = ? AND asset_id IN (${placeholders})`;
-        const assets = await dbAll<Asset>(query, [userId, ...assetIds]);
+        const query = `
+            SELECT 
+                id, user_id, file_type, file_path, 
+                source_platform, source_medium, filename, mime_type 
+            FROM assets 
+            WHERE user_id = ? AND id IN (${placeholders})
+        `;
+        const assets = await dbAll<any>(query, [userId, ...assetIds]); // Use correct column names: id
 
-        if (assets.length !== assetIds.length) {
-            console.warn(`Requested ${assetIds.length} assets, but found ${assets.length} owned by user ${userId}.`);
-        }
-
-        if (assets.length === 0) {
-            throw new Error('No valid assets found for this user. Please select different content.');
-        }
-
-        let combinedText = '';
-        const assetsDir = path.join(__dirname, '../../data/assets');
+        let combinedContent = '';
+        const assetsDir = path.join(__dirname, '../../data/assets'); // Define based relative to dist/services
+        const pdfProcessor = new PdfProcessor();
 
         for (const asset of assets) {
-            const assetPath = path.join(assetsDir, asset.filepath);
-            let content = '';
-            let errorMsg = '';
+            combinedContent += `\n\n--- Asset Start ---\n`;
+            combinedContent += `Asset ID: ${asset.id}\n`; // Use id
+            combinedContent += `Filename: ${asset.filename}\n`; // Use filename
+            combinedContent += `Type: ${asset.file_type}\n`; // Use file_type
+            combinedContent += `Source: ${asset.source_platform || 'unknown'} (${asset.source_medium || 'unknown'})\n`;
             
-            // Add source marker header with more descriptive attributes
-            const platform = asset.source_platform || 'unknown';
-            const medium = asset.source_medium || 'unknown';
-            const filename = asset.original_filename || asset.asset_id;
-            const type = asset.type || 'unknown';
-            
-            // Add more descriptive source markers for Claude to better understand content context
-            combinedText += `\n\n<source platform="${platform}" medium="${medium}" type="${type}" filename="${filename}">\n`;
+            const filePath = path.join(assetsDir, asset.file_path); // Use file_path
 
             try {
-                switch (asset.type) {
-                    case 'text':
-                    case 'json':
-                    case 'url': // Treat URL/JSON content as text
-                        content = await fs.readFile(assetPath, 'utf-8');
-                        break;
-                    case 'image':
-                        // Add more descriptive placeholder for images
-                        content = `[This is an image file named "${filename}". Please consider this visual context when creating the prompt, though specific image details can't be extracted.]`; 
-                        break;
-                    case 'pdf':
-                         try {
-                             const pdfTextPath = assetPath.replace(/\.pdf$/i, '.txt');
-                             content = await fs.readFile(pdfTextPath, 'utf-8');
-                         } catch (pdfTextError: any) {
-                             if (pdfTextError.code === 'ENOENT') {
-                                 content = `[PDF document "${filename}" - Text extraction not available. Please consider this as a referenced document when creating the prompt.]`;
-                                 console.warn(`No associated text file found for PDF asset ${asset.asset_id}.`);
-                             } else {
-                                 throw pdfTextError; // Re-throw other read errors
-                             }
-                         }
-                         break;
-                    default:
-                        console.warn(`Unhandled asset type: ${asset.type} for asset ${asset.asset_id}`);
-                        content = `[Content of type "${asset.type}" - not directly readable]`;
+                if (asset.file_type === 'text' || asset.file_type === 'json') {
+                    const content = await fs.readFile(filePath, 'utf-8');
+                    combinedContent += `Content:\n${content}\n`;
+                } else if (asset.file_type === 'pdf') {
+                    const extractionResult = await pdfProcessor.extractText(filePath);
+                    combinedContent += `Content (from PDF):\n${extractionResult.text || '[Error extracting PDF text]'}\n`;
+                } else if (asset.file_type === 'image') {
+                    // TODO: Implement image description logic later if needed
+                    combinedContent += `Content: [Image Asset - ${asset.filename}]\n`; // Placeholder for images
+                } else {
+                    combinedContent += `Content: [Unsupported asset type: ${asset.file_type}]\n`;
                 }
             } catch (error: any) {
-                console.error(`Error processing asset ${asset.asset_id} (${assetPath}):`, error.message);
-                errorMsg = `[Error processing asset ${filename}: ${error.message}]`;
+                 if (error.code === 'ENOENT') {
+                    console.error(`Asset file not found when gathering content: ${filePath}`);
+                    combinedContent += `Content: [Error - Asset file not found]\n`;
+                 } else {
+                    console.error(`Error reading content for asset ${asset.id}:`, error);
+                    combinedContent += `Content: [Error reading content - ${error.message}]\n`;
+                 }
             }
-            
-            combinedText += (content || errorMsg);
-            combinedText += `\n</source>\n`; // Add closing source marker
+            combinedContent += `--- Asset End ---\n`;
         }
 
-        // Return only text content for now
-        return { textContent: combinedText }; 
+        return combinedContent;
     }
 
     /**
@@ -124,31 +110,26 @@ class AbstractionApproach {
         console.log(`Starting base prompt generation for user ${userId} using ${assetIds.length} assets.`);
         
         try {
-            const { textContent } = await this.gatherAssetContent(assetIds, userId);
+            // Corrected: Use combinedContent directly
+            const combinedContent = await this.gatherAssetContent(userId, assetIds);
             
-            if (!textContent.trim()) {
+            if (!combinedContent.trim()) { // Use combinedContent
                 throw new Error('No text content gathered from the selected assets.');
             }
             
-            console.log(`Total text content length for prompt gen: ${textContent.length}`);
-            console.log(`Formatted Text Snippet for Claude:\n${textContent.substring(0, 500)}${textContent.length > 500 ? '...' : ''}`);
+            console.log(`Total text content length for prompt gen: ${combinedContent.length}`); // Use combinedContent
+            console.log(`Formatted Text Snippet for Claude:\n${combinedContent.substring(0, 500)}${combinedContent.length > 500 ? '...' : ''}`); // Use combinedContent
             
             // Generate the prompt using Claude API
-            const generatedPromptText = await this.claudeAPI.generateSystemPrompt(textContent, customPrompt || undefined);
+            const generatedPromptText = await this.claudeAPI.generateSystemPrompt(combinedContent, customPrompt || undefined); // Use combinedContent
             
             if (!generatedPromptText || !generatedPromptText.trim()) {
                 throw new Error('Claude API returned an empty or invalid prompt.');
             }
             
-            // Save the generated prompt using the PromptService
-            await this.promptService.saveBasePrompt(
-                userId,
-                generatedPromptText,
-                { basedOnAssetIds: assetIds } // Pass asset IDs used
-            );
-            
-            console.log(`Successfully saved generated base prompt for user ${userId}.`);
-            return generatedPromptText;
+            // NOTE: Base prompt is no longer saved directly here, only returned.
+            console.warn("generateBasePrompt is deprecated. Character card generation should be used instead.")
+            return generatedPromptText; // Return the text
             
         } catch (error: any) {
             // Log the error with more context
@@ -157,10 +138,8 @@ class AbstractionApproach {
             // Rethrow with a more user-friendly message
             if (error.message.includes('Claude API')) {
                 throw new Error(`AI service error: ${error.message}`);
-            } else if (error.message.includes('No valid assets')) {
+            } else if (error.message.includes('No valid assets') || error.message.includes('No text content')) {
                 throw new Error(`Content error: ${error.message}`);
-            } else if (error.message.includes('saveBasePrompt')) {
-                throw new Error(`Storage error: Failed to save the generated prompt.`);
             } else {
                 throw new Error(`Failed to generate base prompt: ${error.message}`);
             }
@@ -168,67 +147,66 @@ class AbstractionApproach {
     }
     
     /**
-     * Generates a character card JSON from combined asset content.
-     * @param userId User ID.
-     * @param assetIds Array of asset IDs.
-     * @param customPrompt Optional custom instructions for Claude.
-     * @returns The generated character card as JSON, stringified for storage.
-     * @throws Error if generation fails for any reason.
+     * Generates a character card for a user based on selected asset IDs.
+     * Gathers content, calls Claude API, validates JSON, and saves the card.
+     * @param userId The user ID.
+     * @param assetIds Array of asset IDs to use as source material.
+     * @param customPrompt Optional custom prompt for Claude.
+     * @returns The stringified JSON of the generated character card.
      */
-    async generateCharacterCard(userId: string, assetIds: string[], customPrompt?: string | null): Promise<string> {
-        if (!userId || !assetIds || assetIds.length === 0) {
-            throw new Error('Invalid input: userId and at least one assetId required.');
+    async generateCharacterCard(userId: string, assetIds: string[], customPrompt?: string): Promise<string> {
+        if (!userId) {
+            throw new Error('User ID is required to generate a character card.');
         }
-        
-        console.log(`Starting character card generation for user ${userId} using ${assetIds.length} assets.`);
-        
+        if (!assetIds || assetIds.length === 0) {
+            throw new Error('At least one asset ID must be provided to generate a character card.');
+        }
+
+        console.log(`Generating character card for ${userId} using ${assetIds.length} assets.`);
+
         try {
-            const { textContent } = await this.gatherAssetContent(assetIds, userId);
+            // Corrected: Use combinedContent directly
+            const combinedContent = await this.gatherAssetContent(userId, assetIds);
             
-            if (!textContent.trim()) {
+            if (!combinedContent.trim()) { // Use combinedContent
                 throw new Error('No text content gathered from the selected assets.');
             }
             
-            console.log(`Total text content length for character card gen: ${textContent.length}`);
-            console.log(`Formatted Text Snippet for Claude:\n${textContent.substring(0, 500)}${textContent.length > 500 ? '...' : ''}`);
-            
-            // Generate the character card using Claude API
-            const characterCard = await this.claudeAPI.generateCharacterCard(textContent, customPrompt || undefined);
-            
-            if (!characterCard) {
-                throw new Error('Claude API failed to generate a valid character card.');
+            console.log(`Total text content length for character card gen: ${combinedContent.length}`); // Use combinedContent
+            console.log(`Formatted Text Snippet for Claude:\n${combinedContent.substring(0, 500)}${combinedContent.length > 500 ? '...' : ''}`); // Use combinedContent
+
+            // 2. Generate the character card using Claude API 
+            //    (Template is loaded within claudeApi.generateCharacterCard)
+            const generatedCardData = await this.claudeAPI.generateCharacterCard(
+                combinedContent, 
+                customPrompt || undefined // Pass only inputText and optional customPrompt
+            );
+
+            // 3. Validate and parse the generated card data
+            if (!generatedCardData || typeof generatedCardData !== 'object') {
+                throw new Error('Claude API returned invalid or empty data for character card.');
             }
             
-            // Convert the character card to a string for storage
-            const characterCardString = JSON.stringify(characterCard, null, 2);
-            
-            // Save the generated character card as the base prompt
-            await this.promptService.saveBasePrompt(
+            // Ensure we have a string representation for saving/returning
+            const generatedCardDataString = JSON.stringify(generatedCardData, null, 2);
+
+            // 4. Save the generated character card using the updated service method
+            await this.promptService.saveCharacterCard(
                 userId,
-                characterCardString,
+                generatedCardDataString, // Pass the validated stringified JSON
                 { 
                     basedOnAssetIds: assetIds,
-                    promptName: "Character Card" 
+                    cardName: "Generated Card" // Example name, adjust as needed
                 }
             );
             
             console.log(`Successfully saved generated character card for user ${userId}.`);
-            return characterCardString;
+            return generatedCardDataString; // Return the validated string
             
         } catch (error: any) {
-            // Log the error with more context
             console.error(`Error in generateCharacterCard for user ${userId}:`, error);
-            
-            // Rethrow with a more user-friendly message
-            if (error.message.includes('Claude API')) {
-                throw new Error(`AI service error: ${error.message}`);
-            } else if (error.message.includes('No valid assets')) {
-                throw new Error(`Content error: ${error.message}`);
-            } else if (error.message.includes('saveBasePrompt')) {
-                throw new Error(`Storage error: Failed to save the character card.`);
-            } else {
-                throw new Error(`Failed to generate character card: ${error.message}`);
-            }
+            // Re-throw a more specific error or handle it
+            throw new Error(`Failed to generate character card: ${error.message}`);
         }
     }
 }

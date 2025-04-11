@@ -17,14 +17,16 @@ import { AppState, BasePromptText } from './types'; // Updated import path
 // Global state - initialized with the extended AppState
 export const state: AppState = {
   currentUserId: null,
-  currentBasePromptText: null, // Added
   selectedAssets: new Set<string>(),
   currentChatHistory: [], // Use ChatMessage type from types.ts
   userTipiScores: null, 
   aiTipiScores: null,
-  currentUserData: null, // Use UserData type from types.ts
+  currentUserData: null, // Holds more comprehensive user data
   currentChatSessionId: null,
-  currentContentMedium: null
+  currentContentMedium: null,
+  currentCharacterCardData: null, // Holds the CharacterCard object fetched by promptModule
+  currentSystemPrompt: null, // Holds the SystemPrompt object for the current medium
+  currentInstructionTemplate: null // Holds the InstructionTemplate object for the current medium
 };
 
 /**
@@ -108,4 +110,6 @@ export function formatMessageContent(content: string | null | undefined): string
     .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') // Code blocks
     .replace(/`([^`]+)`/g, '<code>$1</code>')          // Inline code
     .replace(/\n/g, '<br>');                           // Line breaks
-} 
+}
+
+// Logger utility 

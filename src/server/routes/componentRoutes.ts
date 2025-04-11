@@ -10,32 +10,93 @@ export default function createComponentRouter() {
     
     // Get all character cards for a user
     router.get('/:userId/character-cards', asyncHandler(async (req: Request, res: Response) => {
-        const userId = req.params.userId;
-        const db = req.app.locals.db;
-        
-        const cards = await db.all(
-            `SELECT * FROM character_cards WHERE user_id = ? ORDER BY created_at DESC`,
-            [userId]
-        );
-        
-        res.status(200).json(cards);
+        try {
+            const userId = req.params.userId;
+            const db = req.app.locals.db;
+            
+            if (!db) {
+                console.error('Database connection not available');
+                return res.status(500).json({ error: 'Database connection not available' });
+            }
+            
+            const cards = await db.all(
+                `SELECT * FROM character_cards WHERE user_id = ? ORDER BY created_at DESC`,
+                [userId]
+            );
+            
+            // Process the cards to parse the JSON data field with proper error handling
+            const processedCards = cards.map((card: any) => {
+                try {
+                    return {
+                        ...card,
+                        card_data: card.card_data ? JSON.parse(card.card_data) : null,
+                        based_on_assets: card.based_on_assets ? JSON.parse(card.based_on_assets) : null
+                    };
+                } catch (parseError) {
+                    console.error(`Error parsing JSON for card ${card.card_id}:`, parseError);
+                    // Return the card with unparsed data rather than crashing
+                    return {
+                        ...card,
+                        card_data: card.card_data || null,
+                        based_on_assets: card.based_on_assets || null,
+                        parse_error: true
+                    };
+                }
+            });
+            
+            console.log(`Found ${cards.length} character cards for user ${userId}`);
+            
+            return res.status(200).json(processedCards || []);
+        } catch (error) {
+            console.error('Error in character-cards route:', error);
+            return res.status(500).json({ error: 'Internal server error', details: String(error) });
+        }
     }));
     
     // Get a specific character card
     router.get('/character-cards/:cardId', asyncHandler(async (req: Request, res: Response) => {
-        const cardId = req.params.cardId;
-        const db = req.app.locals.db;
-        
-        const card = await db.get(
-            `SELECT * FROM character_cards WHERE card_id = ?`,
-            [cardId]
-        );
-        
-        if (!card) {
-            return res.status(404).json({ error: 'Character card not found' });
+        try {
+            const cardId = req.params.cardId;
+            const db = req.app.locals.db;
+            
+            if (!db) {
+                console.error('Database connection not available');
+                return res.status(500).json({ error: 'Database connection not available' });
+            }
+            
+            const card = await db.get(
+                `SELECT * FROM character_cards WHERE card_id = ?`,
+                [cardId]
+            );
+            
+            if (!card) {
+                return res.status(404).json({ error: 'Character card not found' });
+            }
+            
+            // Parse the card data JSON with error handling
+            let processedCard;
+            try {
+                processedCard = {
+                    ...card,
+                    card_data: card.card_data ? JSON.parse(card.card_data) : null,
+                    based_on_assets: card.based_on_assets ? JSON.parse(card.based_on_assets) : null
+                };
+            } catch (parseError) {
+                console.error(`Error parsing JSON for card ${cardId}:`, parseError);
+                // Return the card with unparsed data rather than crashing
+                processedCard = {
+                    ...card,
+                    card_data: card.card_data || null,
+                    based_on_assets: card.based_on_assets || null,
+                    parse_error: true
+                };
+            }
+            
+            return res.status(200).json(processedCard);
+        } catch (error) {
+            console.error('Error in specific character-card route:', error);
+            return res.status(500).json({ error: 'Internal server error', details: String(error) });
         }
-        
-        res.status(200).json(card);
     }));
     
     // Create a new character card
@@ -82,7 +143,15 @@ export default function createComponentRouter() {
             [cardId]
         );
         
-        res.status(201).json(card);
+        // Process the card to parse the JSON data
+        const processedCard = {
+            ...card,
+            card_data: JSON.parse(card.card_data),
+            based_on_assets: card.based_on_assets ? JSON.parse(card.based_on_assets) : null
+        };
+        
+        res.status(201).json(processedCard);
+        return;
     }));
     
     // Update a character card
@@ -128,7 +197,15 @@ export default function createComponentRouter() {
             [cardId]
         );
         
-        res.status(200).json(updatedCard);
+        // Process the card to parse the JSON data
+        const processedCard = {
+            ...updatedCard,
+            card_data: JSON.parse(updatedCard.card_data),
+            based_on_assets: updatedCard.based_on_assets ? JSON.parse(updatedCard.based_on_assets) : null
+        };
+        
+        res.status(200).json(processedCard);
+        return;
     }));
     
     // Delete a character card
@@ -166,21 +243,52 @@ export default function createComponentRouter() {
         );
         
         res.status(200).json({ message: 'Character card deleted successfully' });
+        return;
     }));
     
     // --- Instruction Set Endpoints ---
     
     // Get all instruction sets for a user
     router.get('/:userId/instruction-sets', asyncHandler(async (req: Request, res: Response) => {
-        const userId = req.params.userId;
-        const db = req.app.locals.db;
-        
-        const instructionSets = await db.all(
-            `SELECT * FROM instruction_sets WHERE user_id = ? ORDER BY created_at DESC`,
-            [userId]
-        );
-        
-        res.status(200).json(instructionSets);
+        try {
+            const userId = req.params.userId;
+            const db = req.app.locals.db;
+            
+            if (!db) {
+                console.error('Database connection not available');
+                return res.status(500).json({ error: 'Database connection not available' });
+            }
+            
+            const instructionSets = await db.all(
+                `SELECT * FROM instruction_sets WHERE user_id = ? ORDER BY created_at DESC`,
+                [userId]
+            );
+            
+            // Process the instruction sets to parse the JSON data field with proper error handling
+            const processedInstructionSets = instructionSets.map((instructionSet: any) => {
+                try {
+                    return {
+                        ...instructionSet,
+                        instruction_data: instructionSet.instruction_data ? JSON.parse(instructionSet.instruction_data) : null
+                    };
+                } catch (parseError) {
+                    console.error(`Error parsing JSON for instruction set ${instructionSet.instruction_id}:`, parseError);
+                    // Return the instruction set with unparsed data rather than crashing
+                    return {
+                        ...instructionSet,
+                        instruction_data: instructionSet.instruction_data || null,
+                        parse_error: true
+                    };
+                }
+            });
+            
+            console.log(`Found ${instructionSets.length} instruction sets for user ${userId}`);
+            
+            return res.status(200).json(processedInstructionSets || []);
+        } catch (error) {
+            console.error('Error in instruction-sets route:', error);
+            return res.status(500).json({ error: 'Internal server error', details: String(error) });
+        }
     }));
     
     // Get instruction sets for a specific medium
@@ -196,7 +304,16 @@ export default function createComponentRouter() {
             [userId, medium]
         );
         
-        res.status(200).json(instructionSets);
+        // Process the instruction sets to parse the JSON data field
+        const processedInstructionSets = instructionSets.map((instructionSet: any) => ({
+            ...instructionSet,
+            instruction_data: JSON.parse(instructionSet.instruction_data)
+        }));
+        
+        console.log(`Found ${instructionSets.length} instruction sets for user ${userId} and medium ${medium}`);
+        
+        res.status(200).json(processedInstructionSets || []);
+        return;
     }));
     
     // Get a specific instruction set
@@ -213,7 +330,14 @@ export default function createComponentRouter() {
             return res.status(404).json({ error: 'Instruction set not found' });
         }
         
-        res.status(200).json(instructionSet);
+        // Parse the instruction data JSON
+        const processedInstructionSet = {
+            ...instructionSet,
+            instruction_data: JSON.parse(instructionSet.instruction_data)
+        };
+        
+        res.status(200).json(processedInstructionSet);
+        return;
     }));
     
     // Create a new instruction set
@@ -270,7 +394,14 @@ export default function createComponentRouter() {
             [instructionId]
         );
         
-        res.status(201).json(instructionSet);
+        // Process the instruction set to parse the JSON data
+        const processedInstructionSet = {
+            ...instructionSet,
+            instruction_data: JSON.parse(instructionSet.instruction_data)
+        };
+        
+        res.status(201).json(processedInstructionSet);
+        return;
     }));
     
     // Update an instruction set
@@ -330,7 +461,14 @@ export default function createComponentRouter() {
             [instructionId]
         );
         
-        res.status(200).json(updatedInstructionSet);
+        // Process the instruction set to parse the JSON data
+        const processedInstructionSet = {
+            ...updatedInstructionSet,
+            instruction_data: JSON.parse(updatedInstructionSet.instruction_data)
+        };
+        
+        res.status(200).json(processedInstructionSet);
+        return;
     }));
     
     // Delete an instruction set
@@ -368,28 +506,59 @@ export default function createComponentRouter() {
         );
         
         res.status(200).json({ message: 'Instruction set deleted successfully' });
+        return;
     }));
     
     // --- Prompt Template Endpoints ---
     
     // Get all prompt templates for a user
     router.get('/:userId/templates', asyncHandler(async (req: Request, res: Response) => {
-        const userId = req.params.userId;
-        const db = req.app.locals.db;
-        
-        const templates = await db.all(
-            `SELECT t.*, 
-                    cc.card_name, 
-                    ins.instruction_name 
-             FROM prompt_templates t
-             LEFT JOIN character_cards cc ON t.card_id = cc.card_id
-             LEFT JOIN instruction_sets ins ON t.instruction_id = ins.instruction_id
-             WHERE t.user_id = ? 
-             ORDER BY t.created_at DESC`,
-            [userId]
-        );
-        
-        res.status(200).json(templates);
+        try {
+            const userId = req.params.userId;
+            const db = req.app.locals.db;
+            
+            if (!db) {
+                console.error('Database connection not available');
+                return res.status(500).json({ error: 'Database connection not available' });
+            }
+            
+            const templates = await db.all(
+                `SELECT t.*, 
+                        cc.card_name, 
+                        ins.instruction_name 
+                 FROM prompt_templates t
+                 LEFT JOIN character_cards cc ON t.card_id = cc.card_id
+                 LEFT JOIN instruction_sets ins ON t.instruction_id = ins.instruction_id
+                 WHERE t.user_id = ? 
+                 ORDER BY t.created_at DESC`,
+                [userId]
+            );
+            
+            // Process the templates to parse the JSON assembled_prompt field with proper error handling
+            const processedTemplates = templates.map((template: any) => {
+                try {
+                    return {
+                        ...template,
+                        assembled_prompt: template.assembled_prompt ? JSON.parse(template.assembled_prompt) : null
+                    };
+                } catch (parseError) {
+                    console.error(`Error parsing JSON for template ${template.template_id}:`, parseError);
+                    // Return the template with unparsed data rather than crashing
+                    return {
+                        ...template,
+                        assembled_prompt: template.assembled_prompt || null,
+                        parse_error: true
+                    };
+                }
+            });
+            
+            console.log(`Found ${templates.length} prompt templates for user ${userId}`);
+            
+            return res.status(200).json(processedTemplates || []);
+        } catch (error) {
+            console.error('Error in templates route:', error);
+            return res.status(500).json({ error: 'Internal server error', details: String(error) });
+        }
     }));
     
     // Create a new prompt template
@@ -491,7 +660,14 @@ export default function createComponentRouter() {
             [templateId]
         );
         
-        res.status(201).json(template);
+        // Process the template to parse the JSON data
+        const processedTemplate = {
+            ...template,
+            assembled_prompt: JSON.parse(template.assembled_prompt)
+        };
+        
+        res.status(201).json(processedTemplate);
+        return;
     }));
     
     return router;
