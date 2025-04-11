@@ -503,19 +503,19 @@ async function generateContent(): Promise<void> {
             throw new Error(errorMsg);
         }
         const result = await response.json();
-        if (result.reply) {
+        if (result.content) {
             if (platformType === 'twitter') {
-                generatedContentOutput.innerHTML = `<div class="twitter-post">${result.reply}</div>`;
+                generatedContentOutput.innerHTML = `<div class="twitter-post">${result.content}</div>`;
             } else if (platformType === 'linkedin') {
-                generatedContentOutput.innerHTML = `<div class="linkedin-post">${result.reply}</div>`;
+                generatedContentOutput.innerHTML = `<div class="linkedin-post">${result.content}</div>`;
             } else if (platformType === 'blog') {
-                generatedContentOutput.innerHTML = `<div class="blog-post">${result.reply}</div>`;
+                generatedContentOutput.innerHTML = `<div class="blog-post">${result.content}</div>`;
             } else {
-                generatedContentOutput.textContent = result.reply;
+                generatedContentOutput.textContent = result.content;
             }
             showStatus(generationStatusDiv, `${platformType.charAt(0).toUpperCase() + platformType.slice(1)} content generated successfully!`, 'success', 3000);
         } else {
-            throw new Error('No reply content received from the server.');
+            throw new Error('No content received from the server.');
         }
     } catch (error) {
         console.error('Error generating content:', error);
