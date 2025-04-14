@@ -991,6 +991,31 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
 
               <!-- Content Generation Area (for other mediums) -->
               <div id="content-generation-area" style="display: none; /* Start hidden */ margin-top: 20px;">
+                <!-- Add Main Goal Field -->
+                <div class="main-goal-container" style="margin-bottom: 20px;">
+                  <label for="main-goal-input" class="sub-label">Main Goal:</label>
+                  <textarea id="main-goal-input" rows="3" placeholder="Enter your specific request or goal (e.g., 'Write a post about AI ethics')..."></textarea>
+                  <!-- Add Save button for Main Goal -->
+                  <div class="button-group" style="margin-top: 10px; text-align: right;">
+                    <button id="save-main-goal-button" class="action-button primary-button" style="width: auto;">Save Main Goal</button>
+                  </div>
+                  <div id="main-goal-status" class="status info" style="display: none; margin-top: 5px;"></div>
+                </div>
+                
+                <!-- Add Examples Field -->
+                <div class="examples-container" style="margin-bottom: 20px;">
+                  <label for="examples-input" class="sub-label">Examples (Optional):</label>
+                  <textarea id="examples-input" rows="4" placeholder="Enter examples to guide the AI, separated by new lines..."></textarea>
+                  <p class="field-help" style="font-size: 12px; color: #888; margin-top: 5px;">
+                    Add examples to demonstrate style, format, or tone. Each line will be treated as a separate example.
+                  </p>
+                  <!-- Add Save button for Examples -->
+                  <div class="button-group" style="margin-top: 10px; text-align: right;">
+                    <button id="save-examples-button" class="action-button primary-button" style="width: auto;">Save Examples</button>
+                  </div>
+                  <div id="examples-status" class="status info" style="display: none; margin-top: 5px;"></div>
+                </div>
+                
                 <button id="generate-content-button" class="action-button">Generate Content</button>
                 <div id="generation-status" class="status info" style="margin-top: 10px;"></div>
                 <div id="generated-content-output" class="generated-output" style="margin-top: 15px; white-space: pre-wrap; /* Preserve formatting */"></div>

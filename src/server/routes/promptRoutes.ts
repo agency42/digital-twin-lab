@@ -52,7 +52,7 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
         }
     }));
 
-    // GET /api/prompts/:userId/generations-data - Get data for Chat/Post tabs
+    // GET /api/prompts/:userId/generations-data - Get all data needed for the Generations tab
     router.get('/:userId/generations-data', asyncHandler(async (req: Request, res: Response) => {
         const { userId } = req.params;
         const type = req.query.type as 'chat' | 'post';
@@ -61,11 +61,18 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
             return res.status(400).json({ error: 'User ID parameter is required' });
         }
         if (type !== 'chat' && type !== 'post') {
-            return res.status(400).json({ error: "Invalid or missing 'type' query parameter (must be 'chat' or 'post')" });
+            return res.status(400).json({ error: "Invalid type parameter (must be 'chat' or 'post')" });
         }
 
-        const data = await promptService.getGenerationsData(userId, type);
-        return res.status(200).json(data); // Sends { characterCard, systemPrompt, instructionTemplate }
+        try {
+            // This will return the current character card, system prompt, and instruction template
+            // Note that the instruction template may now include mainGoal and examples from metadata
+            const data = await promptService.getGenerationsData(userId, type);
+            return res.status(200).json(data);
+        } catch (error: any) {
+            logger.error(`Error getting generations data for ${userId}/${type}:`, error);
+            return res.status(500).json({ error: `Failed to get generations data: ${error.message}` });
+        }
     }));
 
     // PUT /api/prompts/:userId/system-prompts/:type - Save/Update a system prompt
@@ -107,23 +114,242 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
         }
     }));
 
-    // PUT /api/prompts/:userId/instruction-templates/:type - Save/Update an instruction template
+    // Save instruction template for a specific type (main endpoint)
     router.put('/:userId/instruction-templates/:type', asyncHandler(async (req: Request, res: Response) => {
-        const { userId, type } = req.params as { userId: string; type: 'chat' | 'post' };
-        const { instructionText } = req.body;
+        const userId = req.params.userId;
+        const type = req.params.type as 'chat' | 'post' | 'assessment'; // only these types are supported
+        const { instructionText, mainGoal, examples } = req.body;
 
-        if (!userId) {
-            return res.status(400).json({ error: 'User ID parameter is required' });
-        }
-        if (type !== 'chat' && type !== 'post') {
-            return res.status(400).json({ error: "Invalid type parameter (must be 'chat' or 'post')" });
-        }
-        if (typeof instructionText !== 'string') {
-            return res.status(400).json({ error: "Missing or invalid 'instructionText' in request body." });
+        if (!instructionText) {
+            throw new Error('Missing required field: instructionText');
         }
 
-        const savedTemplate = await promptService.saveInstructionTemplate(userId, type, instructionText);
-        return res.status(200).json(savedTemplate);
+        const db = req.app.locals.db;
+
+        try {
+            // First check if user has an existing instruction template
+            const existingTemplate = await db.get(
+                `SELECT * FROM instruction_templates 
+                 WHERE user_id = ? AND type = ?`,
+                [userId, type]
+            );
+
+            if (existingTemplate) {
+                // Update existing instruction template
+                await db.run(
+                    `UPDATE instruction_templates 
+                     SET instruction_text = ?, 
+                         mainGoal = ?, 
+                         examples = ?,
+                         modified_at = CURRENT_TIMESTAMP
+                     WHERE user_id = ? AND type = ?`,
+                    [
+                        instructionText,
+                        mainGoal || null,
+                        examples && examples.length ? JSON.stringify(examples) : null,
+                        userId,
+                        type
+                    ]
+                );
+            } else {
+                // Create new instruction template
+                await db.run(
+                    `INSERT INTO instruction_templates 
+                     (user_id, type, instruction_text, mainGoal, examples, created_at, modified_at)
+                     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                    [
+                        userId,
+                        type,
+                        instructionText,
+                        mainGoal || null,
+                        examples && examples.length ? JSON.stringify(examples) : null
+                    ]
+                );
+            }
+
+            // Get the updated/created template
+            const updatedTemplate = await db.get(
+                `SELECT * FROM instruction_templates 
+                 WHERE user_id = ? AND type = ?`,
+                [userId, type]
+            );
+
+            if (!updatedTemplate) {
+                throw new Error('Failed to retrieve updated instruction template');
+            }
+
+            // Parse examples if they exist
+            if (updatedTemplate.examples) {
+                try {
+                    updatedTemplate.examples = JSON.parse(updatedTemplate.examples);
+                } catch (error) {
+                    console.error('Error parsing examples JSON:', error);
+                    updatedTemplate.examples = [];
+                }
+            } else {
+                updatedTemplate.examples = [];
+            }
+
+            res.status(200).json(updatedTemplate);
+        } catch (error: any) {
+            console.error('Error saving instruction template:', error);
+            throw new Error(`Failed to save instruction template: ${error.message}`);
+        }
+    }));
+    
+    // Save main goal field only for a specific instruction template
+    router.put('/:userId/instruction-templates/:type/main-goal', asyncHandler(async (req: Request, res: Response) => {
+        const userId = req.params.userId;
+        const type = req.params.type as 'chat' | 'post' | 'assessment'; // only these types are supported
+        const { mainGoal } = req.body;
+
+        if (mainGoal === undefined) {
+            throw new Error('Missing required field: mainGoal');
+        }
+
+        const db = req.app.locals.db;
+
+        try {
+            // First check if user has an existing instruction template
+            const existingTemplate = await db.get(
+                `SELECT * FROM instruction_templates 
+                 WHERE user_id = ? AND type = ?`,
+                [userId, type]
+            );
+
+            if (existingTemplate) {
+                // Update existing instruction template's main goal
+                await db.run(
+                    `UPDATE instruction_templates 
+                     SET mainGoal = ?,
+                         modified_at = CURRENT_TIMESTAMP
+                     WHERE user_id = ? AND type = ?`,
+                    [mainGoal || null, userId, type]
+                );
+            } else {
+                // Create new instruction template with default instruction text and the provided main goal
+                const defaultInstructionText = type === 'chat' 
+                    ? "Engage in a helpful and informative conversation." 
+                    : "Generate content for the specified platform following the main goal.";
+                
+                await db.run(
+                    `INSERT INTO instruction_templates 
+                     (user_id, type, instruction_text, mainGoal, created_at, modified_at)
+                     VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                    [userId, type, defaultInstructionText, mainGoal || null]
+                );
+            }
+
+            // Get the updated/created template
+            const updatedTemplate = await db.get(
+                `SELECT * FROM instruction_templates 
+                 WHERE user_id = ? AND type = ?`,
+                [userId, type]
+            );
+
+            if (!updatedTemplate) {
+                throw new Error('Failed to retrieve updated instruction template');
+            }
+
+            // Parse examples if they exist
+            if (updatedTemplate.examples) {
+                try {
+                    updatedTemplate.examples = JSON.parse(updatedTemplate.examples);
+                } catch (error) {
+                    console.error('Error parsing examples JSON:', error);
+                    updatedTemplate.examples = [];
+                }
+            } else {
+                updatedTemplate.examples = [];
+            }
+
+            res.status(200).json(updatedTemplate);
+        } catch (error: any) {
+            console.error('Error saving main goal:', error);
+            throw new Error(`Failed to save main goal: ${error.message}`);
+        }
+    }));
+    
+    // Save examples field only for a specific instruction template
+    router.put('/:userId/instruction-templates/:type/examples', asyncHandler(async (req: Request, res: Response) => {
+        const userId = req.params.userId;
+        const type = req.params.type as 'chat' | 'post' | 'assessment'; // only these types are supported
+        const { examples } = req.body;
+
+        if (!Array.isArray(examples)) {
+            throw new Error('Missing or invalid required field: examples must be an array');
+        }
+
+        const db = req.app.locals.db;
+
+        try {
+            // First check if user has an existing instruction template
+            const existingTemplate = await db.get(
+                `SELECT * FROM instruction_templates 
+                 WHERE user_id = ? AND type = ?`,
+                [userId, type]
+            );
+
+            if (existingTemplate) {
+                // Update existing instruction template's examples
+                await db.run(
+                    `UPDATE instruction_templates 
+                     SET examples = ?,
+                         modified_at = CURRENT_TIMESTAMP
+                     WHERE user_id = ? AND type = ?`,
+                    [
+                        examples && examples.length ? JSON.stringify(examples) : null,
+                        userId,
+                        type
+                    ]
+                );
+            } else {
+                // Create new instruction template with default instruction text and the provided examples
+                const defaultInstructionText = type === 'chat' 
+                    ? "Engage in a helpful and informative conversation." 
+                    : "Generate content for the specified platform following the examples provided.";
+                
+                await db.run(
+                    `INSERT INTO instruction_templates 
+                     (user_id, type, instruction_text, examples, created_at, modified_at)
+                     VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                    [
+                        userId,
+                        type,
+                        defaultInstructionText,
+                        examples && examples.length ? JSON.stringify(examples) : null
+                    ]
+                );
+            }
+
+            // Get the updated/created template
+            const updatedTemplate = await db.get(
+                `SELECT * FROM instruction_templates 
+                 WHERE user_id = ? AND type = ?`,
+                [userId, type]
+            );
+
+            if (!updatedTemplate) {
+                throw new Error('Failed to retrieve updated instruction template');
+            }
+
+            // Parse examples if they exist
+            if (updatedTemplate.examples) {
+                try {
+                    updatedTemplate.examples = JSON.parse(updatedTemplate.examples);
+                } catch (error) {
+                    console.error('Error parsing examples JSON:', error);
+                    updatedTemplate.examples = [];
+                }
+            } else {
+                updatedTemplate.examples = [];
+            }
+
+            res.status(200).json(updatedTemplate);
+        } catch (error: any) {
+            console.error('Error saving examples:', error);
+            throw new Error(`Failed to save examples: ${error.message}`);
+        }
     }));
 
     // --- Template File Endpoints (Keep as is for now) ---

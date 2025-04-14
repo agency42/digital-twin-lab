@@ -51,6 +51,23 @@ interface GenerationsData {
     instructionTemplate: InstructionTemplate | null;
 }
 
+// Add new interface for instruction template options
+interface InstructionTemplateOptions {
+    mainGoal?: string;
+    examples?: string[];
+}
+
+// Add new interface for the expanded instruction template DB storage
+interface InstructionTemplateExpanded extends InstructionTemplate {
+    metadata?: string; // JSON string for storing mainGoal and examples
+}
+
+// Add new interface for instruction template with metadata
+interface InstructionTemplateWithMetadata extends InstructionTemplate {
+    mainGoal?: string;
+    examples?: string[];
+}
+
 /**
  * Service for managing character cards, system prompts, and instructions.
  */
@@ -232,17 +249,50 @@ class PromptService {
     }
 
     /**
-     * Retrieves a specific instruction template.
-     * @param userId 
-     * @param type 
-     * @returns 
+     * Retrieves an instruction template for a user and type.
+     * @param userId The user ID.
+     * @param type The template type ('chat' or 'post').
+     * @returns {Promise<InstructionTemplate | null>} The template or null.
      */
-    async getInstructionTemplate(userId: string, type: 'chat' | 'post'): Promise<InstructionTemplate | null> {
+    async getInstructionTemplate(userId: string, type: 'chat' | 'post'): Promise<InstructionTemplateWithMetadata | null> {
         try {
-            const template = await dbGet<InstructionTemplate>('SELECT * FROM instruction_templates WHERE user_id = ? AND type = ?', [userId, type]);
-            return template || null;
+            const template = await dbGet<InstructionTemplateExpanded>(
+                'SELECT * FROM instruction_templates WHERE user_id = ? AND type = ?',
+                [userId, type]
+            );
+            
+            if (!template) {
+                return null;
+            }
+            
+            // Process metadata if it exists
+            let mainGoal: string | undefined;
+            let examples: string[] | undefined;
+            
+            if (template.metadata) {
+                try {
+                    const metadataObj = JSON.parse(template.metadata);
+                    mainGoal = metadataObj.mainGoal || undefined;
+                    examples = Array.isArray(metadataObj.examples) ? metadataObj.examples : undefined;
+                } catch (e) {
+                    logger.warn(`Failed to parse metadata for instruction template ${template.id}: ${e}`);
+                    // Continue without the metadata
+                }
+            }
+            
+            // Return the template with metadata fields if available
+            return {
+                id: template.id,
+                user_id: template.user_id,
+                type: template.type,
+                instruction_text: template.instruction_text,
+                created_at: template.created_at,
+                updated_at: template.updated_at,
+                mainGoal,
+                examples
+            };
         } catch (error: any) {
-            logger.error(`Error getting instruction template for user ${userId}, type ${type}:`, error);
+            logger.error(`Error getting instruction template for ${userId}/${type}:`, error);
             return null;
         }
     }
@@ -299,34 +349,83 @@ class PromptService {
     }
 
     /**
-     * Saves/Updates an instruction template.
-     * @param userId 
-     * @param type 
-     * @param instructionText 
-     * @returns 
+     * Saves or updates an instruction template for a user.
+     * @param userId The user ID.
+     * @param type The template type ('chat' or 'post').
+     * @param instructionText The instruction text.
+     * @param options Optional parameters including mainGoal and examples
+     * @returns {Promise<InstructionTemplate>} The saved template.
      */
-    async saveInstructionTemplate(userId: string, type: 'chat' | 'post', instructionText: string): Promise<InstructionTemplate> {
+    async saveInstructionTemplate(
+        userId: string, 
+        type: 'chat' | 'post', 
+        instructionText: string,
+        options: InstructionTemplateOptions = {}
+    ): Promise<InstructionTemplate> {
         const now = new Date().toISOString();
+        
+        // Create metadata JSON if we have mainGoal or examples
+        let metadata: string | null = null;
+        if (options.mainGoal || (options.examples && options.examples.length > 0)) {
+            metadata = JSON.stringify({
+                mainGoal: options.mainGoal || null,
+                examples: options.examples || []
+            });
+        }
+        
+        // Check if we need to add the metadata column first
+        await this.ensureMetadataColumn();
+        
         const upsertQuery = `
-            INSERT INTO instruction_templates (id, user_id, type, instruction_text, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO instruction_templates (id, user_id, type, instruction_text, metadata, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id, type) DO UPDATE SET
                 instruction_text = excluded.instruction_text,
+                metadata = excluded.metadata,
                 updated_at = excluded.updated_at
             RETURNING *;
         `;
-        const params = [uuidv4(), userId, type, instructionText, now, now];
+        const params = [uuidv4(), userId, type, instructionText, metadata, now, now];
 
         try {
-            const savedTemplate = await dbGet<InstructionTemplate>(upsertQuery, params);
+            const savedTemplate = await dbGet<InstructionTemplateExpanded>(upsertQuery, params);
             if (!savedTemplate) {
                 throw new Error('Failed to save instruction template.');
             }
             logger.info(`Saved instruction template for ${userId}/${type}`);
-            return savedTemplate;
+            
+            // Return a standardized version without the metadata field
+            return {
+                id: savedTemplate.id,
+                user_id: savedTemplate.user_id,
+                type: savedTemplate.type,
+                instruction_text: savedTemplate.instruction_text,
+                created_at: savedTemplate.created_at,
+                updated_at: savedTemplate.updated_at
+            };
         } catch (error: any) {
             logger.error(`Error saving instruction template for ${userId}/${type}:`, error);
             throw new Error(`Failed to save instruction template: ${error.message}`);
+        }
+    }
+
+    /**
+     * Ensures the metadata column exists in the instruction_templates table.
+     * This is to support backward compatibility with existing tables.
+     */
+    private async ensureMetadataColumn(): Promise<void> {
+        try {
+            // Check if the column exists
+            const tableInfo = await dbAll('PRAGMA table_info(instruction_templates)');
+            const hasMetadataColumn = tableInfo.some((col: any) => col.name === 'metadata');
+            
+            if (!hasMetadataColumn) {
+                logger.info('Adding metadata column to instruction_templates table');
+                await dbRun('ALTER TABLE instruction_templates ADD COLUMN metadata TEXT');
+            }
+        } catch (error) {
+            logger.error('Failed to ensure metadata column:', error);
+            // Continue without failing - worst case, we won't store metadata
         }
     }
 }

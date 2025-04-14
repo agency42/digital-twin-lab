@@ -14,8 +14,8 @@
     "build-client": "tsc -p tsconfig.frontend.json",
     "copy-static": "mkdir -p dist/database dist/public && cp database/schema.sql dist/database/ && cp -r public/css public/img public/js public/favicon.ico public/index.html dist/public/",
     "clean": "rm -rf dist",
-    "clean-js": "find public/js -name \"*.js\" -delete && find public/js -name \"*.js.map\" -delete && find public/js -name \"*.ts\" -delete",
-    "db:migrate": "node scripts/migrate.js",
+    "clean-js": "find public/js -name \"*.js\" -delete && find public/js -name \"*.js.map\" -delete",
+    "db:migrate": "node scripts/migrate_prompts.js",
     "db:reset": "node scripts/reset.js"
   },
   "keywords": [

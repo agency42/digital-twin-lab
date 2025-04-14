@@ -39,7 +39,13 @@ interface InstructionTemplate {
 interface GenerationsData {
     characterCard: CharacterCard | null;
     systemPrompt: SystemPrompt | null;
-    instructionTemplate: InstructionTemplate | null;
+    instructionTemplate: InstructionTemplateWithMetadata | null;
+}
+
+// Extended interface for instruction template with metadata
+interface InstructionTemplateWithMetadata extends InstructionTemplate {
+    mainGoal?: string;
+    examples?: string[];
 }
 
 // --- Interfaces ---
@@ -60,6 +66,8 @@ interface ContentMediumElements {
     generatedContentOutput: HTMLElement | null;
     generationStatusDiv: HTMLDivElement | null;
     showSystemPromptCheckbox: HTMLInputElement | null;
+    mainGoalInput: HTMLTextAreaElement | null; // Added main goal input element
+    examplesInput: HTMLTextAreaElement | null; // Added examples input element
     // Remove elements related to character card/instruction set selection
 }
 
@@ -79,6 +87,12 @@ let mediumTabsContainer: HTMLElement | null = null;
 let showSystemPromptCheckbox: HTMLInputElement | null = null;
 let saveSystemPromptButton: HTMLButtonElement | null = null; // ADDED
 let saveInstructionsButton: HTMLButtonElement | null = null; // ADDED
+let mainGoalInput: HTMLTextAreaElement | null = null; // ADDED
+let examplesInput: HTMLTextAreaElement | null = null; // ADDED
+let saveMainGoalButton: HTMLButtonElement | null = null;
+let saveExamplesButton: HTMLButtonElement | null = null;
+let mainGoalStatusDiv: HTMLDivElement | null = null;
+let examplesStatusDiv: HTMLDivElement | null = null;
 
 let currentMedium: ContentMediumType = 'chat'; // Default medium
 let currentCharacterCardData: string | null = null; // Store the raw card data for reset reference
@@ -108,6 +122,14 @@ export function initContentMediumModule(): void {
     instructionStatusDiv = document.getElementById('instruction-status') as HTMLDivElement | null;
     saveSystemPromptButton = document.getElementById('save-system-prompt-button') as HTMLButtonElement | null;
     saveInstructionsButton = document.getElementById('save-instructions-button') as HTMLButtonElement | null;
+    mainGoalInput = document.getElementById('main-goal-input') as HTMLTextAreaElement | null;
+    examplesInput = document.getElementById('examples-input') as HTMLTextAreaElement | null;
+    
+    // ADD selectors for new buttons and status divs
+    saveMainGoalButton = document.getElementById('save-main-goal-button') as HTMLButtonElement | null;
+    saveExamplesButton = document.getElementById('save-examples-button') as HTMLButtonElement | null;
+    mainGoalStatusDiv = document.getElementById('main-goal-status') as HTMLDivElement | null;
+    examplesStatusDiv = document.getElementById('examples-status') as HTMLDivElement | null;
 
     // --- Add Robust Element Checks ---
     if (!mediumTabsContainer) console.error("ContentMediumModule Error: Could not find mediumTabsContainer (.medium-tabs)");
@@ -122,6 +144,12 @@ export function initContentMediumModule(): void {
     if (!instructionStatusDiv) console.error("ContentMediumModule Error: Could not find instructionStatusDiv (#instruction-status)");
     if (!saveSystemPromptButton) console.error("ContentMediumModule Error: Could not find saveSystemPromptButton (#save-system-prompt-button)");
     if (!saveInstructionsButton) console.error("ContentMediumModule Error: Could not find saveInstructionsButton (#save-instructions-button)");
+    if (!mainGoalInput) console.error("ContentMediumModule Error: Could not find mainGoalInput (#main-goal-input)");
+    if (!examplesInput) console.error("ContentMediumModule Error: Could not find examplesInput (#examples-input)");
+    if (!saveMainGoalButton) console.error("ContentMediumModule Error: Could not find saveMainGoalButton (#save-main-goal-button)");
+    if (!saveExamplesButton) console.error("ContentMediumModule Error: Could not find saveExamplesButton (#save-examples-button)");
+    if (!mainGoalStatusDiv) console.error("ContentMediumModule Error: Could not find mainGoalStatusDiv (#main-goal-status)");
+    if (!examplesStatusDiv) console.error("ContentMediumModule Error: Could not find examplesStatusDiv (#examples-status)");
     // --- End Element Checks ---
 
     // Add listeners only if elements exist
@@ -142,6 +170,8 @@ export function initContentMediumModule(): void {
     generateContentButton?.addEventListener('click', generateContent);
     saveSystemPromptButton?.addEventListener('click', handleSaveSystemPrompt);
     saveInstructionsButton?.addEventListener('click', handleSaveInstructions);
+    saveMainGoalButton?.addEventListener('click', handleSaveMainGoal);
+    saveExamplesButton?.addEventListener('click', handleSaveExamples);
     // Remove blur listeners, rely on explicit save buttons
     // systemPromptEditor?.addEventListener('blur', saveCurrentMediumState);
     // instructionEditor?.addEventListener('blur', saveCurrentMediumState);
@@ -228,6 +258,21 @@ async function fetchAndLoadGenerationsData(userId: string, type: ContentMediumTy
             instructionEditor.value = data.instructionTemplate?.instruction_text ?? getDefaultInstructionText(type);
         } else {
             console.error("Cannot load instructions, editor not found");
+        }
+
+        // Populate the main goal field if it exists in the instruction template
+        if (mainGoalInput && data.instructionTemplate && data.instructionTemplate.mainGoal) {
+            mainGoalInput.value = data.instructionTemplate.mainGoal;
+        } else if (mainGoalInput) {
+            mainGoalInput.value = '';
+        }
+        
+        // Populate the examples field if they exist in the instruction template
+        if (examplesInput && data.instructionTemplate && data.instructionTemplate.examples) {
+            const examples = data.instructionTemplate.examples;
+            examplesInput.value = examples.join('\n');
+        } else if (examplesInput) {
+            examplesInput.value = '';
         }
 
         // Dispatch event indicating data has been loaded for the current medium
@@ -401,6 +446,16 @@ async function handleSaveInstructions(): Promise<void> {
     const userId = state.currentUserId;
     const instructionText = instructionEditor.value;
     const type = currentMedium;
+    
+    // Get values from the main goal and examples fields
+    const mainGoal = mainGoalInput?.value.trim() || "";
+    let examples: string[] = [];
+    if (examplesInput?.value.trim()) {
+        examples = examplesInput.value.trim()
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line); // Remove empty lines
+    }
 
     saveInstructionsButton.disabled = true;
     showStatus(instructionStatusDiv, `Saving ${type} instructions...`, 'loading');
@@ -409,7 +464,11 @@ async function handleSaveInstructions(): Promise<void> {
         const response = await fetch(`/api/prompts/${userId}/instruction-templates/${type}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ instructionText })
+            body: JSON.stringify({ 
+                instructionText,
+                mainGoal,
+                examples
+            })
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
@@ -440,20 +499,77 @@ function setActiveTab(medium: ContentMediumType): void {
     });
 }
 
-// Keep getCombinedPromptForAPI as it's used by generateContent
-export function getCombinedPromptForAPI(): { systemPrompt: string; instructions: string } | null {
-    const systemPrompt = systemPromptEditor?.value;
-    const instructions = instructionEditor?.value;
+// Interface for data returned by getCombinedPromptForAPI
+interface CombinedPrompt {
+    systemPrompt: string;
+    instructions: string;
+    mainGoal?: string;
+    examples?: string[];
+}
 
-    if (systemPrompt !== undefined && instructions !== undefined) {
-        return { systemPrompt, instructions };
+/**
+ * Get the combined prompt for the API request
+ * @returns Object with system prompt, instructions, main goal and examples
+ */
+export function getCombinedPromptForAPI(): CombinedPrompt | null {
+    if (!systemPromptEditor || !instructionEditor) {
+        console.error("Cannot get prompt data, editors not found");
+        return null;
     }
-    console.error("Could not get combined prompt: Editors not ready.");
-    return null;
+
+    // Extract main prompt sections
+    const systemPrompt = systemPromptEditor.value.trim();
+    const instructions = instructionEditor.value.trim();
+    
+    // Use the dedicated main goal input field if available, otherwise use structured parsing from instructions
+    let mainGoal = mainGoalInput?.value.trim() || "";
+    
+    // Get examples from the dedicated examples input field if available
+    let examples: string[] = [];
+    if (examplesInput?.value.trim()) {
+        examples = examplesInput.value.trim()
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line); // Remove empty lines
+    }
+    
+    // Fall back to structured parsing from instructions if no separate fields are populated
+    if (!mainGoal && !examples.length) {
+        // Try to extract main goal if the instructions contain a section marker
+        if (instructions.includes("## Main Goal:")) {
+            const mainGoalMatch = instructions.match(/## Main Goal:(.*?)(?:##|$)/s);
+            if (mainGoalMatch && mainGoalMatch[1]) {
+                mainGoal = mainGoalMatch[1].trim();
+            }
+        }
+        
+        // Try to extract examples if the instructions contain an examples section
+        if (instructions.includes("## Examples:")) {
+            const examplesMatch = instructions.match(/## Examples:(.*?)(?:##|$)/s);
+            if (examplesMatch && examplesMatch[1]) {
+                // Split by newlines and remove empty lines
+                examples = examplesMatch[1].split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line && !line.startsWith('##'));
+            }
+        }
+    }
+    
+    if (!systemPrompt || !instructions) {
+        console.error("System prompt or instructions are empty");
+        return null;
+    }
+
+    return {
+        systemPrompt,
+        instructions,
+        mainGoal: mainGoal || undefined,
+        examples: examples.length > 0 ? examples : undefined
+    };
 }
 
 
-// --- Content Generation (Largely unchanged, uses getCombinedPromptForAPI) ---
+// --- Content Generation (Updated to use new fields) ---
 
 async function generateContent(): Promise<void> {
     if (!generateContentButton || !generationStatusDiv || !generatedContentOutput) return;
@@ -461,11 +577,14 @@ async function generateContent(): Promise<void> {
         showStatus(generationStatusDiv, 'Please select a user first', 'error');
         return;
     }
+    
+    // Get all prompt components including main goal and examples from the dedicated fields
     const combinedPrompt = getCombinedPromptForAPI();
     if (!combinedPrompt) {
         showStatus(generationStatusDiv, 'Prompt or instructions are missing.', 'error');
         return;
     }
+    
     let platformType = 'generic';
     const instructionText = combinedPrompt.instructions.toLowerCase();
     if (instructionText.includes('tweet') || instructionText.includes('twitter')) {
@@ -475,23 +594,37 @@ async function generateContent(): Promise<void> {
     } else if (instructionText.includes('blog') || instructionText.includes('article')) {
         platformType = 'blog';
     }
+    
     generateContentButton.disabled = true;
     showStatus(generationStatusDiv, `Generating ${platformType} content...`, 'loading');
     generatedContentOutput.innerHTML = '';
+    
     try {
         console.log(`Generating content for platform: ${platformType}`);
         console.log("System Prompt Used:", combinedPrompt.systemPrompt);
         console.log("Instruction Used:", combinedPrompt.instructions);
+        console.log("Main Goal:", combinedPrompt.mainGoal);
+        console.log("Examples:", combinedPrompt.examples);
+        
+        // Extract all components for the API call
+        const systemPrompt = combinedPrompt.systemPrompt;
+        const instructions = combinedPrompt.instructions;
+        const mainGoal = combinedPrompt.mainGoal || instructions; // Fallback to instructions if no main goal
+        const examples = combinedPrompt.examples || [];
+        
         const response = await fetch(`/api/chat/${state.currentUserId}/generate-content`, { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                systemPrompt: combinedPrompt.systemPrompt,
-                userMessage: combinedPrompt.instructions,
+                systemPrompt,
+                instructions,
+                examples,
+                mainGoal,
                 medium: currentMedium,
                 stream: false
             })
         });
+        
         if (!response.ok) {
             let errorMsg = `Error generating content (${response.status})`;
             try {
@@ -502,6 +635,7 @@ async function generateContent(): Promise<void> {
             }
             throw new Error(errorMsg);
         }
+        
         const result = await response.json();
         if (result.content) {
             if (platformType === 'twitter') {
@@ -535,6 +669,82 @@ function getDefaultInstructionText(type: 'chat' | 'post'): string {
         return "Engage in a helpful and informative conversation.";
     }
     return "Generate content for a specific platform (e.g., Twitter, LinkedIn, Blog). Specify platform requirements in your instructions, such as 'Create a tweet under 280 characters' or 'Write a professional LinkedIn post'.";
+}
+
+/**
+ * Handles saving the main goal via API call.
+ */
+async function handleSaveMainGoal(): Promise<void> {
+    if (!state.currentUserId || !mainGoalInput || !saveMainGoalButton || !mainGoalStatusDiv) return;
+
+    const userId = state.currentUserId;
+    const mainGoal = mainGoalInput.value.trim();
+    const type = currentMedium;
+    
+    saveMainGoalButton.disabled = true;
+    showStatus(mainGoalStatusDiv, `Saving ${type} main goal...`, 'loading');
+
+    try {
+        const response = await fetch(`/api/prompts/${userId}/instruction-templates/${type}/main-goal`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mainGoal })
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
+            throw new Error(errorData.error || `Failed to save main goal (${response.status})`);
+        }
+        await response.json(); // Consume response body
+
+        showStatus(mainGoalStatusDiv, `${type.charAt(0).toUpperCase() + type.slice(1)} main goal saved successfully.`, 'success', 3000);
+    } catch (error: any) {
+        console.error("Error saving main goal:", error);
+        showStatus(mainGoalStatusDiv, `Error saving: ${error.message}`, 'error');
+    } finally {
+        saveMainGoalButton.disabled = false;
+    }
+}
+
+/**
+ * Handles saving the examples via API call.
+ */
+async function handleSaveExamples(): Promise<void> {
+    if (!state.currentUserId || !examplesInput || !saveExamplesButton || !examplesStatusDiv) return;
+
+    const userId = state.currentUserId;
+    const type = currentMedium;
+    
+    // Process examples - split by line and filter empty ones
+    let examples: string[] = [];
+    if (examplesInput.value.trim()) {
+        examples = examplesInput.value.trim()
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line); // Remove empty lines
+    }
+    
+    saveExamplesButton.disabled = true;
+    showStatus(examplesStatusDiv, `Saving ${type} examples...`, 'loading');
+
+    try {
+        const response = await fetch(`/api/prompts/${userId}/instruction-templates/${type}/examples`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ examples })
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
+            throw new Error(errorData.error || `Failed to save examples (${response.status})`);
+        }
+        await response.json(); // Consume response body
+
+        showStatus(examplesStatusDiv, `${type.charAt(0).toUpperCase() + type.slice(1)} examples saved successfully.`, 'success', 3000);
+    } catch (error: any) {
+        console.error("Error saving examples:", error);
+        showStatus(examplesStatusDiv, `Error saving: ${error.message}`, 'error');
+    } finally {
+        saveExamplesButton.disabled = false;
+    }
 }
 
 // (Add any other helper functions needed) 

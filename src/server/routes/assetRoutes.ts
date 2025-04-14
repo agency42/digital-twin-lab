@@ -189,24 +189,37 @@ function createAssetRouter(assetProcessor: AssetProcessor, claudeAPI: ClaudeAPI)
             return;
         }
 
-        // Read the image file (Paths should be correct relative to compiled JS)
-        const assetsDir = path.join(__dirname, '../../data/assets'); // Path relative to dist/routes? -> needs verification after compilation
+        // Read the image file
+        const assetsDir = path.join(__dirname, '../../data/assets');
         const imagePath = path.join(assetsDir, asset.file_path);
         const imageBuffer = await fs.readFile(imagePath);
         const imageBase64 = imageBuffer.toString('base64');
 
         const descriptionPrompt = prompt || 'Describe this image in detail.';
 
-        const description = await claudeAPI.generateImageDescription(
+        // Use the simplified Claude API for image processing
+        // The system message instructs Claude to describe the image
+        const systemMessage = "You are an expert at describing images. Provide detailed, objective descriptions of the images you're shown.";
+        
+        // Create the user message with image
+        const response = await claudeAPI.generateCompletion(
             descriptionPrompt,
-            imageBase64,
-            asset.mime_type as any // Cast mime_type, ensure it fits expected types
-        );
+            {
+                system: systemMessage,
+                temperature: 0.5,
+                stream: false,
+                media: [
+                    {
+                        type: asset.mime_type,
+                        data: imageBase64
+                    }
+                ]
+            }
+        ) as string;
 
-        res.status(200).json({ description });
+        res.status(200).json({ description: response });
         return;
     }));
-
 
     // DELETE /api/assets/:userId - Clear all assets for a user
     router.delete('/:userId', asyncHandler(async (req: Request, res: Response) => {

@@ -1,7 +1,7 @@
 /**
  * Reset script - completely resets the database by removing it and recreating with the current schema
  * WARNING: All data will be lost!
- * Run with: node database/reset.js
+ * Run with: node scripts/reset.js
  */
 
 const sqlite3 = require('sqlite3').verbose();
@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Database file path
-const dbPath = path.join(__dirname, 'digital_twin_lab.db');
+const dbPath = path.join(__dirname, '../database/digital_twin_lab.db');
 
 // Confirm reset with user
 console.log('WARNING: This will completely reset the database. All data will be lost!');
