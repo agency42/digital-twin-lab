@@ -15,42 +15,36 @@ export function updateNavigationTabsState(): void {
     
     // Check state to determine which tabs should be enabled
     const hasUser = !!state.currentUserId;
-    // Check if the loaded user data includes a character card
-    const hasCharacterCard = !!state.currentUserData?.characterCard;
+    const hasCharacterCard = !!state.currentUserData?.characterCard; // Check if character card exists
+    const hasCompletedAssessment = !!state.userTipiScores; // Check if assessment scores exist in state
     
     // Get tabs by their data-page attribute
-    const interactionsTab = Array.from(navTabs).find(tab => tab.getAttribute('data-page') === 'interactions-page');
     const generationsTab = Array.from(navTabs).find(tab => tab.getAttribute('data-page') === 'generations-page');
     const evaluationTab = Array.from(navTabs).find(tab => tab.getAttribute('data-page') === 'evaluation-page');
     
-    // Enable/disable tabs based on prerequisites
-    if (interactionsTab) {
-        if (hasUser && hasCharacterCard) {
-            interactionsTab.classList.remove('disabled-tab');
-            interactionsTab.removeAttribute('title');
-        } else {
-            interactionsTab.classList.add('disabled-tab');
-            interactionsTab.setAttribute('title', 'First select a user and generate a character card');
-        }
-    }
-    
+    // Enable/disable Generations tab
     if (generationsTab) {
         if (hasUser && hasCharacterCard) {
             generationsTab.classList.remove('disabled-tab');
             generationsTab.removeAttribute('title');
+            console.log("Navigation: Enabling Generations Tab");
         } else {
             generationsTab.classList.add('disabled-tab');
             generationsTab.setAttribute('title', 'First select a user and generate a character card');
+            console.log("Navigation: Disabling Generations Tab (User or Card Missing)");
         }
     }
     
+    // Enable/disable Evaluation tab
     if (evaluationTab) {
-        if (hasUser && hasCharacterCard) {
+        if (hasUser && hasCompletedAssessment) {
             evaluationTab.classList.remove('disabled-tab');
             evaluationTab.removeAttribute('title');
+            console.log("Navigation: Enabling Evaluation Tab");
         } else {
             evaluationTab.classList.add('disabled-tab');
-            evaluationTab.setAttribute('title', 'First select a user and generate a character card');
+            evaluationTab.setAttribute('title', 'First select a user and complete the assessment');
+            console.log("Navigation: Disabling Evaluation Tab (User or Assessment Missing)");
         }
     }
 }

@@ -87,6 +87,8 @@ CREATE TABLE IF NOT EXISTS instruction_templates (
     user_id TEXT NOT NULL,
     type TEXT NOT NULL CHECK(type IN ('chat', 'post')), -- 'chat' or 'post'
     instruction_text TEXT NOT NULL,
+    mainGoal TEXT,
+    examples TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, type), -- Ensure only one instruction set per type per user

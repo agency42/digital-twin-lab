@@ -274,103 +274,27 @@ class ClaudeAPI {
     }
 
     /**
-     * Formats prompt components into a structured XML format
-     * @param characterCard The character card data (JSON or string)
-     * @param instructions The instruction text
-     * @param examples Array of example strings
-     * @param mainGoal The main goal/request
-     * @returns Formatted XML string
-     */
-    private formatStructuredXmlPrompt(
-        characterCard: string | object,
-        instructions: string = "",
-        examples: string[] = [],
-        mainGoal: string = ""
-    ): string {
-        // Convert character card to string if it's an object
-        const characterCardStr = typeof characterCard === 'object' 
-            ? JSON.stringify(characterCard) 
-            : characterCard;
-        
-        // Build XML document
-        let xmlPrompt = `<Prompt version="1.0">\n`;
-        xmlPrompt += `  <Header>Digital Twin Prompt</Header>\n`;
-        
-        // Add character card section
-        xmlPrompt += `  <CharacterCard>\n`;
-        xmlPrompt += `    <Data><![CDATA[${characterCardStr}]]></Data>\n`;
-        xmlPrompt += `  </CharacterCard>\n`;
-        
-        // Add instructions section if provided
-        if (instructions && instructions.trim()) {
-            xmlPrompt += `  <Instructions>\n`;
-            // Split instructions by newline to create separate instruction elements
-            const instructionLines = instructions.split('\n')
-                .map(line => line.trim())
-                .filter(line => line);
-            
-            if (instructionLines.length > 0) {
-                instructionLines.forEach(line => {
-                    xmlPrompt += `    <Instruction>${this.escapeXml(line)}</Instruction>\n`;
-                });
-            } else {
-                // Add as single instruction if no newlines
-                xmlPrompt += `    <Instruction>${this.escapeXml(instructions)}</Instruction>\n`;
-            }
-            xmlPrompt += `  </Instructions>\n`;
-        }
-        
-        // Add examples section if provided
-        if (examples && examples.length > 0) {
-            xmlPrompt += `  <Examples>\n`;
-            examples.forEach((example, index) => {
-                xmlPrompt += `    <Example id="${index + 1}">${this.escapeXml(example)}</Example>\n`;
-            });
-            xmlPrompt += `  </Examples>\n`;
-        }
-        
-        // Add main goal section if provided
-        if (mainGoal && mainGoal.trim()) {
-            xmlPrompt += `  <MainGoal>${this.escapeXml(mainGoal)}</MainGoal>\n`;
-        }
-        
-        xmlPrompt += `</Prompt>`;
-        return xmlPrompt;
-    }
-
-    /**
-     * Escapes special XML characters to prevent malformed XML
-     * @param text Text to escape
-     * @returns Escaped text
-     */
-    private escapeXml(text: string): string {
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&apos;');
-    }
-
-    /**
-     * Generates a completion using structured XML format for the prompt
+     * Generates a completion using structured markdown format for the prompt
      * 
-     * @param characterCard Character card (JSON or string)
+     * @param characterCard Character card as a string
      * @param instructions Instructions for the task
      * @param examples Array of examples
      * @param mainGoal Primary user goal/request
      * @param options Additional configuration options
      * @returns Either a string (non-streaming) or an AsyncIterable (streaming)
+     * @deprecated Use generateCompletion directly with PromptConstructionService
      */
     async generateStructuredCompletion(
-        characterCard: string | object,
+        characterCard: string,
         instructions: string = "",
         examples: string[] = [],
         mainGoal: string = "",
         options: CompletionOptions = {}
     ): Promise<string | AsyncIterable<any>> {
-        // Format the system prompt as XML
-        const systemPromptXml = this.formatStructuredXmlPrompt(
+        console.warn('generateStructuredCompletion is deprecated. Use generateCompletion with PromptConstructionService instead.');
+        
+        // Format the system prompt as markdown
+        const systemPromptMarkdown = this.formatStructuredPrompt(
             characterCard,
             instructions,
             examples,
@@ -381,20 +305,79 @@ class ClaudeAPI {
         const userMessage = mainGoal;
         
         if (this.debug) {
-            console.log('Formatted XML System Prompt:');
-            console.log(systemPromptXml);
+            console.log('Formatted Markdown System Prompt:');
+            console.log(systemPromptMarkdown);
             console.log('User Message:');
             console.log(userMessage);
         }
         
-        // Call the standard generateCompletion with the formatted XML as system prompt
+        // Call the standard generateCompletion with the formatted markdown as system prompt
         return this.generateCompletion(
             userMessage,
             { 
                 ...options,
-                system: systemPromptXml
+                system: systemPromptMarkdown
             }
         );
+    }
+
+    /**
+     * Formats prompt components into a structured markdown prompt
+     * @param characterCard Character card content
+     * @param instructions Instructions for the prompt
+     * @param examples Example content
+     * @param mainGoal The main goal (will not be included in the system prompt)
+     * @returns Formatted markdown string
+     * @deprecated Use PromptConstructionService.formatMarkdownPrompt instead
+     */
+    private formatStructuredPrompt(
+        characterCard: string,
+        instructions: string = "",
+        examples: string[] = [],
+        mainGoal: string = ""
+    ): string {
+        console.warn('formatStructuredPrompt is deprecated. Use PromptConstructionService.formatMarkdownPrompt instead.');
+        
+        // Build markdown document
+        let prompt = `# Digital Twin Prompt\n\n`;
+        
+        // Add character card section
+        prompt += `## Character Card\n${characterCard}\n\n`;
+        
+        // Add instructions section if provided
+        if (instructions && instructions.trim()) {
+            prompt += `## Instructions\n`;
+            // Split instructions by newline to create separate instruction elements
+            const instructionLines = instructions.split('\n')
+                .map(line => line.trim())
+                .filter(line => line);
+            
+            if (instructionLines.length > 0) {
+                instructionLines.forEach(line => {
+                    prompt += `- ${line}\n`;
+                });
+            } else {
+                // Add as single instruction if no newlines
+                prompt += `${instructions}\n`;
+            }
+            prompt += '\n';
+        }
+        
+        // Add examples section if provided
+        if (examples && examples.length > 0) {
+            prompt += `## Examples\n`;
+            examples.forEach((example, index) => {
+                prompt += `${index + 1}. ${example}\n`;
+            });
+            prompt += '\n';
+        }
+        
+        // Add main goal section if provided
+        if (mainGoal && mainGoal.trim()) {
+            prompt += `## Main Goal\n${mainGoal}\n`;
+        }
+        
+        return prompt;
     }
 }
 

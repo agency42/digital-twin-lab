@@ -2,12 +2,12 @@
   "status": "completed",
   "message": "Scraping completed successfully. Visited 11 pages.",
   "url": "https://shoshin.blog",
-  "userId": "ken_v1",
-  "startTime": 1744350997601,
+  "userId": "test_user_new",
+  "startTime": 1744740440939,
   "pagesVisited": 11,
   "imagesFound": 11,
   "textAssetsCreated": 11,
-  "lastUpdated": 1744351000545,
-  "endTime": 1744351000544,
+  "lastUpdated": 1744740444264,
+  "endTime": 1744740444264,
   "durationSeconds": 3
 }

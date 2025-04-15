@@ -121,12 +121,28 @@ class AssetProcessor {
 
         // Move the uploaded file
         await file.mv(fullFilePath);
+        
+        // Read content for text-based files to store in the database
+        let fileContent: string | null = null;
+        if (assetType === 'text' || assetType === 'json') {
+            try {
+                fileContent = await fs.readFile(fullFilePath, 'utf-8');
+                console.log(`Read ${fileContent.length} bytes of text from ${fullFilePath}`);
+            } catch (readError) {
+                console.error(`Error reading text content from ${fullFilePath}:`, readError);
+                // Continue without content rather than failing the whole process
+            }
+        }
 
-        // TODO: Add URL scraping and PDF processing logic here if needed
-        // Example placeholder:
-        // if (assetType === 'url') { await this.scraper.scrapeAndSave(sourceUrl, fullFilePath); }
+        // Process PDFs for content extraction
         if (assetType === 'pdf') { 
-            await this.pdfProcessor.extractText(fullFilePath); 
+            try {
+                const pdfResult = await this.pdfProcessor.extractText(fullFilePath);
+                fileContent = pdfResult.text; // Use only the text property from PDFExtractResult
+            } catch (pdfError) {
+                console.error(`Error extracting text from PDF ${fullFilePath}:`, pdfError);
+                // Continue without content rather than failing
+            }
         }
         
         // Save asset metadata to database
@@ -137,9 +153,9 @@ class AssetProcessor {
             INSERT INTO assets (
                 id, user_id, file_type, file_path, 
                 source_platform, source_medium, filename, 
-                mime_type, size_bytes, upload_time, metadata, source_url
+                mime_type, size_bytes, upload_time, metadata, source_url, content
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         
         const params = [
@@ -150,11 +166,12 @@ class AssetProcessor {
             sourcePlatform, 
             sourceMedium, 
             originalFilename,   
-            mimeType,           // Corrected variable name
+            mimeType,           
             sizeBytes,
             now,                
             metadataJson,
-            sourceUrl           
+            sourceUrl,
+            fileContent         // Add file content to params
         ];
         
         // Use db.run directly to bypass potential transaction issues in dbRun wrapper
@@ -163,17 +180,15 @@ class AssetProcessor {
             dbInstance.run(dbQuery, params, function (this: sqlite3.RunResult, err: Error | null) {
                  if (err) {
                     // Log error here as dbRun wrapper is bypassed
-                    console.error('[Direct DB RUN Error] Inserting Asset:', { sql: dbQuery, params, error: err.message });
+                    console.error('[Direct DB RUN Error] Inserting Asset:', { sql: dbQuery, params: {...params, content: fileContent ? `${fileContent.substring(0, 100)}...` : null}, error: err.message });
                     reject(err);
                  } else {
                      // Log success or details if needed
-                     // console.log(`Direct DB RUN Success: Inserted asset ${assetId}, changes: ${this.changes}`);
+                     console.log(`Direct DB RUN Success: Inserted asset ${assetId}, changes: ${this.changes}, content length: ${fileContent ? fileContent.length : 0}`);
                     resolve();
                  }
             });
         });
-
-        // await dbRun(dbQuery, params); // Original call using wrapper
 
         console.log(`Asset processed and saved: ID ${assetId}, User ${userId}, Type ${assetType}, Platform ${sourcePlatform}, Medium ${sourceMedium}, Path ${relativeFilePath}`);
         

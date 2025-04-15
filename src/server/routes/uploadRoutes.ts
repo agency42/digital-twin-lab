@@ -45,7 +45,7 @@ export default function createUploadRouter() {
             }
         }
 
-        const successCount = results.filter(r => r && r.asset_id).length;
+        const successCount = results.filter(r => r && r.id).length;
         const failureCount = results.length - successCount;
         const overallStatus = failureCount > 0 ? (successCount > 0 ? 207 : 500) : 200;
         const message = failureCount > 0

@@ -1,6 +1,19 @@
 # Digital Twin Lab - Technical Documentation & Roadmap
 
-This document provides comprehensive technical information about the Digital Twin Lab project - a platform for generating and experimenting with AI system prompts designed to simulate user personalities.
+This document provides technical information specific to the Claude implementation in the Digital Twin Lab project. For comprehensive documentation, see the [docs directory](./docs/README.md).
+
+## Claude Integration Overview
+
+This document focuses on Claude-specific implementation details. For other documentation:
+
+- [API Reference](./docs/api-reference.md) - Complete API documentation
+- [System Architecture](./docs/system-architecture.md) - System design and components
+- [Agent Data Structures](./docs/agent-data-structures.md) - Data structure definitions
+- [Database Schema](./docs/database-schema.md) - Database tables and relationships
+- [Documentation Guidelines](./docs/documentation-guidelines.md) - Guidelines for documentation
+- [Development Guide](./docs/development-guide.md) - Development setup and processes
+
+The remaining content of this document covers Claude-specific implementation details.
 
 ## Project Vision & Philosophy
 
@@ -10,6 +23,7 @@ The Digital Twin Lab is designed as a **true prompt engineering playground**. Th
 2.  **Database-Driven**: All prompt templates, character cards, and user-specific customizations are stored in the database, making them persistent, manageable, and editable.
 3.  **Modularity**: Prompt components (Character Card, Instructions, Examples, Main Goal) are treated as distinct but composable elements.
 4.  **User Control**: Users have complete control over the generation process, from the base character definition to the specific instructions given for a task.
+5.  **Clear Separation of Concerns**: Backend APIs should focus on database CRUD operations and Claude API interactions, while the frontend handles UI state and user interactions.
 
 The ultimate goal is to provide a flexible and transparent environment for crafting, testing, and refining prompts that allow AI models to interact and generate content authentically representing the user's voice, style, and platform-specific nuances.
 
@@ -28,6 +42,45 @@ Digital Twin Lab achieves its vision through these core features:
 4.  **Database-Driven Configuration**: All persistent prompt components (Character Cards, System Prompts, Instructions) are stored in the SQLite database.
 5.  **Unified Interface**: Provides tools for content collection, character generation, prompt editing, interaction (chat/post), and evaluation within a single application.
 6.  **Controlled Experimentation**: Allows testing different directives, instructions, and character attributes independently.
+
+## API Architecture and Separation of Concerns
+
+The Digital Twin Lab follows a clear separation of concerns in its API design:
+
+### CRUD APIs (Database Operations):
+1. **User Management**:
+   - `GET /api/users` - List users
+   - `POST /api/users` - Create new user
+   - `GET /api/users/:userId` - Get specific user
+
+2. **Asset Management**:
+   - `GET /api/assets/:userId` - List user's assets
+   - `POST /api/upload` - Upload file for a user
+   - `GET /api/assets/:userId/:assetId/content` - Get asset content
+
+3. **Character Card Management**:
+   - `GET /api/prompts/:userId/current-character-card` - Get current character card
+   - `POST /api/prompts/:userId/generate-character-card` - Generate new card (from assets)
+
+4. **System Prompt Management**:
+   - `GET /api/prompts/:userId/system-prompt/:type` - Get system prompt (chat or post)
+   - `POST /api/prompts/:userId/system-prompt/:type` - Save system prompt
+   - `DELETE /api/prompts/:userId/system-prompt/:type` - Reset to default
+
+5. **Instruction Management**:
+   - `GET /api/prompts/:userId/instructions/:type` - Get instructions (chat or post) 
+   - `POST /api/prompts/:userId/instructions/:type` - Save instructions
+
+### Claude Interaction APIs:
+1. **Chat**:
+   - `POST /api/chat/:userId/response` - Chat with digital twin (pulls system prompt and instructions from DB)
+   
+2. **Content Generation**:
+   - `POST /api/chat/:userId/generate-content` - Generate content (pulls system prompt and instructions from DB)
+
+The API structure avoids having LLM endpoints accept direct prompt inputs. Instead, the backend retrieves necessary prompts from the database based on the user ID.
+
+For the complete API reference, see [API Reference](./docs/api-reference.md).
 
 ## Detailed Prompt Structure & Combination
 
@@ -59,17 +112,19 @@ Understanding how the prompt components are combined is crucial for effective us
 
 **How Components Combine for API Call:**
 
-When generating content (e.g., a post):
+When generating content or chatting:
 
-1.  **System Message Construction**:
-    *   Start with the relevant `System Prompt` text fetched from `system_prompts` for the user and context (e.g., `type='post'`).
-    *   Append the relevant `Instruction Template` text from `instruction_templates`.
-    *   Append any `Examples` provided by the user.
-    *   This combined text becomes the `system` parameter in the Claude API call.
-2.  **User Message Construction**:
-    *   The `Main Goal` entered by the user becomes the `user` message parameter in the Claude API call.
+1. The backend retrieves the relevant components from the database:
+   * System prompt for the appropriate context (chat/post)
+   * Instruction template for the context
 
-This ensures the AI receives the full context (persona + instructions + examples) as the system message and the specific task as the user message, while keeping all parts transparent and editable.
+2. The frontend provides only the "main goal" or message content.
+
+3. The backend constructs the complete prompt and calls Claude's API:
+   * system = systemPrompt + instructionTemplate
+   * user = mainGoal/message
+
+This ensures the AI receives the full context while respecting the separation of concerns.
 
 ## Template Management
 
@@ -88,14 +143,14 @@ The project uses a modular architecture:
 
 ### Backend Structure (`src/server/`)
 - `server.ts`: Express server setup.
-- **Routes (`routes/`)**: API endpoints (`promptRoutes.ts`, `chatRoutes.ts`, etc.).
+- **Routes (`routes/`)**: API endpoints (`promptRoutes.ts`, `chatRoutes.ts` etc.).
 - **Services (`services/`)**: Business logic (`promptService.ts`, `abstractionApproach.ts`).
-- **API Clients (`api/`)**: Simplified `claude.ts` for direct API communication.
+- **API Clients (`api/`)**: Simplified `claude.ts` for direct API communication (no prompt construction logic).
 - **Utilities (`lib/`)**: Database connection (`database.ts`), helpers.
 
 ### Frontend Structure (`src/client/ts/` and `public/`)
 - `index.html`: Main UI container.
-- **TypeScript Modules (`src/client/ts/modules/`)**: Frontend logic (`promptModule.ts`, `contentMediumModule.ts`, etc.).
+- **TypeScript Modules (`src/client/ts/modules/`)**: Frontend logic (`promptModule.ts`, `contentMediumModule.ts` etc.).
 - **Compiled JS (`public/js/`)**: Transpiled JavaScript.
 
 ### Digital Twin Representation (Database-Driven)
@@ -103,7 +158,8 @@ The project uses a modular architecture:
 - System-level templates are in `system_prompts` with `user_id='system'`.
 
 ### Data Storage (SQLite Database)
-- Key tables: `users`, `assets`, `character_cards`, `system_prompts`, `instruction_templates`. (See `database/schema.sql`).
+- Key tables: `users`, `assets`, `character_cards`, `system_prompts`, `instruction_templates`. 
+- See [Database Schema](./docs/database-schema.md) for the complete database structure.
 
 ## Core User Journey
 
@@ -120,78 +176,44 @@ The project uses a modular architecture:
 5.  **Interaction/Generation:** Chat or generate content using the combined prompts for that context.
 6.  **Refinement:** Iterate on Character Card or context prompts based on results.
 
-## Data Migration Guide
+## Implementation Status & Current Issues
 
-Migrating from the previous hardcoded prompt system to the new database-driven template system requires careful steps:
+1. ✅ **Database Schema**: Implemented `character_cards`, `system_prompts`, `instruction_templates` tables
+2. ✅ **Claude API Simplification**: Removed many hardcoded prompts, focusing on API communication
+3. ✅ **Template Storage**: Added system-level templates to the database
+4. ✅ **AbstractionApproach Update**: Now uses database templates
+5. ✅ **API Architecture Refactoring**: Implemented separation of concerns with PromptConstructionService
+   - Created centralized service for building prompts from database
+   - Updated chat and content generation endpoints to use database-first approach
+   - Deprecated direct prompt input in favor of database lookups
+6. ✅ **XML Removal**: Replaced XML formatting with Markdown
+7. ✅ **Frontend/Backend Separation**: Fixed API endpoints to use database values instead of direct inputs
+8. ✅ **API Documentation & Testing**: Updated API reference to match implementation and added comprehensive tests
 
-**Challenges:**
+## Development Roadmap
 
-*   Existing character cards were generated with potentially different implicit instructions.
-*   Users may have customized prompts based on the old structure.
-*   Features relying on the old `claude.ts` methods are currently broken.
+### Completed
+- ✅ Core setup and DB schema
+- ✅ Basic Claude API integration
+- ✅ Database-driven template system
+- ✅ Frontend UI updates for Examples and Main Goal
+- ✅ API architecture refactoring
+- ✅ Remove XML formatting
+- ✅ Fix separation of concerns between frontend and backend
+- ✅ API documentation and testing
 
-**Required Steps:**
+### Current Focus
+- 🔲 Unit testing for PromptConstructionService
+- 🔲 Integration tests for refactored endpoints
+- 🔲 Frontend update to use refactored endpoints
+- 🔲 Cleanup deprecated methods in Claude API
 
-1.  **Backup Database**: Before running any migration, back up `database/digital_twin_lab.db`.
-2.  **Run `prompt_templates.sql`**: Ensure system-level templates (`character_card_template`, `character_card_generation`) are in the `system_prompts` table (already done).
-3.  **Create User Defaults**:
-    *   Write a migration script (`scripts/migrate_prompts.js` or similar).
-    *   For each existing user:
-        *   Fetch their *current* character card from `character_cards`.
-        *   If a card exists:
-            *   Create default entries in `system_prompts` for `type='chat'` and `type='post'`, setting `prompt_text` to the character card's data and `is_custom=0`.
-            *   Create default entries in `instruction_templates` for `type='chat'` and `type='post'` with predefined default instructions (e.g., "Engage in conversation." or "Generate content based on the main goal.").
-        *   If no card exists, skip (defaults will be created when they generate their first card).
-4.  **Review Existing `system_prompts` / `instruction_templates`**: If users already had entries (from partial past migrations), ensure they are compatible or update them. The `is_custom` flag should correctly reflect whether user edits exist.
-5.  **Update Backend Code**: Modify all route handlers and services that previously called removed `claude.ts` methods (`generateSystemPrompt`, `generateCharacterCard`, `streamContent`, etc.) to:
-    *   Fetch necessary prompts/templates from the database using `PromptService`.
-    *   Construct the `system` and `user` messages appropriately.
-    *   Call the simplified `claudeAPI.generateCompletion`.
-6.  **Update Frontend Code**:
-    *   Modify UI in the "Generations" tab to include separate fields for Examples and Main Goal.
-    *   Update API calls (`generateContent`, chat) to send the structured data (systemPrompt, instructions, examples, mainGoal).
-    *   Ensure the "Content Library" uses the updated `AbstractionApproach` for card generation.
-7.  **Testing**:
-    *   Test character card generation.
-    *   Test content generation ('post') with default and custom prompts/instructions.
-    *   Test chat functionality.
-    *   Verify that resetting prompts works correctly.
-    *   Test with both new users and existing users (after migration).
+### Future Enhancements
+- 🔲 Multi-Character Card Management
+- 🔲 Advanced Feedback Loops
+- 🔲 Cross-Platform Analysis UI
 
-**Potential Issues During Migration:**
-
-*   Parsing errors if old character card data is malformed.
-*   Ensuring `is_custom` flags are set correctly based on whether user edits existed previously.
-*   Handling users with no existing character card.
-
-## Implementation Status
-
-1.  ✅ **Database Schema**: Implemented `character_cards`, `system_prompts`, `instruction_templates` tables.
-2.  ✅ **Claude API Simplification**: Removed hardcoded prompts, focusing solely on API communication.
-3.  ✅ **Template Storage**: Added system-level templates to the database via `prompt_templates.sql`.
-4.  ✅ **AbstractionApproach Update**: Now uses database templates instead of hardcoded ones.
-5.  ❌ **Route Handlers**: Need to update all routes (`chatRoutes`, `promptRoutes`, etc.) to use the new simplified API and database lookups.
-6.  ❌ **Frontend Components**: Need to update UI ("Generations" tab, potentially "Content Library") and API calls.
-7.  ❌ **Data Migration**: Migration script (`scripts/migrate_prompts.js`) needs to be created and run for existing users.
-
-## Development Roadmap (Updated)
-
-### Phase 1-3: Setup, Refactoring, Basic UI (Completed)
-- ✅ Core setup, DB schema, basic prompt editing UI.
-
-### Phase 4: True Prompt Playground Implementation (Current Focus)
-- ✅ Simplify Claude API, move templates to DB, update AbstractionApproach.
-- 📝 **Documentation Update (This Task)**: Consolidate docs into CLAUDE.md.
-- 🔲 **Data Migration**: Create and run script (`scripts/migrate_prompts.js`) for existing users.
-- 🔲 **Route Handler Updates**: Update `chatRoutes`, `promptRoutes`, etc., to use simplified API and DB templates.
-- 🔲 **Frontend Updates**: Enhance "Generations" UI (Examples, Main Goal), update API calls.
-- 🔲 **Testing**: Thoroughly test migrated users and new workflows.
-- 🔲 **Template Management UI (Optional Stretch)**: Add UI for editing system templates.
-
-### Phase 5: Advanced Features & Polish (Future)
-- 🔲 Multi-Character Card Management.
-- 🔲 Advanced Feedback Loops.
-- 🔲 Cross-Platform Analysis UI.
+See [task-list.md](task-list.md) for detailed development tasks.
 
 ## Long-Term Vision
 
@@ -215,6 +237,8 @@ This platform will enable users to understand their own cross-platform communica
 6.  **Keep prompts visible and editable (Core Playground Principle).**
 7.  **Store templates in the database, not in code.**
 8.  **Plan for data migration when making architectural changes.**
+9.  **Maintain strict separation of concerns between frontend and backend.**
+10. **Use database for persistent storage, not API parameters.**
 
 ## Resources & Useful Commands
 
@@ -223,6 +247,4 @@ This platform will enable users to understand their own cross-platform communica
 - `node scripts/migrate_prompts.js` - Migrate existing user data to the new prompt system.
 - `npm run build` - Compile for production.
 - `npm start` - Run production build.
-
-## TypeScript Migration
-- ✅ Backend and Frontend fully migrated to TypeScript.
+- `./tests/run_tests.sh` - Run comprehensive API tests.

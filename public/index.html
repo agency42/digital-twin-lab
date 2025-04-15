@@ -678,6 +678,40 @@
       gap: 10px;
       margin-top: 20px;
     }
+
+    /* Styles for Generated Post Output */
+    #generated-content-output .generated-post {
+      background-color: #2c3e50; /* Darker background for the post card */
+      color: #f0f0f0; /* Light text */
+      border: 1px solid #444; /* Subtle border */
+      border-radius: 8px;
+      padding: 15px 20px;
+      margin-top: 15px; /* Space above the card */
+      white-space: pre-wrap; /* Preserve line breaks and spaces */
+      word-wrap: break-word; /* Ensure long words break (legacy) */
+      overflow-wrap: break-word; /* Ensure long words break (standard) */
+      font-family: sans-serif; /* Use standard sans-serif, not monospace */
+      font-size: 1rem; /* Standard font size */
+      line-height: 1.5;
+      max-width: 100%; /* Ensure it fits container */
+      overflow-x: hidden; /* Prevent horizontal scrollbar within the post */
+      box-sizing: border-box; /* Include padding/border in element's total width/height */
+    }
+
+    #generated-content-output .content-actions {
+        margin-top: 10px;
+        text-align: right;
+    }
+
+    #generated-content-output .copy-button {
+        background-color: #6c757d;
+        width: auto; /* Allow button to size to content */
+        margin-bottom: 0; /* Remove default margin */
+    }
+
+    #generated-content-output .copy-button:hover {
+        background-color: #5a6268;
+    }
   </style>
   
   <!-- Link to external CSS file for chat formatting -->
@@ -943,7 +977,7 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
             <!-- Combined Content Area for all Mediums -->
             <div class="medium-content active" id="medium-content-area" style="margin-top: 20px;">
 
-              <!-- System Prompt Editor -->
+              <!-- System Prompt Editor (Always Visible) -->
               <div class="system-prompt-container" style="margin-bottom: 20px;">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                       <label for="system-prompt-editor" class="sub-label">System Prompt:</label>
@@ -963,15 +997,14 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
                   <div id="system-prompt-status" class="status info" style="display: none; margin-top: 5px;"></div> <!-- Ensured visibility/margin -->
               </div>
 
-              <!-- Instruction Editor -->
+              <!-- Instruction Editor (Always Visible) -->
               <div class="instruction-editor-container" style="margin-bottom: 20px;">
                   <label for="instruction-editor" class="sub-label instruction-label">Instructions for Chat:</label> <!-- Label will be updated dynamically -->
                   <textarea id="instruction-editor" rows="4" placeholder="Enter specific instructions for this medium (e.g., 'Generate a tweet under 280 characters')..."></textarea>
-                  <!-- ADDED Save button -->
                   <div class="button-group" style="margin-top: 10px; text-align: right;">
                      <button id="save-instructions-button" class="action-button primary-button" style="width: auto;">Save Instructions</button>
                   </div>
-                  <div id="instruction-status" class="status info" style="display: none; margin-top: 5px;"></div> <!-- Ensured visibility/margin -->
+                  <div id="instruction-status" class="status info" style="display: none; margin-top: 5px;"></div>
               </div>
 
               <!-- Chat Interface (for Chat Medium) -->
@@ -989,37 +1022,36 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
                 <div id="chat-status" class="status info"></div>
               </div>
 
-              <!-- Content Generation Area (for other mediums) -->
-              <div id="content-generation-area" style="display: none; /* Start hidden */ margin-top: 20px;">
-                <!-- Add Main Goal Field -->
-                <div class="main-goal-container" style="margin-bottom: 20px;">
-                  <label for="main-goal-input" class="sub-label">Main Goal:</label>
-                  <textarea id="main-goal-input" rows="3" placeholder="Enter your specific request or goal (e.g., 'Write a post about AI ethics')..."></textarea>
-                  <!-- Add Save button for Main Goal -->
-                  <div class="button-group" style="margin-top: 10px; text-align: right;">
-                    <button id="save-main-goal-button" class="action-button primary-button" style="width: auto;">Save Main Goal</button>
-                  </div>
-                  <div id="main-goal-status" class="status info" style="display: none; margin-top: 5px;"></div>
-                </div>
+              <!-- Content Generation Area (for 'post' medium) -->
+              <div id="content-generation-area" style="display: none; /* Start hidden */">
                 
-                <!-- Add Examples Field -->
-                <div class="examples-container" style="margin-bottom: 20px;">
-                  <label for="examples-input" class="sub-label">Examples (Optional):</label>
-                  <textarea id="examples-input" rows="4" placeholder="Enter examples to guide the AI, separated by new lines..."></textarea>
-                  <p class="field-help" style="font-size: 12px; color: #888; margin-top: 5px;">
-                    Add examples to demonstrate style, format, or tone. Each line will be treated as a separate example.
-                  </p>
-                  <!-- Add Save button for Examples -->
-                  <div class="button-group" style="margin-top: 10px; text-align: right;">
-                    <button id="save-examples-button" class="action-button primary-button" style="width: auto;">Save Examples</button>
+                  <!-- Examples Field (Only for Post) -->
+                  <div class="examples-container" style="margin-bottom: 20px;">
+                      <label for="examples-input" class="sub-label">Examples (Optional):</label>
+                      <textarea id="examples-input" rows="5" placeholder="Enter examples to guide the AI, separated by new lines..."></textarea>
+                      <small style="display: block; margin-top: 5px; color: #7f8c8d;">Add examples to demonstrate style, format, or tone. Each line will be treated as a separate example.</small>
+                      <div class="button-group" style="margin-top: 10px; text-align: right;">
+                         <button id="save-examples-button" class="action-button primary-button" style="width: auto;">Save Examples</button>
+                      </div>
+                      <div id="examples-status" class="status info" style="display: none; margin-top: 5px;"></div>
                   </div>
-                  <div id="examples-status" class="status info" style="display: none; margin-top: 5px;"></div>
-                </div>
+
+                  <!-- Main Goal Field (Only for Post) -->
+                  <div class="main-goal-container" style="margin-bottom: 20px;">
+                      <label for="main-goal-input" class="sub-label">Main Goal:</label>
+                      <textarea id="main-goal-input" rows="3" placeholder="Enter your specific request or goal (e.g., 'Write a post about AI ethics')..."></textarea>
+                  </div>
                 
-                <button id="generate-content-button" class="action-button">Generate Content</button>
-                <div id="generation-status" class="status info" style="margin-top: 10px;"></div>
-                <div id="generated-content-output" class="generated-output" style="margin-top: 15px; white-space: pre-wrap; /* Preserve formatting */"></div>
-              </div>
+                  <!-- Generate Button (Only for Post) -->
+                  <button id="generate-content-button" class="action-button" style="width: auto;">Generate Content</button>
+                  <div id="generation-status" class="status"></div>
+
+                  <!-- Generated Content Output (Only for Post) -->
+                  <div id="generated-content-output" style="margin-top: 20px;">
+                      <!-- Content will be displayed here -->
+                  </div>
+
+              </div> <!-- End content-generation-area -->
 
             </div> <!-- End medium-content-area -->
           </div>

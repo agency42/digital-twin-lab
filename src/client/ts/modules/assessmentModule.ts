@@ -2,6 +2,7 @@
  * assessmentModule.ts - Handles personality assessment functionality
  */
 import { state, showStatus } from './utils.js';
+import { updateNavigationTabsState } from './navigationModule.js'; // Import the function
 import { 
     UserData, 
     TipiQuestionData, 
@@ -387,6 +388,9 @@ export async function handleUserAssessmentSubmit(event: SubmitEvent): Promise<vo
             detail: { userId: currentUserId, scores }
         });
         document.dispatchEvent(customEvent);
+
+        // ** FIX: Explicitly update navigation state after assessment completion **
+        updateNavigationTabsState(); // Call the update function
 
     } catch (error) {
         console.error('Error saving assessment:', error);

@@ -205,14 +205,17 @@ export async function generateCharacterCard(): Promise<void> {
         
         showStatus(characterCardGenerationStatusDiv, 'Character card generated successfully', 'success', 3000);
 
-        // Remove direct call to update navigation, rely on events
-        // updateNavigationTabsState(); 
-
         // Dispatch event with the full CharacterCard object
         const event = new CustomEvent('character-card-updated', {
             detail: { userId: state.currentUserId, cardData: savedCard } // Pass the full card object
         });
         document.dispatchEvent(event);
+
+        // ** FIX: Explicitly update navigation state after successful generation **
+        // Ensure state.currentUserData is updated (or assume it is by other listeners)
+        if (!state.currentUserData) state.currentUserData = {}; // Initialize if null
+        state.currentUserData.characterCard = savedCard; // Update state directly for immediate check
+        updateNavigationTabsState(); // Call the update function
 
     } catch (error) {
         console.error('Error generating character card:', error);

@@ -1,9 +1,4 @@
----
-description: 
-globs: 
-alwaysApply: true
----
- # Agent Data Structures
+# Agent Data Structures
 
 This document outlines the data structures used for configuring agents, instructions, and related components in the Digital Twin Lab project.
 
@@ -134,4 +129,4 @@ The application supports different content mediums, each with its own instructio
 3. **Tweet** - Instructions for short-form social media content
 4. **LinkedIn** - Instructions for professional networking content
 
-Each medium can have specific instruction configurations and examples that adhere to the Agent Instruction Interface structure above.
+Each medium can have specific instruction configurations and examples that adhere to the Agent Instruction Interface structure above. 

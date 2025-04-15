@@ -1,6 +1,18 @@
 # Digital Twin Lab
 A prompt engineering playground for creating and interacting with digital twins. Upload your content, generate structured character cards, customize system prompts and instructions for different contexts, and see exactly what is sent to the AI models.
 
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- [Documentation Index](./docs/README.md) - Documentation overview
+- [API Reference](./docs/api-reference.md) - API endpoints and usage
+- [System Architecture](./docs/system-architecture.md) - System design and components
+- [Development Guide](./docs/development-guide.md) - Development setup and processes
+- [User Guide](./docs/user-guide.md) - How to use the application
+
+See also [CLAUDE.md](CLAUDE.md) for Claude-specific implementation details and [task-list.md](task-list.md) for current development tasks.
+
 ## Core Features
 
 1. **User Profile Management**
@@ -45,7 +57,7 @@ Digital Twin Lab is designed as a complete prompt engineering environment:
 5. **Instruction Transparency**: All instructions used for generation are displayed in the UI
 6. **Separation of Concerns**: Clear separation between the core Character Card (identity) and the context-specific System Prompts and Instructions (behavior/task)
 
-All prompts are fully customizable, visible, and documented. For detailed information on how prompts are structured and used in the system, see [PROMPTS.md](PROMPTS.md).
+All prompts are fully customizable, visible, and documented. For detailed information on how prompts are structured and used in the system, see [CLAUDE.md](CLAUDE.md).
 
 ## Getting Started
 
@@ -105,6 +117,17 @@ All prompts are fully customizable, visible, and documented. For detailed inform
 
 6. Open your browser and navigate to `http://localhost:3000` (or the configured PORT).
 
+## API Endpoints
+
+The API is organized around user-centric endpoints. For a complete reference, see [API Reference](./docs/api-reference.md).
+
+Key endpoints include:
+- User management: `GET/POST /api/users`
+- Asset management: `GET /api/assets/{userId}`, `POST /api/upload`
+- Character card management: `POST /api/prompts/{userId}/generate-character-card`
+- Content generation: `POST /api/chat/{userId}/generate-content`
+- Conversation: `POST /api/chat/{userId}/response`
+
 ## Architecture
 
 ### Backend (`src/`)
@@ -135,41 +158,24 @@ The application uses SQLite (`database/digital_twin_lab.db`) with the following 
 - **`instruction_templates`**: Stores the instruction text for different contexts (`type`: 'chat' or 'post') per user
 - **Other tables**: `users`, `assets`, `assessment_results`, etc
 
-See `database/schema.sql` for the full schema
-
-## Key Workflows
-
-### Creating and Customizing a Digital Twin
-
-1. Create or select a user profile
-2. Upload or scrape source content
-3. Go to the **Content Library**, select content, and generate a **Character Card**
-4. Go to the **Generations** tab
-5. Select a context ('chat' or 'post')
-6. The **System Prompt** editor loads the prompt for that context (initially matching the Character Card)
-7. The **Instruction Template** editor loads the instructions for that context
-8. Edit the System Prompt and/or Instructions as needed
-9. Click the respective **Save** buttons to persist changes to the database for that context
-10. Use the **Reset** button to revert the System Prompt for the current context back to the current Character Card data
-
-### Testing Personality Alignment
-
-1. Complete the TIPI assessment as the user
-2. Go to the **Assessment** tab
-3. Run the AI assessment simulation (uses the 'assessment' context System Prompt/Instructions, though these are not currently editable via UI)
-4. View and analyze the alignment results
-
-### Interacting with Digital Twins
-
-1. Go to the **Generations** tab and select the 'chat' context
-2. Customize the System Prompt and/or Instructions if desired and save them
-3. Interact with the digital twin in the chat interface. The chat uses the saved (or default) System Prompt for the 'chat' context
+For a complete database schema, see [Database Schema](./docs/database-schema.md).
 
 ## Project Status
 
-See [CLAUDE.md](CLAUDE.md) for detailed technical notes and current development status
+The project has completed several major milestones:
+- ✅ Core database-driven prompt system implementation
+- ✅ Unified Interactions UI with Examples and Main Goal fields
+- ✅ Basic security implementation and OAuth integration
+- ✅ Migration from hardcoded to database-stored prompts
+- ✅ API architecture refactoring with separation of concerns
+- ✅ Comprehensive API testing and documentation
 
-See [PROMPTS.md](PROMPTS.md) for comprehensive documentation on all prompts used in the system and how to customize them
+Current development is focused on:
+- 🔲 Unit testing for PromptConstructionService
+- 🔲 Integration tests for refactored endpoints
+- 🔲 Frontend updates to use refactored API endpoints
+
+See [task-list.md](task-list.md) for current development tasks.
 
 ## Research Background
 

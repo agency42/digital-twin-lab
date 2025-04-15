@@ -141,7 +141,7 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
                      SET instruction_text = ?, 
                          mainGoal = ?, 
                          examples = ?,
-                         modified_at = CURRENT_TIMESTAMP
+                         updated_at = CURRENT_TIMESTAMP
                      WHERE user_id = ? AND type = ?`,
                     [
                         instructionText,
@@ -155,7 +155,7 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
                 // Create new instruction template
                 await db.run(
                     `INSERT INTO instruction_templates 
-                     (user_id, type, instruction_text, mainGoal, examples, created_at, modified_at)
+                     (user_id, type, instruction_text, mainGoal, examples, created_at, updated_at)
                      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
                     [
                         userId,
@@ -222,7 +222,7 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
                 await db.run(
                     `UPDATE instruction_templates 
                      SET mainGoal = ?,
-                         modified_at = CURRENT_TIMESTAMP
+                         updated_at = CURRENT_TIMESTAMP
                      WHERE user_id = ? AND type = ?`,
                     [mainGoal || null, userId, type]
                 );
@@ -234,7 +234,7 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
                 
                 await db.run(
                     `INSERT INTO instruction_templates 
-                     (user_id, type, instruction_text, mainGoal, created_at, modified_at)
+                     (user_id, type, instruction_text, mainGoal, created_at, updated_at)
                      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
                     [userId, type, defaultInstructionText, mainGoal || null]
                 );
@@ -251,18 +251,7 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
                 throw new Error('Failed to retrieve updated instruction template');
             }
 
-            // Parse examples if they exist
-            if (updatedTemplate.examples) {
-                try {
-                    updatedTemplate.examples = JSON.parse(updatedTemplate.examples);
-                } catch (error) {
-                    console.error('Error parsing examples JSON:', error);
-                    updatedTemplate.examples = [];
-                }
-            } else {
-                updatedTemplate.examples = [];
-            }
-
+            // Send the raw template data back (frontend expects examples as JSON string)
             res.status(200).json(updatedTemplate);
         } catch (error: any) {
             console.error('Error saving main goal:', error);
@@ -274,13 +263,15 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
     router.put('/:userId/instruction-templates/:type/examples', asyncHandler(async (req: Request, res: Response) => {
         const userId = req.params.userId;
         const type = req.params.type as 'chat' | 'post' | 'assessment'; // only these types are supported
-        const { examples } = req.body;
+        const { examples } = req.body; // Expecting a string now
 
-        if (!Array.isArray(examples)) {
-            throw new Error('Missing or invalid required field: examples must be an array');
+        // Updated validation: Expect a string (can be empty)
+        if (typeof examples !== 'string') {
+            throw new Error('Missing or invalid required field: examples must be a string');
         }
 
         const db = req.app.locals.db;
+        const examplesToSave = examples.trim() || null; // Store null if empty string
 
         try {
             // First check if user has an existing instruction template
@@ -295,10 +286,10 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
                 await db.run(
                     `UPDATE instruction_templates 
                      SET examples = ?,
-                         modified_at = CURRENT_TIMESTAMP
+                         updated_at = CURRENT_TIMESTAMP
                      WHERE user_id = ? AND type = ?`,
                     [
-                        examples && examples.length ? JSON.stringify(examples) : null,
+                        examplesToSave, // Save the raw string (or null)
                         userId,
                         type
                     ]
@@ -311,13 +302,13 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
                 
                 await db.run(
                     `INSERT INTO instruction_templates 
-                     (user_id, type, instruction_text, examples, created_at, modified_at)
+                     (user_id, type, instruction_text, examples, created_at, updated_at)
                      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
                     [
                         userId,
                         type,
                         defaultInstructionText,
-                        examples && examples.length ? JSON.stringify(examples) : null
+                        examplesToSave // Save the raw string (or null)
                     ]
                 );
             }
@@ -333,18 +324,7 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
                 throw new Error('Failed to retrieve updated instruction template');
             }
 
-            // Parse examples if they exist
-            if (updatedTemplate.examples) {
-                try {
-                    updatedTemplate.examples = JSON.parse(updatedTemplate.examples);
-                } catch (error) {
-                    console.error('Error parsing examples JSON:', error);
-                    updatedTemplate.examples = [];
-                }
-            } else {
-                updatedTemplate.examples = [];
-            }
-
+            // Send the raw template data back (frontend expects examples as JSON string or plain text)
             res.status(200).json(updatedTemplate);
         } catch (error: any) {
             console.error('Error saving examples:', error);
