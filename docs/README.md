@@ -11,14 +11,13 @@ This directory contains the comprehensive documentation for the Digital Twin Lab
 
 ## Technical Details
 
-- [Agent Data Structures](./agent-data-structures.md) - Definitions of data structures used for agents and prompts
+- [Agent Data Structures](./agent-data-structures.md) - Definitions of data structures used for agents and prompts (NOTE: Likely outdated)
 - [Database Schema](./database-schema.md) - Detailed database table structure and relationships
-- [Claude Integration](./claude-integration.md) - Details on how Claude AI is integrated into the system
 
 ## Practical Guides
 
 - [Documentation Guidelines](./documentation-guidelines.md) - Rules and best practices for maintaining project documentation
-- [Curl Examples](./curl-examples.md) - Practical examples for interacting with the API using curl
+- [Curl Examples](./curl-examples.md) - Practical examples for interacting with the API using curl (NOTE: Likely outdated)
 
 ## External Links
 
@@ -28,7 +27,7 @@ This directory contains the comprehensive documentation for the Digital Twin Lab
 
 ## Deprecated Documentation
 
-The following documentation files are deprecated and will be consolidated:
+- `claude-integration.md` - Removed as service details are integrated elsewhere.
 - `api-docs.md` → merged into `api-reference.md`
 - `api-documentation.md` → merged into `api-reference.md`
 - `architecture.md` → merged into `system-architecture.md`
