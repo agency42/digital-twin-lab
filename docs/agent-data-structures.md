@@ -58,6 +58,7 @@ type Character = {
   id: string; // Unique identifier
   agent_id: string; // Public unique identifier
   botName: string; // Agent name
+  bio?: string; // Optional character biography
   sytem_prompt: string || Prompt_config;
   // --- OPTIONALS --- //
   version?: number; // Version number of the Agent

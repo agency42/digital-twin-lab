@@ -165,4 +165,47 @@ export interface InstructionTemplate {
     examples?: string | null;
     created_at: string;
     updated_at: string;
+}
+
+// Added from docs/agent-data-structures.md
+export interface Prompt_config {
+  id: string; // Unique identifier
+  content: string;
+  image?: string; // Optional image
+  role: 'user' | 'system'; // user | system
+}
+
+// Added from docs/agent-data-structures.md
+export interface Function_config { 
+    // Define the structure based on how functions are actually configured
+    // Placeholder for now
+    name: string;
+    description: string;
+    parameters: any; // Use a more specific type if possible
+}
+
+export interface Tool {
+  id: string; // Tool ID
+  type: string;
+  function: Function_config;
+}
+
+// Define the structure of the JSON stored in CharacterCard.card_data
+export interface CharacterData {
+  id: string; // Unique identifier (optional within the data itself?)
+  agent_id: string; // Public unique identifier
+  botName: string; // Agent name
+  bio?: string; // Optional character biography
+  sytem_prompt: string | Prompt_config; // system_prompt in markdown
+  // --- OPTIONALS --- //
+  version?: number; // Version number of the Agent
+  api_key?: string; // key that can be used for the character
+  memory_system_prompt?: string | Prompt_config[]; // memory_system_prompt in markdown
+  summary_system_prompt?: string | Prompt_config[]; // summary_system_prompt in markdown
+  primary_model?: string; // Primary model in use
+  logic_model_url?: string; // URL for logic model
+  image_model_url?: string; // URL for image processing model
+  lora_url?: string; // URL for LoRA tuning
+  boredom?: number; // Boredom factor influencing agent behavior
+  tools?: Tool[];
 } 

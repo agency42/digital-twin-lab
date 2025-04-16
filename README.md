@@ -94,11 +94,19 @@ All prompts are fully customizable, visible, and documented. For detailed inform
    ```
 
 4. **Database Setup:**
-   - The application uses SQLite. The database file (`database/digital_twin_lab.db`) and schema (`database/schema.sql`) are included
-   - Run the reset and migration scripts to initialize the database:
+   - The application uses SQLite. The database schema is included in `database/schema.sql`
+   - The database file (`database/digital_twin_lab.db`) will be automatically created when you run `npm install` via the postinstall script
+   - If you need to manually initialize the database, run:
      ```bash
-     node scripts/reset.js
-     node scripts/migrate_prompts.js
+     npm run db:init
+     ```
+   - To reset the database and start fresh:
+     ```bash
+     npm run db:reset
+     ```
+   - To migrate existing user data to the new prompt system:
+     ```bash
+     npm run db:migrate
      ```
 
 5. **Running the Application:**

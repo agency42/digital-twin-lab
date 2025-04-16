@@ -3,19 +3,7 @@
  */
 import { state, showStatus } from './utils.js';
 import { updateNavigationTabsState } from './navigationModule.js';
-// import { BasePromptText, UserData } from '../types'; // Use new types - REMOVED
-
-// Add CharacterCard interface (if not imported from types.ts)
-interface CharacterCard {
-    id: string;
-    user_id: string;
-    card_name?: string | null;
-    card_data: string; // JSON string
-    is_current: number; // 0 or 1
-    based_on_assets?: string | null; // JSON string of asset IDs
-    created_at: string;
-    updated_at: string;
-}
+import { CharacterCard } from '../types'; // Import CharacterCard
 
 // Define a type for the elements passed to this module
 interface PromptModuleElements {

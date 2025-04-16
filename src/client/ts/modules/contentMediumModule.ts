@@ -3,9 +3,11 @@
  *                          editing system prompts and instructions per medium, and generating content.
  */
 import { state, showStatus } from './utils.js';
-// import { BasePromptText } from '../types'; // Assuming types define relevant structures - REMOVED
+// Import necessary types, including CharacterCard and the new prompt types
+import { CharacterCard, SystemPrompt, InstructionTemplate } from '../types'; 
 
-// Interfaces matching backend data structures
+// Remove redundant interface definitions
+/*
 interface CharacterCard {
     id: string;
     user_id: string;
@@ -30,23 +32,25 @@ interface SystemPrompt {
 interface InstructionTemplate {
     id?: number;
     user_id: string;
-    type: 'chat' | 'post';
+    type: string;
     instruction_text: string;
     mainGoal?: string | null;
-    examples?: string | null;
+    examples?: string | null; // Assuming JSON string
     created_at: string;
     updated_at: string;
 }
+*/
 
+// Define the extended InstructionTemplate with parsed examples
+interface InstructionTemplateWithMetadata extends InstructionTemplate {
+    parsedExamples?: Record<string, any>; // Or a more specific type for examples
+}
+
+// Interface for data needed on this page
 interface GenerationsData {
     characterCard: CharacterCard | null;
     systemPrompt: SystemPrompt | null;
     instructionTemplate: InstructionTemplateWithMetadata | null;
-}
-
-// Extended interface for instruction template with metadata
-interface InstructionTemplateWithMetadata extends InstructionTemplate {
-    // No need for additional fields as they're now in the base interface
 }
 
 // --- Interfaces ---
