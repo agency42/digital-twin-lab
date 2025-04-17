@@ -21,6 +21,14 @@
     "postinstall": "npm run db:init",
     "prepare": "husky install"
   },
+  "lint-staged": {
+    "src/server/**/*.ts": [
+      "tsc --noEmit"
+    ],
+    "src/client/ts/**/*.ts": [
+      "tsc -p tsconfig.frontend.json --noEmit"
+    ]
+  },
   "keywords": [
     "digital twin",
     "AI",
@@ -80,6 +88,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "husky": "^9.1.7",
     "jest": "^29.7.0",
+    "lint-staged": "^15.5.1",
     "nodemon": "^3.0.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
