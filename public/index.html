@@ -91,11 +91,6 @@
       justify-content: space-between;
       align-items: center;
     }
-    .workspace-title {
-      font-size: 18px;
-      font-weight: bold;
-      color: var(--gray-200);
-    }
     .workspace-actions {
       display: flex;
       gap: 12px;
@@ -114,7 +109,8 @@
       display: flex;
       flex-direction: row;
     }
-    .prompt-panel {
+    .prompt-panel, .chat-panel {
+      flex: 1;
       width: 50%;
       padding: 16px;
       display: flex;
@@ -267,7 +263,7 @@
     
     .action-button {
       background-color: var(--dark-700);
-      padding: 8px 12px;
+      padding: 8px;
       border-radius: 6px;
       border: none;
       font-size: 13px;
@@ -304,6 +300,63 @@
       font-size: 14px;
       font-style: italic;
     }
+    .status {
+      font-size: 14px;
+      color: var(--gray-400);
+      padding: 8px;
+    }
+    .library-panel {
+      width: 100%;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    .upload-section {
+      margin-bottom: 16px;
+    }
+    .actions {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 8px;
+    }
+    .asset-display-area {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+    }
+    .scrape-section {
+      margin-bottom: 16px;
+    }
+    .clear-section {
+      margin-bottom: 16px;
+    }
+    .config-split {
+      display: flex;
+      flex-direction: row;
+      gap: 24px;
+    }
+    .config-left {
+      flex: 1;
+    }
+    .config-right {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .prompt-button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .prompt-button:hover {
+      background: #174ea6;
+    }
   </style>
 </head>
 <body>
@@ -314,13 +367,13 @@
         <div class="sidebar-logo">Digital Twin Lab</div>
       </div>
       <div class="sidebar-sections">
-        <div class="sidebar-section active">
-          <i class="sidebar-icon fa-solid fa-flask"></i>
+        <div class="sidebar-section active" data-page="lab-page">
+          <span class="sidebar-icon" aria-label="Lab">🧪</span>
           <span>Lab</span>
         </div>
-        <div class="sidebar-section">
-          <i class="sidebar-icon fa-solid fa-book"></i>
-          <span>Library</span>
+        <div class="sidebar-section" data-page="config-page">
+          <span class="sidebar-icon" aria-label="Config">⚙️</span>
+          <span>Config</span>
         </div>
       </div>
     </aside>
@@ -329,109 +382,165 @@
     <main class="main-workspace">
       <!-- Top workspace header -->
       <div class="workspace-header">
-        <div class="workspace-title">Digital Twin Lab</div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <label for="user-select" style="color:var(--gray-200);font-size:13px;">Select Twin</label>
+          <select id="user-select" style="padding:6px 8px;border-radius:6px;background:var(--dark-600);color:var(--gray-100);border:1px solid var(--dark-500);"></select>
+        </div>
         <div class="workspace-actions">
-          <button class="workspace-action">
-            <i class="fa-solid fa-code"></i>
-          </button>
-          <button class="workspace-action">
-            <i class="fa-solid fa-arrows-left-right"></i>
-          </button>
-          <button class="workspace-action">
-            <i class="fa-solid fa-clock-rotate-left"></i>
-          </button>
-          <button class="workspace-action">
-            <i class="fa-solid fa-gear"></i>
-          </button>
+          <button class="workspace-action" title="Code">💻</button>
+          <button class="workspace-action" title="Table">📋</button>
+          <button class="workspace-action" title="Settings">⚙️</button>
+          <button class="workspace-action" title="Clock">⏰</button>
         </div>
       </div>
 
       <!-- Two-panel split -->
-      <div class="content-split">
-        <!-- Left: Prompt panel -->
-        <div class="prompt-panel">
-          <div class="panel-header">
-            <div class="panel-title">Your prompts</div>
-            <button class="workspace-action">
-              <i class="fa-solid fa-floppy-disk"></i>
-            </button>
-          </div>
-          
-          <div class="panel-content">
-            <div class="prompt-editor">
-              <!-- Twin selection -->
-              <div class="prompt-section">
-                <div class="prompt-section-header">Twin</div>
-                <div class="settings-row">
-                  <select class="settings-select">
-                    <option>Twin1</option>
-                    <option>Twin2</option>
-                  </select>
+      <div id="lab-page" class="page">
+        <div class="content-split">
+          <!-- Left: Prompt panel -->
+          <div class="prompt-panel">
+            <div class="panel-header">
+              <div class="panel-title">Your prompts</div>
+              <button class="workspace-action">
+                <i class="fa-solid fa-floppy-disk"></i>
+              </button>
+            </div>
+            
+            <div class="prompt-editor" id="prompt-accordion">
+              <!-- Character Card Accordion Block -->
+              <div class="prompt-section" id="character-card-section">
+                <div class="prompt-section-header accordion-header" data-target="character-card-body" tabindex="0" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+                  <span id="character-card-chevron">▼</span> 🧬 Character Card
+                  <button id="generate-character-card-button" style="margin-left:auto;font-size:12px;">🪄 Generate</button>
                 </div>
-                <div class="twin-actions">
-                  <textarea class="twin-bio" placeholder="Enter twin bio..."></textarea>
-                  <div class="twin-buttons">
-                    <button class="action-button">
-                      <i class="fa-solid fa-upload"></i> Upload
-                    </button>
-                    <button class="action-button">
-                      <i class="fa-solid fa-link"></i> URL
-                    </button>
-                    <button class="action-button primary-button">
-                      <i class="fa-solid fa-save"></i> Save Bio
-                    </button>
+                <div class="accordion-body" id="character-card-body">
+                  <textarea id="custom-generation-prompt" class="prompt-input" spellcheck="false"></textarea>
+                  <div style="display:flex;gap:8px;margin-top:8px;">
+                    <button id="copy-custom-generation-prompt" class="prompt-button">Copy JSON</button>
+                    <button id="save-character-card-json-button" class="prompt-button">Save JSON</button>
                   </div>
+                  <div id="custom-generation-prompt-status" style="margin-top:8px;font-size:12px;color:var(--gray-400);">Character card JSON is valid.</div>
                 </div>
               </div>
-              
-              <!-- Character Card -->
-              <div class="prompt-section">
-                <div class="prompt-section-header">
-                  <span>Character Card</span>
-                  <button class="action-button">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> Generate
-                  </button>
+              <!-- Instructions Accordion Block -->
+              <div class="prompt-section" id="instructions-section">
+                <div class="prompt-section-header accordion-header" data-target="instructions-body" tabindex="0" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+                  <span id="instructions-chevron">►</span> 📝 Instructions
                 </div>
-                <textarea class="prompt-input" placeholder="Character card content..."></textarea>
+                <div class="accordion-body" id="instructions-body" style="display:none;">
+                  <textarea id="user-instructions" class="prompt-input" placeholder="Enter instructions for your digital twin..."></textarea>
+                  <div style="display:flex;gap:8px;margin-top:8px;">
+                    <button id="save-instructions-button" class="prompt-button">Save Instructions</button>
+                  </div>
+                  <div id="instructions-status" style="margin-top:8px;font-size:12px;color:var(--gray-400);"></div>
+                </div>
               </div>
-              
-              <!-- Instructions -->
-              <div class="prompt-section">
-                <div class="prompt-section-header">Instructions</div>
-                <textarea class="prompt-input" placeholder="Enter instructions for your digital twin..."></textarea>
+              <!-- Examples Accordion Block -->
+              <div class="prompt-section" id="examples-section">
+                <div class="prompt-section-header accordion-header" data-target="examples-body" tabindex="0" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+                  <span id="examples-chevron">►</span> 💬 Examples
+                </div>
+                <div class="accordion-body" id="examples-body" style="display:none;">
+                  <textarea id="user-examples" class="prompt-input" placeholder="Enter example interactions..."></textarea>
+                  <div style="display:flex;gap:8px;margin-top:8px;">
+                    <button id="save-examples-button" class="prompt-button">Save Examples</button>
+                  </div>
+                  <div id="examples-status" style="margin-top:8px;font-size:12px;color:var(--gray-400);"></div>
+                </div>
               </div>
-              
-              <!-- Examples -->
-              <div class="prompt-section">
-                <div class="prompt-section-header">
-                  <span>Examples</span>
-                  <button class="workspace-action">
-                    <i class="fa-solid fa-plus"></i>
-                  </button>
-                </div>
-                <div class="examples-content">
-                  <p class="examples-empty">No examples yet. Click + to add an example interaction.</p>
-                </div>
+            </div>
+          </div>
+          <!-- Right: Chat panel -->
+          <div class="chat-panel">
+            <div class="chat-history">
+              <div class="chat-empty">
+                <i class="chat-empty-icon fa-regular fa-comments"></i>
+                <div>Your conversation will appear here</div>
+              </div>
+            </div>
+            
+            <div class="chat-input-container">
+              <div class="chat-input-wrapper">
+                <textarea class="chat-input" placeholder="Prompt your twin..."></textarea>
+                <button class="chat-send">
+                  <i class="fa-solid fa-paper-plane"></i>
+                </button>
               </div>
             </div>
           </div>
         </div>
-        
-        <!-- Right: Chat panel -->
-        <div class="chat-panel">
-          <div class="chat-history">
-            <div class="chat-empty">
-              <i class="chat-empty-icon fa-regular fa-comments"></i>
-              <div>Your conversation will appear here</div>
+      </div>
+      
+      <!-- Config panel as two-column split -->
+      <div id="config-page" class="page" style="display: none;">
+        <div class="config-split" style="display: flex; flex-direction: row; gap: 24px;">
+          <!-- Left: Content Library in a panel -->
+          <div class="config-left" style="flex: 1;">
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Content Library</div></div>
+              <div class="panel-content">
+                <div class="upload-section">
+                  <input type="file" id="file-input" multiple />
+                  <div id="upload-status" class="status"></div>
+                  <button id="select-all-text-button" class="action-button">Select All Text</button>
+                  <button id="select-all-image-button" class="action-button">Select All Images</button>
+                  <button id="deselect-all-button" class="action-button">Deselect All</button>
+                  <button id="delete-selected-button" class="action-button">Delete Selected</button>
+                  <div id="selection-summary" class="status"></div>
+                  <div id="asset-display-area" class="asset-display-area"></div>
+                  <input type="text" id="scrape-url-input" placeholder="URL to scrape" />
+                  <button id="start-scraping-button" class="action-button">Scrape</button>
+                  <div id="scrape-status" class="status"></div>
+                  <button id="clear-library-button" class="action-button">Clear Library</button>
+                  <div id="clear-library-status" class="status"></div>
+                </div>
+              </div>
             </div>
           </div>
-          
-          <div class="chat-input-container">
-            <div class="chat-input-wrapper">
-              <textarea class="chat-input" placeholder="Prompt your twin..."></textarea>
-              <button class="chat-send">
-                <i class="fa-solid fa-paper-plane"></i>
-              </button>
+          <!-- Right: Twin and Generator Prompt stacked -->
+          <div class="config-right" style="flex: 1; display: flex; flex-direction: column; gap: 24px;">
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Twin</div></div>
+              <div class="panel-content">
+                <div class="prompt-section">
+                  <div class="settings-row">
+                    <input id="new-user-id" type="text" class="settings-select" placeholder="New Twin ID" />
+                    <button id="create-user-button" class="action-button primary-button">Create Twin</button>
+                  </div>
+                  <div id="user-status" class="status"></div>
+                  <div class="settings-row">
+                    <select id="user-select" class="settings-select"></select>
+                  </div>
+                  <div class="twin-actions">
+                    <textarea id="user-bio" class="twin-bio" placeholder="Enter twin bio..."></textarea>
+                    <div class="twin-buttons">
+                      <button class="action-button">
+                        <i class="fa-solid fa-upload"></i> Upload
+                      </button>
+                      <button class="action-button">
+                        <i class="fa-solid fa-link"></i> URL
+                      </button>
+                      <button id="save-bio-button" class="action-button primary-button">
+                        <i class="fa-solid fa-save"></i> Save Bio
+                      </button>
+                    </div>
+                  </div>
+                  <div id="bio-status" class="status"></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Character Card Generator Prompt</div></div>
+              <div class="panel-content">
+                <div class="prompt-section">
+                  <textarea id="character-card-generator-prompt" class="prompt-input" placeholder="Edit the prompt used to generate character cards..."></textarea>
+                  <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button id="save-custom-generation-prompt-button" class="action-button">Save Prompt</button>
+                    <button id="reset-custom-generation-prompt-button" class="action-button">Reset to Default</button>
+                  </div>
+                  <div id="custom-generation-prompt-status" class="status"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -439,6 +548,7 @@
     </main>
   </div>
 
+  <script type="module" src="js/app.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       // Chat input handling
@@ -462,16 +572,28 @@
       }
       
       // Send message on button click
-      sendButton.addEventListener('click', () => {
+      sendButton.addEventListener('click', async () => {
         const message = chatInput.value.trim();
-        if (message) {
-          addMessage(message, true);
-          chatInput.value = '';
-          
-          // Simulate AI response (in real app, this would be an API call)
-          setTimeout(() => {
-            addMessage("I'm your Digital Twin. How can I help you today?", false);
-          }, 1000);
+        if (!message) return;
+        addMessage(message, true);
+        chatInput.value = '';
+        // Get selected twin user ID
+        const twinSelect = document.querySelector('.settings-select');
+        const userId = twinSelect ? twinSelect.value : '';
+        if (!userId) {
+          addMessage('Error: No twin selected', false);
+          return;
+        }
+        try {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, userMessage: message, stream: false })
+          });
+          const data = await response.json();
+          addMessage(data.response || 'No response', false);
+        } catch (err) {
+          addMessage(`Error: ${err.message}`, false);
         }
       });
       
@@ -500,5 +622,37 @@
       });
     });
   </script>
+  <script>
+    // Accordion logic: only one open at a time
+    document.addEventListener('DOMContentLoaded', () => {
+      const headers = document.querySelectorAll('.accordion-header');
+      const chevrons = {
+        'character-card-body': document.getElementById('character-card-chevron'),
+        'instructions-body': document.getElementById('instructions-chevron'),
+        'examples-body': document.getElementById('examples-chevron')
+      };
+      headers.forEach(header => {
+        header.addEventListener('click', () => {
+          const target = header.getAttribute('data-target');
+          document.querySelectorAll('.accordion-body').forEach(body => {
+            if(body.id === target) {
+              body.style.display = '';
+              if (chevrons[body.id]) chevrons[body.id].textContent = '▼';
+            } else {
+              body.style.display = 'none';
+              if (chevrons[body.id]) chevrons[body.id].textContent = '►';
+            }
+          });
+        });
+        header.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') header.click();
+        });
+      });
+      // Open Character Card by default
+      document.getElementById('character-card-body').style.display = '';
+      chevrons['character-card-body'].textContent = '▼';
+    });
+  </script>
+  <script src="panel-switch.js"></script>
 </body>
 </html>

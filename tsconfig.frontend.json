@@ -1,16 +1,17 @@
 {
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "ES2020",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "outDir": "public/js",
-    "rootDir": "src/client/ts",
-    "sourceMap": true
-  },
-  "include": ["src/client/ts/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
-} 
+    "compilerOptions": {
+        "target": "ES2020",
+        "lib": ["DOM", "DOM.Iterable", "ES2020"],
+        "module": "ES2020",
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "outDir": "public/js",
+        "rootDir": "src/client/ts",
+        "sourceMap": true
+    },
+    "include": ["src/client/ts/**/*.ts"],
+    "exclude": ["node_modules", "dist"]
+}

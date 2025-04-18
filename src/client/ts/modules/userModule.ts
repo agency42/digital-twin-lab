@@ -11,7 +11,10 @@ interface User {
     linkedInConnected?: boolean;
     createdAt?: string; // Assuming ISO string format
     // Include other relevant fields from API response as needed
-    assessment?: { userTipiScores?: Record<string, number> | null; aiTipiScores?: Record<string, number> | null; };
+    assessment?: {
+        userTipiScores?: Record<string, number> | null;
+        aiTipiScores?: Record<string, number> | null;
+    };
     personality?: any; // Define more specific type later if possible
     generation?: { lastGeneratedProfile?: { json?: any } }; // Define more specific type later
     chatHistory?: any[]; // Define specific chat message type later
@@ -43,11 +46,11 @@ interface UserModuleElements {
     tipiModalForm: HTMLFormElement | null;
     assessmentModalStatusDiv: HTMLDivElement | null;
     // Add other elements if needed by other functions in this module
-    assessmentModal: HTMLDivElement | null; 
+    assessmentModal: HTMLDivElement | null;
     tipiModalQuestionsContainer: HTMLDivElement | null;
     cancelAssessmentButton: HTMLButtonElement | null;
     submitAssessmentModalButton: HTMLButtonElement | null;
-    closeAssessmentModalButton: HTMLSpanElement | null; 
+    closeAssessmentModalButton: HTMLSpanElement | null;
     userAssessmentStatusSummary: HTMLDivElement | null;
 }
 
@@ -93,9 +96,15 @@ export function initUserModule(elements: UserModuleElements): void {
     tipiModalForm = elements.tipiModalForm;
     assessmentModalStatusDiv = elements.assessmentModalStatusDiv;
     assessmentModal = elements.assessmentModal;
-    tipiModalQuestionsContainer = document.getElementById('tipi-modal-questions') as HTMLDivElement | null; // Assuming ID exists
-    cancelAssessmentButton = document.getElementById('cancel-assessment-button') as HTMLButtonElement | null;
-    closeAssessmentModalButton = document.getElementById('close-assessment-modal') as HTMLSpanElement | null;
+    tipiModalQuestionsContainer = document.getElementById(
+        'tipi-modal-questions'
+    ) as HTMLDivElement | null; // Assuming ID exists
+    cancelAssessmentButton = document.getElementById(
+        'cancel-assessment-button'
+    ) as HTMLButtonElement | null;
+    closeAssessmentModalButton = document.getElementById(
+        'close-assessment-modal'
+    ) as HTMLSpanElement | null;
     userAssessmentStatusSummary = elements.userAssessmentStatusSummary;
 
     // Set up event listeners with null checks
@@ -114,7 +123,10 @@ export function initUserModule(elements: UserModuleElements): void {
 
     if (disconnectLinkedinButton && disconnectLinkedinButton.parentNode) {
         const newDisconnectButton = disconnectLinkedinButton.cloneNode(true) as HTMLButtonElement;
-        disconnectLinkedinButton.parentNode.replaceChild(newDisconnectButton, disconnectLinkedinButton);
+        disconnectLinkedinButton.parentNode.replaceChild(
+            newDisconnectButton,
+            disconnectLinkedinButton
+        );
         disconnectLinkedinButton = newDisconnectButton;
         disconnectLinkedinButton.addEventListener('click', handleLinkedInDisconnect);
         console.log('LinkedIn disconnect button listener attached (after clone)');
@@ -124,8 +136,12 @@ export function initUserModule(elements: UserModuleElements): void {
     startUserAssessmentButton?.addEventListener('click', handleStartAssessment);
     retakeUserAssessmentButton?.addEventListener('click', handleRetakeAssessment);
     tipiModalForm?.addEventListener('submit', handleUserAssessmentSubmit);
-    closeAssessmentModalButton?.addEventListener('click', () => assessmentModal?.style.setProperty('display', 'none'));
-    cancelAssessmentButton?.addEventListener('click', () => assessmentModal?.style.setProperty('display', 'none'));
+    closeAssessmentModalButton?.addEventListener('click', () =>
+        assessmentModal?.style.setProperty('display', 'none')
+    );
+    cancelAssessmentButton?.addEventListener('click', () =>
+        assessmentModal?.style.setProperty('display', 'none')
+    );
 
     // Load initial user list
     loadUserList();
@@ -155,7 +171,7 @@ export async function loadUserList(): Promise<void> {
         userSelectDropdown.innerHTML = '<option value="">-- Select User --</option>';
 
         // Add user options
-        userIds.forEach(userId => {
+        userIds.forEach((userId) => {
             const option = document.createElement('option');
             option.value = userId;
             option.textContent = userId;
@@ -205,21 +221,23 @@ export async function handleUserSelectChange(): Promise<void> {
     // Force re-check of navigation state (already called within loadUserData, but belt-and-suspenders)
     updateNavigationTabsState();
 
-    // Explicitly ensure Content Library is enabled 
-    // This logic seems overly complex and potentially problematic, 
+    // Explicitly ensure Content Library is enabled
+    // This logic seems overly complex and potentially problematic,
     // relying on updateNavigationTabsState should be sufficient if it correctly handles the logic.
     // Consider simplifying or removing this explicit block if nav state update is reliable.
     try {
-        const contentLibraryTab = document.querySelector('.nav-tab[data-page="content-library-page"]') as HTMLElement | null;
+        const contentLibraryTab = document.querySelector(
+            '.nav-tab[data-page="content-library-page"]'
+        ) as HTMLElement | null;
         if (contentLibraryTab) {
             contentLibraryTab.classList.remove('disabled');
             contentLibraryTab.style.opacity = '1';
             contentLibraryTab.style.pointerEvents = 'auto';
             contentLibraryTab.style.cursor = 'pointer';
             contentLibraryTab.setAttribute('data-enabled', 'true');
-            
+
             // Removing the direct onclick assignment as it overrides the standard listener
-            // contentLibraryTab.onclick = null; 
+            // contentLibraryTab.onclick = null;
 
             console.log('Explicitly ensured Content Library tab enabled after user selection');
         } else {
@@ -244,19 +262,20 @@ export async function loadUserData(userId: string): Promise<any | null> {
 
     try {
         showStatus(userStatusDiv, 'Loading user data...', 'loading');
-        
+
         const response = await fetch(`/api/users/${userId}`);
+
         if (!response.ok) {
             throw new Error(`Failed to load user data: ${response.status} ${response.statusText}`);
         }
-        
+
         const userData = await response.json();
         console.log(`User data loaded for ${userId}:`, userData);
-        
+
         if (!userData) {
             throw new Error(`No user data found for ${userId}`);
         }
-        
+
         // Set currentUserId in state
         state.currentUserId = userId;
         state.currentUserData = userData;
@@ -269,10 +288,10 @@ export async function loadUserData(userId: string): Promise<any | null> {
         checkLinkedInConnectionStatus(); // Check status based on loaded data
 
         // Update nav tabs BEFORE showing success message
-        updateNavigationTabsState(); 
+        updateNavigationTabsState();
 
         showStatus(userStatusDiv, 'User data loaded successfully', 'success', 2000);
-        
+
         console.log('Loaded user data:', userData);
         console.log(`loadUserData successfully finished for user: ${userId}`);
 
@@ -280,7 +299,7 @@ export async function loadUserData(userId: string): Promise<any | null> {
         const eventDetail = { detail: { userId, userData } };
         const event = new CustomEvent('user-data-loaded', eventDetail);
         document.dispatchEvent(event);
-        
+
         return userData;
     } catch (error) {
         console.error('Error loading user data:', error);
@@ -314,7 +333,7 @@ export function updateUIWithUserData(userData: User): void {
     console.log('Final state after updateUIWithUserData:', {
         currentUserId: state.currentUserId,
     });
-    
+
     // Persist selected user ID
     localStorage.setItem('lastSelectedUser', userData.id);
 }
@@ -325,8 +344,8 @@ export function updateUIWithUserData(userData: User): void {
  */
 function updateAssessmentUI(hasAssessment: boolean): void {
     if (userAssessmentStatusSummary) {
-        userAssessmentStatusSummary.textContent = hasAssessment 
-            ? 'You have completed the assessment.' 
+        userAssessmentStatusSummary.textContent = hasAssessment
+            ? 'You have completed the assessment.'
             : 'Assessment not yet taken.';
         userAssessmentStatusSummary.style.display = 'block';
     }
@@ -347,13 +366,21 @@ export async function handleCreateUser(): Promise<void> {
     const newUserId = newUserInput.value.trim();
 
     if (!newUserId) {
-        showStatus(userStatusDiv, 'Please enter a valid user ID (e.g., alphanumeric, underscores)', 'error');
+        showStatus(
+            userStatusDiv,
+            'Please enter a valid user ID (e.g., alphanumeric, underscores)',
+            'error'
+        );
         return;
     }
-    
+
     // Basic validation for user ID format (optional, adjust as needed)
     if (!/^[a-zA-Z0-9_]+$/.test(newUserId)) {
-        showStatus(userStatusDiv, 'User ID can only contain letters, numbers, and underscores.', 'error');
+        showStatus(
+            userStatusDiv,
+            'User ID can only contain letters, numbers, and underscores.',
+            'error'
+        );
         return;
     }
 
@@ -363,7 +390,7 @@ export async function handleCreateUser(): Promise<void> {
         const response = await fetch('/api/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: newUserId })
+            body: JSON.stringify({ userId: newUserId }),
         });
 
         if (!response.ok) {
@@ -371,7 +398,9 @@ export async function handleCreateUser(): Promise<void> {
             try {
                 const errorData = await response.json();
                 errorMsg = errorData.error || errorMsg;
-            } catch { /* Ignore JSON parsing error */ }
+            } catch {
+                /* Ignore JSON parsing error */
+            }
             throw new Error(errorMsg);
         }
 
@@ -408,10 +437,11 @@ export async function handleSaveBio(): Promise<void> {
     try {
         showStatus(bioStatusDiv, 'Saving bio...', 'loading');
 
-        const response = await fetch(`/api/users/${currentUserId}`, { // Correct endpoint
+        const response = await fetch(`/api/users/${currentUserId}`, {
+            // Correct endpoint
             method: 'PUT', // Correct method
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bio: bioText }) // Send only the bio field
+            body: JSON.stringify({ bio: bioText }), // Send only the bio field
         });
 
         if (!response.ok) {
@@ -419,16 +449,19 @@ export async function handleSaveBio(): Promise<void> {
             try {
                 const errorData = await response.json();
                 errorMsg = errorData.error || errorMsg;
-            } catch { /* Ignore JSON parsing error */ }
+            } catch {
+                /* Ignore JSON parsing error */
+            }
             throw new Error(errorMsg);
         }
 
         showStatus(bioStatusDiv, 'Bio saved successfully', 'success', 2000);
-        
+
         // Optionally, fetch updated user data and re-render UI if needed
-        // E.g., await loadUserData(currentUserId); 
+        // E.g., await loadUserData(currentUserId);
         // updateUIWithUserData(updatedData);
-        
+
+        await loadUserData(currentUserId); // Refresh user data to dispatch the user-data-loaded event
     } catch (error) {
         console.error('Error saving bio:', error);
         const message = error instanceof Error ? error.message : String(error);
@@ -443,12 +476,14 @@ export function checkLinkedInConnectionStatus(): void {
     if (!state.currentUserId) {
         console.warn('checkLinkedInConnectionStatus called without a user context.');
         // Attempt to restore context - might be redundant if called after loadUserData
-        const userDisplaySpan = document.getElementById('current-user-display') as HTMLSpanElement | null;
+        const userDisplaySpan = document.getElementById(
+            'current-user-display'
+        ) as HTMLSpanElement | null;
         if (userDisplaySpan?.textContent && userDisplaySpan.textContent !== 'None Selected') {
             state.currentUserId = userDisplaySpan.textContent;
             console.log('Restored user context during LinkedIn check:', state.currentUserId);
         } else {
-             // If still no user, ensure UI shows disconnected state
+            // If still no user, ensure UI shows disconnected state
             handleLinkedInStatus(false, false);
             return;
         }
@@ -463,7 +498,9 @@ export function checkLinkedInConnectionStatus(): void {
 
     // If callback detected for a *different* user than current, something is wrong
     if (isCallbackDetected && paramUserId && paramUserId !== currentUserId) {
-        console.warn(`LinkedIn callback detected for user ${paramUserId}, but current user is ${currentUserId}. Ignoring callback.`);
+        console.warn(
+            `LinkedIn callback detected for user ${paramUserId}, but current user is ${currentUserId}. Ignoring callback.`
+        );
         // Clear potentially incorrect callback state
         clearLinkedInCallbackState(urlParams);
         // Proceed to check status for the *current* user
@@ -473,35 +510,43 @@ export function checkLinkedInConnectionStatus(): void {
 
     // Check assets first as primary indicator
     fetch(`/api/assets/${currentUserId}`)
-        .then(response => {
+        .then((response) => {
             if (!response.ok) {
                 // Don't throw error, just assume no assets if fetch fails for status check
                 console.warn(`Failed to fetch assets for status check: ${response.status}`);
-                return []; 
+                return [];
             }
             return response.json();
         })
-        .then((assets: any[]) => { // Type assets loosely for now
-            const hasLinkedInAssets = assets.some(asset => 
-                asset.sourceType === 'linkedin' || 
-                asset.context === 'LinkedIn Profile' ||
-                asset.fileName === 'linkedin_profile.json' ||
-                (asset.context && typeof asset.context === 'string' && asset.context.toLowerCase().includes('linkedin')) ||
-                (asset.fileName && typeof asset.fileName === 'string' && asset.fileName.toLowerCase().includes('linkedin'))
+        .then((assets: any[]) => {
+            // Type assets loosely for now
+            const hasLinkedInAssets = assets.some(
+                (asset) =>
+                    asset.sourceType === 'linkedin' ||
+                    asset.context === 'LinkedIn Profile' ||
+                    asset.fileName === 'linkedin_profile.json' ||
+                    (asset.context &&
+                        typeof asset.context === 'string' &&
+                        asset.context.toLowerCase().includes('linkedin')) ||
+                    (asset.fileName &&
+                        typeof asset.fileName === 'string' &&
+                        asset.fileName.toLowerCase().includes('linkedin'))
             );
             console.log(`LinkedIn asset check for ${currentUserId}: ${hasLinkedInAssets}`);
 
             if (hasLinkedInAssets || (isCallbackDetected && currentUserId === paramUserId)) {
                 // If assets found OR callback matches current user, treat as connected
                 handleLinkedInStatus(true, isCallbackDetected);
-                return; 
+                return;
             } else {
                 // If no assets and no relevant callback, check user flag as fallback
                 return fetch(`/api/users/${currentUserId}`)
-                    .then(response => {
+                    .then((response) => {
                         if (!response.ok) {
-                           console.warn(`Failed to fetch user data for status check: ${response.status}`);
-                           return { linkedInConnected: false }; // Assume not connected on error
+                            console.warn(
+                                `Failed to fetch user data for status check: ${response.status}`
+                            );
+                            return { linkedInConnected: false }; // Assume not connected on error
                         }
                         return response.json();
                     })
@@ -509,11 +554,11 @@ export function checkLinkedInConnectionStatus(): void {
                         const isConnected = !!userData.linkedInConnected;
                         console.log(`User data flag check for ${currentUserId}: ${isConnected}`);
                         handleLinkedInStatus(isConnected, false); // Callback relevance handled above
-                        return; 
+                        return;
                     });
             }
         })
-        .catch(error => {
+        .catch((error) => {
             console.error(`Error checking LinkedIn status for ${currentUserId}:`, error);
             // Assume disconnected on error, but clear callback state if detected
             handleLinkedInStatus(false, isCallbackDetected);
@@ -535,12 +580,12 @@ function detectLinkedInCallback(urlParams: URLSearchParams): boolean {
 
     // Check for error first
     if (error) {
-      console.error(`LinkedIn Auth Error detected in URL: ${error}`);
-      return true; // Treat error as a callback that needs clearing
+        console.error(`LinkedIn Auth Error detected in URL: ${error}`);
+        return true; // Treat error as a callback that needs clearing
     }
 
     return (
-        (authStatus === 'success' && (provider === 'linkedin' || !provider)) || 
+        (authStatus === 'success' && (provider === 'linkedin' || !provider)) ||
         (status === 'success' && (oauthSource === 'linkedin' || !oauthSource)) ||
         pendingAuth
     );
@@ -555,8 +600,14 @@ function clearLinkedInCallbackState(urlParams: URLSearchParams): void {
     console.log('Cleared LinkedIn auth localStorage state.');
 
     // Check which params actually exist before trying to clear
-    const paramsToClear = ['auth_status', 'oauth_source', 'status', 'provider', 'user_id', 'error']
-        .filter(p => urlParams.has(p));
+    const paramsToClear = [
+        'auth_status',
+        'oauth_source',
+        'status',
+        'provider',
+        'user_id',
+        'error',
+    ].filter((p) => urlParams.has(p));
 
     if (paramsToClear.length > 0) {
         window.history.replaceState({}, document.title, window.location.pathname);
@@ -571,33 +622,34 @@ function clearLinkedInCallbackState(urlParams: URLSearchParams): void {
  */
 function handleLinkedInStatus(isConnected: boolean, wasCallbackDetected: boolean): void {
     const currentUserId = state.currentUserId;
-    
+
     // Update UI immediately
     if (isConnected) {
         showLinkedInConnectedUI();
     } else {
         showLinkedInDisconnectedUI();
     }
-    
+
     // If connected, ensure backend user flag is set
     if (isConnected && currentUserId) {
         fetch(`/api/users/${currentUserId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ linkedInConnected: true })
+            body: JSON.stringify({ linkedInConnected: true }),
         })
-        .then(response => {
-            if (!response.ok) console.error('Failed to update backend user linkedInConnected flag.');
-            else console.log('Backend user linkedInConnected flag updated.');
-        })
-        .catch(error => console.error('Error updating backend user flag:', error));
-        
+            .then((response) => {
+                if (!response.ok)
+                    console.error('Failed to update backend user linkedInConnected flag.');
+                else console.log('Backend user linkedInConnected flag updated.');
+            })
+            .catch((error) => console.error('Error updating backend user flag:', error));
+
         // Show success message if this was triggered by a callback
         if (wasCallbackDetected) {
             showStatus(userStatusDiv, 'LinkedIn connected successfully!', 'success', 3000);
         }
     }
-    
+
     // If a callback was detected (success or error), clear the state
     if (wasCallbackDetected) {
         clearLinkedInCallbackState(new URLSearchParams(window.location.search));
@@ -610,7 +662,9 @@ function handleLinkedInStatus(isConnected: boolean, wasCallbackDetected: boolean
 export function handleLinkedInConnect(): void {
     if (!state.currentUserId) {
         // Attempt context restoration one last time
-        const userDisplaySpan = document.getElementById('current-user-display') as HTMLSpanElement | null;
+        const userDisplaySpan = document.getElementById(
+            'current-user-display'
+        ) as HTMLSpanElement | null;
         if (userDisplaySpan?.textContent && userDisplaySpan.textContent !== 'None Selected') {
             state.currentUserId = userDisplaySpan.textContent;
         } else {
@@ -618,7 +672,7 @@ export function handleLinkedInConnect(): void {
             return;
         }
     }
-    
+
     const userIdToConnect = state.currentUserId;
     console.log('Initiating LinkedIn connection for user:', userIdToConnect);
 
@@ -639,7 +693,10 @@ export function handleLinkedInConnect(): void {
 function showLinkedInConnectedUI(): void {
     connectLinkedinButton?.style.setProperty('display', 'none');
     disconnectLinkedinButton?.style.setProperty('display', 'flex');
-    (document.getElementById('linkedin-status-badge') as HTMLSpanElement | null)?.style.setProperty('display', 'inline-block');
+    (document.getElementById('linkedin-status-badge') as HTMLSpanElement | null)?.style.setProperty(
+        'display',
+        'inline-block'
+    );
     console.log('UI updated to show LinkedIn connected.');
 }
 
@@ -647,7 +704,10 @@ function showLinkedInConnectedUI(): void {
 function showLinkedInDisconnectedUI(): void {
     connectLinkedinButton?.style.setProperty('display', 'flex');
     disconnectLinkedinButton?.style.setProperty('display', 'none');
-    (document.getElementById('linkedin-status-badge') as HTMLSpanElement | null)?.style.setProperty('display', 'none');
+    (document.getElementById('linkedin-status-badge') as HTMLSpanElement | null)?.style.setProperty(
+        'display',
+        'none'
+    );
     console.log('UI updated to show LinkedIn disconnected.');
 }
 
@@ -660,7 +720,11 @@ export async function handleLinkedInDisconnect(): Promise<void> {
         return;
     }
 
-    if (!confirm("Are you sure you want to disconnect your LinkedIn account? This revokes access but keeps already imported data.")) {
+    if (
+        !confirm(
+            'Are you sure you want to disconnect your LinkedIn account? This revokes access but keeps already imported data.'
+        )
+    ) {
         return;
     }
 
@@ -669,18 +733,18 @@ export async function handleLinkedInDisconnect(): Promise<void> {
     showStatus(userStatusDiv, 'Disconnecting LinkedIn...', 'loading');
 
     try {
-        const response = await fetch(`/api/oauth/linkedin/disconnect`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: userIdToDisconnect })
-        });
+        const response = await fetch(
+            `/api/oauth/linkedin/disconnect?userId=${encodeURIComponent(userIdToDisconnect)}`
+        );
 
         if (!response.ok) {
             let errorMsg = `Failed to disconnect (${response.status})`;
-            try { 
+            try {
                 const errorData = await response.json();
                 errorMsg = errorData.error || errorMsg;
-            } catch { /* Ignore */ }
+            } catch {
+                /* Ignore */
+            }
             throw new Error(errorMsg);
         }
 
@@ -692,14 +756,13 @@ export async function handleLinkedInDisconnect(): Promise<void> {
         clearLinkedInCallbackState(new URLSearchParams()); // Clear any potential leftover state
 
         showStatus(userStatusDiv, 'LinkedIn disconnected successfully', 'success', 3000);
-        
+
         // Update user data flag on backend
         await fetch(`/api/users/${userIdToDisconnect}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ linkedInConnected: false })
+            body: JSON.stringify({ linkedInConnected: false }),
         });
-
     } catch (error) {
         console.error('Error disconnecting LinkedIn:', error);
         const message = error instanceof Error ? error.message : String(error);
@@ -732,7 +795,11 @@ export function handleStartAssessment(): void {
  * Handle the retake assessment button click
  */
 export function handleRetakeAssessment(): void {
-    if (!confirm('Are you sure you want to retake the assessment? Your previous answers will be overwritten.')) {
+    if (
+        !confirm(
+            'Are you sure you want to retake the assessment? Your previous answers will be overwritten.'
+        )
+    ) {
         return;
     }
     handleStartAssessment(); // Reuse the start assessment logic
@@ -779,12 +846,16 @@ async function loadTipiQuestions(): Promise<void> {
                         <span>Strongly Agree</span>
                     </div>
                     <div class="radio-options">
-                        ${[1, 2, 3, 4, 5, 6, 7].map(val => `
+                        ${[1, 2, 3, 4, 5, 6, 7]
+                            .map(
+                                (val) => `
                             <div class="radio-option">
                                 <input type="radio" id="tipi-q-${q.id}-${val}" name="${q.id}" value="${val}" required>
                                 <label for="tipi-q-${q.id}-${val}">${val}</label>
                             </div>
-                        `).join('')}
+                        `
+                            )
+                            .join('')}
                     </div>
                 </div>
             `;
@@ -886,7 +957,11 @@ async function loadTipiQuestions(): Promise<void> {
 export async function handleUserAssessmentSubmit(event: SubmitEvent): Promise<void> {
     event.preventDefault(); // Prevent default form submission
     if (!tipiModalForm || !state.currentUserId) {
-        showStatus(assessmentModalStatusDiv, 'Error: Cannot submit assessment. User or form not found.', 'error');
+        showStatus(
+            assessmentModalStatusDiv,
+            'Error: Cannot submit assessment. User or form not found.',
+            'error'
+        );
         return;
     }
 
@@ -900,14 +975,18 @@ export async function handleUserAssessmentSubmit(event: SubmitEvent): Promise<vo
             answers[questionId] = parseInt(value as string, 10);
         }
     }
-    
+
     // Check if we have all 10 questions answered
     if (Object.keys(answers).length !== 10) {
-         allAnswered = false;
+        allAnswered = false;
     }
 
     if (!allAnswered) {
-        showStatus(assessmentModalStatusDiv, 'Please answer all questions before submitting.', 'error');
+        showStatus(
+            assessmentModalStatusDiv,
+            'Please answer all questions before submitting.',
+            'error'
+        );
         return;
     }
 
@@ -918,7 +997,7 @@ export async function handleUserAssessmentSubmit(event: SubmitEvent): Promise<vo
         const response = await fetch(`/api/assessment/${state.currentUserId}/submit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ answers })
+            body: JSON.stringify({ answers }),
         });
 
         if (!response.ok) {
@@ -926,7 +1005,9 @@ export async function handleUserAssessmentSubmit(event: SubmitEvent): Promise<vo
             try {
                 const errorData = await response.json();
                 errorMsg = errorData.error || errorMsg;
-            } catch { /* Ignore */ }
+            } catch {
+                /* Ignore */
+            }
             throw new Error(errorMsg);
         }
 
@@ -935,13 +1016,12 @@ export async function handleUserAssessmentSubmit(event: SubmitEvent): Promise<vo
         state.userTipiScores = answers; // Store raw answers in state
 
         showStatus(assessmentModalStatusDiv, 'Assessment submitted successfully!', 'success', 2000);
-        
+
         // Close modal after a short delay
         setTimeout(() => {
             assessmentModal?.style.setProperty('display', 'none');
             updateAssessmentUI(true); // Update the main page UI
         }, 1500);
-
     } catch (error) {
         console.error('Error submitting assessment:', error);
         const message = error instanceof Error ? error.message : String(error);
@@ -969,14 +1049,14 @@ export function clearUIState(): void {
     // Reset button states / visibility
     showLinkedInDisconnectedUI();
     updateAssessmentUI(false);
-    
+
     // Reset status messages
     showStatus(userStatusDiv, '', 'info');
     showStatus(bioStatusDiv, '', 'info');
-    
+
     // Update navigation (will disable relevant tabs)
     updateNavigationTabsState();
-    
+
     // Dispatch event to notify other modules
     document.dispatchEvent(new CustomEvent('user-cleared'));
 }
@@ -998,11 +1078,11 @@ function handleUserDeselect(): void {
     // Update UI elements managed DIRECTLY by userModule
     if (currentUserDisplaySpan) currentUserDisplaySpan.textContent = 'None Selected';
     if (userBioTextarea) userBioTextarea.value = '';
-    
+
     // Trigger events to notify other modules
     document.dispatchEvent(new CustomEvent('user-deselected'));
     document.dispatchEvent(new CustomEvent('library-cleared', { detail: { userId: null } })); // Notify content/personality modules
-    
+
     localStorage.removeItem('lastSelectedUser'); // Clear saved user
     showStatus(userStatusDiv, 'No user selected', 'info');
-} 
+}

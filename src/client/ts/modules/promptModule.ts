@@ -12,19 +12,22 @@ interface PromptModuleElements {
     resetCustomGenerationPromptButton: HTMLButtonElement | null;
     customGenerationPromptStatusDiv: HTMLDivElement | null;
     // Remove base prompt related elements if no longer generating separate base prompts
-    // generateBasePromptButton: HTMLButtonElement | null; 
-    // basePromptGenerationStatusDiv: HTMLDivElement | null; 
-    // basePromptOutputTextarea: HTMLTextAreaElement | null; 
-    // copyBasePromptButton: HTMLButtonElement | null; 
-    generateCharacterCardButton: HTMLButtonElement | null; 
+    // generateBasePromptButton: HTMLButtonElement | null;
+    // basePromptGenerationStatusDiv: HTMLDivElement | null;
+    // basePromptOutputTextarea: HTMLTextAreaElement | null;
+    // copyBasePromptButton: HTMLButtonElement | null;
+    generateCharacterCardButton: HTMLButtonElement | null;
     characterCardGenerationStatusDiv: HTMLDivElement | null;
     jsonOutputContainer: HTMLElement | null; // Container for the JSON output
-    jsonOutput: HTMLElement | null;          // The pre element for JSON
+    jsonOutput: HTMLElement | null; // The pre element for JSON
     copyJsonButton: HTMLButtonElement | null;
+    saveCharacterCardJsonButton: HTMLButtonElement | null; // Add button for saving character card JSON
 }
 
 // UI Elements cache - typed
-let customGenerationPromptTextarea: HTMLTextAreaElement | null = null;
+const customGenerationPromptTextarea: HTMLTextAreaElement | null = document.getElementById(
+    'custom-generation-prompt'
+) as HTMLTextAreaElement | null;
 let saveCustomGenerationPromptButton: HTMLButtonElement | null = null;
 let resetCustomGenerationPromptButton: HTMLButtonElement | null = null;
 let customGenerationPromptStatusDiv: HTMLDivElement | null = null;
@@ -33,15 +36,15 @@ let customGenerationPromptStatusDiv: HTMLDivElement | null = null;
 // let basePromptGenerationStatusDiv: HTMLDivElement | null = null;
 // let basePromptOutputTextarea: HTMLTextAreaElement | null = null;
 // let copyBasePromptButton: HTMLButtonElement | null = null;
-// let basePromptDisplayContainer: HTMLDivElement | null = null; 
-// let noBasePromptMessage: HTMLElement | null = null; 
+// let basePromptDisplayContainer: HTMLDivElement | null = null;
+// let noBasePromptMessage: HTMLElement | null = null;
 
-let generateCharacterCardButton: HTMLButtonElement | null = null; 
+let generateCharacterCardButton: HTMLButtonElement | null = null;
 let characterCardGenerationStatusDiv: HTMLDivElement | null = null;
 let jsonOutputContainer: HTMLElement | null = null;
 let jsonOutput: HTMLElement | null = null;
 let copyJsonButton: HTMLButtonElement | null = null;
-
+let saveCharacterCardJsonButton: HTMLButtonElement | null = null; // Add button for saving character card JSON
 
 /**
  * Initialize the prompt module
@@ -49,28 +52,29 @@ let copyJsonButton: HTMLButtonElement | null = null;
  */
 export function initPromptModule(elements: PromptModuleElements): void {
     // Cache elements for custom generation prompt section
-    customGenerationPromptTextarea = elements.customGenerationPromptTextarea;
     saveCustomGenerationPromptButton = elements.saveCustomGenerationPromptButton;
     resetCustomGenerationPromptButton = elements.resetCustomGenerationPromptButton;
     customGenerationPromptStatusDiv = elements.customGenerationPromptStatusDiv;
-    
+
     // Cache elements for character card generation/display
     generateCharacterCardButton = elements.generateCharacterCardButton;
     characterCardGenerationStatusDiv = elements.characterCardGenerationStatusDiv;
     jsonOutputContainer = elements.jsonOutputContainer;
     jsonOutput = elements.jsonOutput;
     copyJsonButton = elements.copyJsonButton;
+    saveCharacterCardJsonButton = elements.saveCharacterCardJsonButton; // Add button for saving character card JSON
 
     // Set up event listeners
     saveCustomGenerationPromptButton?.addEventListener('click', saveCustomGenerationPrompt);
     resetCustomGenerationPromptButton?.addEventListener('click', resetCustomGenerationPrompt);
-    generateCharacterCardButton?.addEventListener('click', generateCharacterCard); 
+    generateCharacterCardButton?.addEventListener('click', generateCharacterCard);
     copyJsonButton?.addEventListener('click', copyGeneratedJson); // Add listener for copy JSON
+    saveCharacterCardJsonButton?.addEventListener('click', saveCharacterCardJson); // Add listener for saving character card JSON
 
     // Load the custom generation prompt
     loadCustomGenerationPrompt();
     // Display current character card (if any) on init
-    displayCurrentCharacterCard(); 
+    displayCurrentCharacterCard();
 
     // Listen for user data loaded event
     document.addEventListener('user-data-loaded', (event: Event) => {
@@ -81,10 +85,13 @@ export function initPromptModule(elements: PromptModuleElements): void {
 
     // Listen for asset selection changes
     document.addEventListener('assets-selection-changed', (event: Event) => {
-        console.log('Prompt module received assets-selection-changed event:', (event as CustomEvent).detail);
+        console.log(
+            'Prompt module received assets-selection-changed event:',
+            (event as CustomEvent).detail
+        );
         updateCharacterCardButtonState();
     });
-    
+
     // Listen for library cleared event
     document.addEventListener('library-cleared', () => {
         console.log('Prompt module received library-cleared event');
@@ -97,13 +104,13 @@ export function initPromptModule(elements: PromptModuleElements): void {
     console.log('Prompt module initialized - Focused on Character Cards');
 }
 
-// --- Functions for Custom Generation Prompt (Keep as is for now) --- 
+// --- Functions for Custom Generation Prompt (Keep as is for now) ---
 
 export async function loadCustomGenerationPrompt(): Promise<void> {
     // ... (Keep existing implementation or load from localStorage/API) ...
     const savedPrompt = localStorage.getItem('customGenerationPrompt');
     if (customGenerationPromptTextarea) {
-         customGenerationPromptTextarea.value = savedPrompt || getDefaultCustomGenerationPrompt();
+        customGenerationPromptTextarea.value = savedPrompt || getDefaultCustomGenerationPrompt();
     }
 }
 
@@ -120,9 +127,18 @@ export async function saveCustomGenerationPrompt(): Promise<void> {
     if (customGenerationPromptTextarea) {
         try {
             localStorage.setItem('customGenerationPrompt', customGenerationPromptTextarea.value);
-            showStatus(customGenerationPromptStatusDiv, 'Generation prompt saved locally.', 'success', 2000);
+            showStatus(
+                customGenerationPromptStatusDiv,
+                'Generation prompt saved locally.',
+                'success',
+                2000
+            );
         } catch (error: any) {
-             showStatus(customGenerationPromptStatusDiv, `Error saving prompt: ${error.message}`, 'error');
+            showStatus(
+                customGenerationPromptStatusDiv,
+                `Error saving prompt: ${error.message}`,
+                'error'
+            );
         }
     }
 }
@@ -131,7 +147,12 @@ export function resetCustomGenerationPrompt(): void {
     if (customGenerationPromptTextarea) {
         customGenerationPromptTextarea.value = getDefaultCustomGenerationPrompt();
         localStorage.removeItem('customGenerationPrompt'); // Also clear from storage
-        showStatus(customGenerationPromptStatusDiv, 'Generation prompt reset to default.', 'success', 2000);
+        showStatus(
+            customGenerationPromptStatusDiv,
+            'Generation prompt reset to default.',
+            'success',
+            2000
+        );
     }
 }
 
@@ -141,15 +162,19 @@ export function resetCustomGenerationPrompt(): void {
 // remove updateGenerateButtonState
 // remove displayBasePrompt
 
-
 // --- Character Card Generation & Display ---
 
 /**
  * Generate a new character card
  */
 export async function generateCharacterCard(): Promise<void> {
-    if (!generateCharacterCardButton || !characterCardGenerationStatusDiv) return;
-    
+    if (
+        !generateCharacterCardButton ||
+        !characterCardGenerationStatusDiv ||
+        !customGenerationPromptTextarea
+    )
+        return;
+
     if (!state.currentUserId) {
         showStatus(characterCardGenerationStatusDiv, 'Please select a user first', 'error');
         return;
@@ -161,41 +186,53 @@ export async function generateCharacterCard(): Promise<void> {
 
     generateCharacterCardButton.disabled = true;
     showStatus(characterCardGenerationStatusDiv, 'Generating character card...', 'loading');
-    if (jsonOutputContainer) jsonOutputContainer.style.display = 'none'; // Hide previous output
+    customGenerationPromptTextarea.value = '';
 
     // Get custom generation instructions
     const customPromptText = customGenerationPromptTextarea?.value.trim() || null;
 
     try {
         const selectedAssetIds = Array.from(state.selectedAssets);
-        
+
         // Use the updated API endpoint
-        const response = await fetch(`/api/prompts/${state.currentUserId}/generate-character-card`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                assetIds: selectedAssetIds,
-                customPrompt: customPromptText // Send custom instructions
-             })
-        });
+        const response = await fetch(
+            `/api/prompts/${state.currentUserId}/generate-character-card`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    assetIds: selectedAssetIds,
+                    customPrompt: customPromptText, // Send custom instructions
+                }),
+            }
+        );
 
         if (!response.ok) {
             let errorMsg = `Failed to generate character card (${response.status})`;
-            try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; } catch {}
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.error || errorMsg;
+            } catch {}
             throw new Error(errorMsg);
         }
 
         const savedCard: CharacterCard = await response.json(); // Backend now returns the full saved CharacterCard object
         console.log('Generated and saved character card:', savedCard);
 
-        // Display the generated JSON
-        displayGeneratedJson(savedCard.card_data);
-        
-        showStatus(characterCardGenerationStatusDiv, 'Character card generated successfully', 'success', 3000);
+        // Place generated JSON directly into the textarea for editing
+        customGenerationPromptTextarea.value = savedCard.card_data;
+        validateCharacterCardJson();
+
+        showStatus(
+            characterCardGenerationStatusDiv,
+            'Character card generated and loaded for editing',
+            'success',
+            3000
+        );
 
         // Dispatch event with the full CharacterCard object
         const event = new CustomEvent('character-card-updated', {
-            detail: { userId: state.currentUserId, cardData: savedCard } // Pass the full card object
+            detail: { userId: state.currentUserId, cardData: savedCard },
         });
         document.dispatchEvent(event);
 
@@ -204,36 +241,67 @@ export async function generateCharacterCard(): Promise<void> {
         if (!state.currentUserData) state.currentUserData = {}; // Initialize if null
         state.currentUserData.characterCard = savedCard; // Update state directly for immediate check
         updateNavigationTabsState(); // Call the update function
-
     } catch (error) {
         console.error('Error generating character card:', error);
         const message = error instanceof Error ? error.message : String(error);
         showStatus(characterCardGenerationStatusDiv, `Error: ${message}`, 'error');
     } finally {
-         if (generateCharacterCardButton) generateCharacterCardButton.disabled = false;
+        if (generateCharacterCardButton) generateCharacterCardButton.disabled = false;
     }
 }
 
 /**
- * Display the generated JSON in the output area.
- * @param jsonDataString The JSON data as a string.
+ * Validate the JSON inside the character card textarea and show errors if any
  */
-function displayGeneratedJson(jsonDataString: string | null): void {
-    if (jsonOutput && jsonOutputContainer) {
-        if (jsonDataString) {
-            try {
-                const parsedJson = JSON.parse(jsonDataString);
-                jsonOutput.textContent = JSON.stringify(parsedJson, null, 2); // Pretty print
-                jsonOutputContainer.style.display = 'block';
-            } catch (e) {
-                console.error("Error parsing generated JSON:", e);
-                jsonOutput.textContent = "Error displaying JSON. Invalid format received.";
-                jsonOutputContainer.style.display = 'block';
-            }
-        } else {
-            jsonOutput.textContent = '';
-            jsonOutputContainer.style.display = 'none';
-        }
+function validateCharacterCardJson(): void {
+    if (!customGenerationPromptTextarea || !characterCardGenerationStatusDiv) return;
+    const value = customGenerationPromptTextarea.value.trim();
+    if (!value) {
+        showStatus(characterCardGenerationStatusDiv, 'Character card is empty.', 'info');
+        return;
+    }
+    try {
+        JSON.parse(value);
+        showStatus(characterCardGenerationStatusDiv, 'Character card JSON is valid.', 'success');
+    } catch (e) {
+        showStatus(
+            characterCardGenerationStatusDiv,
+            'Invalid JSON: ' + (e instanceof Error ? e.message : String(e)),
+            'error'
+        );
+    }
+}
+
+// Validate on change
+if (customGenerationPromptTextarea) {
+    customGenerationPromptTextarea.addEventListener('input', validateCharacterCardJson);
+}
+
+/**
+ * Save the character card JSON as a file (download)
+ */
+export function saveCharacterCardJson(): void {
+    if (!customGenerationPromptTextarea) return;
+    const value = customGenerationPromptTextarea.value.trim();
+    try {
+        const parsed = JSON.parse(value);
+        const blob = new Blob([JSON.stringify(parsed, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'character-card.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showStatus(
+            characterCardGenerationStatusDiv,
+            'Character card saved as file.',
+            'success',
+            2000
+        );
+    } catch (e) {
+        showStatus(characterCardGenerationStatusDiv, 'Cannot save: Invalid JSON.', 'error');
     }
 }
 
@@ -241,29 +309,33 @@ function displayGeneratedJson(jsonDataString: string | null): void {
  * Fetches and displays the user's current character card.
  */
 async function displayCurrentCharacterCard(): Promise<void> {
-     if (!state.currentUserId) {
-        displayGeneratedJson(null); // Clear display if no user
+    if (!state.currentUserId) {
+        // Clear display if no user
         return;
     }
     try {
         const response = await fetch(`/api/prompts/${state.currentUserId}/current-character-card`);
         if (response.ok) {
             const card: CharacterCard = await response.json();
-            displayGeneratedJson(card.card_data);
+            // Place generated JSON directly into the textarea for editing
+            if (customGenerationPromptTextarea) {
+                customGenerationPromptTextarea.value = card.card_data;
+                validateCharacterCardJson();
+            }
             // Dispatch event so other modules know the current card
-             const event = new CustomEvent('character-card-updated', {
-                detail: { userId: state.currentUserId, cardData: card }
+            const event = new CustomEvent('character-card-updated', {
+                detail: { userId: state.currentUserId, cardData: card },
             });
             document.dispatchEvent(event);
         } else if (response.status === 404) {
-            displayGeneratedJson(null); // No current card found
-            console.log("No current character card found for user.");
+            // No current card found
+            console.log('No current character card found for user.');
         } else {
             throw new Error(`Failed to fetch current character card (${response.status})`);
         }
     } catch (error) {
-        console.error("Error fetching current character card:", error);
-        displayGeneratedJson('{\"error\": \"Could not load character card.\"}'); // Show error in JSON area
+        console.error('Error fetching current character card:', error);
+        // Show error in JSON area
     }
 }
 
@@ -271,13 +343,24 @@ async function displayCurrentCharacterCard(): Promise<void> {
  * Copy the generated JSON text to clipboard
  */
 export function copyGeneratedJson(): void {
-    if (!jsonOutput?.textContent || jsonOutput.textContent.startsWith('Error')) {
-         showStatus(characterCardGenerationStatusDiv, 'Nothing valid to copy', 'info');
-         return;
+    if (
+        !customGenerationPromptTextarea?.value ||
+        customGenerationPromptTextarea.value.startsWith('Error')
+    ) {
+        showStatus(characterCardGenerationStatusDiv, 'Nothing valid to copy', 'info');
+        return;
     }
-    navigator.clipboard.writeText(jsonOutput.textContent)
-        .then(() => showStatus(characterCardGenerationStatusDiv, 'Character card JSON copied to clipboard!', 'success', 2000))
-        .catch(err => {
+    navigator.clipboard
+        .writeText(customGenerationPromptTextarea.value)
+        .then(() =>
+            showStatus(
+                characterCardGenerationStatusDiv,
+                'Character card JSON copied to clipboard!',
+                'success',
+                2000
+            )
+        )
+        .catch((err) => {
             console.error('Failed to copy JSON:', err);
             showStatus(characterCardGenerationStatusDiv, 'Failed to copy JSON', 'error');
         });
@@ -291,4 +374,4 @@ export function updateCharacterCardButtonState(): void {
         const enabled = !!state.currentUserId && state.selectedAssets.size > 0;
         generateCharacterCardButton.disabled = !enabled;
     }
-} 
+}
