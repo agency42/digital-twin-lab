@@ -4,7 +4,7 @@ import AssetProcessor from '../services/assetProcessor'; // Import TS version
 import path from 'path';
 import fs from 'fs/promises';
 import { asyncHandler } from '../lib/asyncHandler'; // Import the wrapper
-import { dbRun } from '../lib/database'; // Import the dbRun function
+import { dbRun, dbAll } from '../lib/database'; // Import the dbRun function
 
 // Function to create the user router
 function createUserRouter(): Router {
@@ -170,13 +170,11 @@ function createUserRouter(): Router {
         }
 
         try {
-            // First ensure the assessment_data column exists
-            await dbRun(
-                `ALTER TABLE users ADD COLUMN assessment_data TEXT DEFAULT '{}'`
-            ).catch(err => {
-                // Column already exists - ignore error
-                console.log('Column already exists or other issue:', err.message);
-            });
+            // Ensure the assessment_data column exists
+            const cols = await dbAll<{ name: string }>(`PRAGMA table_info(users)`);
+            if (!cols.some(col => col.name === 'assessment_data')) {
+                await dbRun(`ALTER TABLE users ADD COLUMN assessment_data TEXT DEFAULT '{}'`);
+            }
 
             // Now update the user record with assessment data
             const updateQuery = `

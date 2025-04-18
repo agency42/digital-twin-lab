@@ -2,11 +2,9 @@ import express, { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
 import AssetProcessor from '../services/assetProcessor';
+import PdfProcessor from '../services/pdfProcessor';
 import ClaudeAPI from '../api/claude';
 import { asyncHandler } from '../lib/asyncHandler';
-import { dbRun, dbGet, dbAll } from '../lib/database'; // Import DB helpers
-import { v4 as uuidv4 } from 'uuid';
-import PdfProcessor from '../services/pdfProcessor'; // Import PdfProcessor
 
 // Function to create the asset router, injecting dependencies
 function createAssetRouter(assetProcessor: AssetProcessor, claudeAPI: ClaudeAPI): Router {

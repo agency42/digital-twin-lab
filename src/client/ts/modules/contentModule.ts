@@ -28,7 +28,7 @@ interface Asset {
     extractedContentLength?: number;
     context?: string;
     metadata?: { // Allow flexible metadata
-        [key: string]: any;
+        [key: string]: unknown;
         sourceType?: string;
         source?: string;
         createdAt?: string;
@@ -42,7 +42,6 @@ interface Asset {
 interface ContentModuleElements {
     uploadFileInput: HTMLInputElement | null;
     uploadStatusDiv: HTMLDivElement | null;
-    contentLibraryPage: HTMLElement | null; // Or more specific if known
     selectionSummarySpan: HTMLSpanElement | null;
     assetDisplayArea: HTMLDivElement | null;
     deleteSelectedButton: HTMLButtonElement | null;
@@ -80,7 +79,7 @@ const DEBUG_LEVEL: number = 0; // Changed to number type
  * @param message - The message to log
  * @param data - Optional data to log
  */
-function log(level: number, message: string, data?: any): void {
+function log(level: number, message: string, data?: unknown): void {
     if (level <= DEBUG_LEVEL) {
         switch (level) {
             case 1:

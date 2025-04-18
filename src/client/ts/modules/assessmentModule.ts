@@ -3,34 +3,6 @@
  */
 import { state, showStatus } from './utils.js';
 import { updateNavigationTabsState } from './navigationModule.js'; // Import the function
-import { 
-    UserData, 
-    TipiQuestionData, 
-    AssessmentResult, 
-    AlignmentResult,
-    BasePromptText,
-    PromptVariation
-} from '../types';
-// import Chart from 'chart.js/auto'; // Use Chart type from global scope for now
-
-// Define interfaces/types
-// --- REMOVED INTERFACES (moved to types.ts) ---
-// interface TipiQuestionData { ... }
-// interface AssessmentResult { ... }
-// interface AlignmentScores { ... }
-// interface AlignmentResult { ... }
-// interface UserData { ... }
-
-// Extend AppState (ideally imported)
-// --- REMOVED MODULE AUGMENTATION --- 
-// Module augmentation now uses the imported AppState
-// declare module '../types.js' { // Augment the imported type declaration
-//     interface AppState {
-//         // User assessment scores might be stored directly on state or within currentUserData
-//         userTipiScores?: { [key: string]: number } | null; 
-//         aiTipiScores?: { [key: string]: number } | null;
-//     }
-// }
 
 // Define a type for the elements passed to this module
 interface AssessmentModuleElements {
@@ -75,7 +47,7 @@ let resetAssessmentPromptButton: HTMLButtonElement | null = null;
 
 // Chart instance for redrawing - Use Chart.js global type
 // Make sure Chart.js is loaded globally in index.html
-declare var Chart: any; // Use any for now, install @types/chart.js later if needed
+declare let Chart: any; // Use any for now, install @types/chart.js later if needed
 let radarChart: any | null = null; // Use any for Chart instance type
 
 // Store the currently loaded prompt source for assessment
@@ -126,6 +98,11 @@ export function initAssessmentModule(elements: AssessmentModuleElements): void {
     document.addEventListener('library-cleared', handleLibraryCleared);
 
     console.log('Assessment module initialized');
+    // Initialize assessment UI immediately and on page activation
+    updateAssessmentUI();
+    updateAssessmentPromptButtons();
+    updateRunAIAssessmentButtonState();
+    document.addEventListener('evaluation-page-activated', handleUserDataUpdate);
 }
 
 /**
@@ -172,7 +149,7 @@ async function loadTipiQuestions(): Promise<void> {
             throw new Error(`Failed to load TIPI questions: ${response.statusText}`);
         }
         
-        const questions: TipiQuestionData[] = await response.json();
+        const questions: any[] = await response.json();
         console.log('Loaded TIPI questions from backend:', questions);
         
         questionsContainer.innerHTML = ''; // Clear previous questions
@@ -405,7 +382,7 @@ export async function handleUserAssessmentSubmit(event: SubmitEvent): Promise<vo
 function updateAssessmentSystemPrompt(): void {
     if (!assessmentSystemPromptEditor) return;
 
-    let promptContent: BasePromptText | null = null;
+    let promptContent: any = null;
     let promptSourceInfo = 'none';
     currentAssessmentPromptSource = 'none'; // Reset source indicator
 
@@ -529,14 +506,12 @@ async function resetAssessmentPrompt(confirmReset = true): Promise<void> {
 function updateRunAIAssessmentButtonState(): void {
     if (!runAIAssessmentButton) return;
     const hasUserScores = !!state.userTipiScores; // Assuming userTipiScores are correctly loaded into state
-    // Check if *any* assessment prompt (base or variation) is loaded and ready
-    const promptLoaded = currentAssessmentPromptSource !== 'none'; 
-    const canRunAssessment = hasUserScores && promptLoaded;
+    const canRunAssessment = hasUserScores;
     
     runAIAssessmentButton.disabled = !canRunAssessment;
-    runAIAssessmentButton.title = canRunAssessment 
-        ? 'Run AI simulation using the current assessment prompt' 
-        : 'Complete user assessment and ensure a base prompt exists first';
+    runAIAssessmentButton.title = canRunAssessment
+        ? 'Run AI assessment'
+        : 'Complete user assessment first';
         
     // Update status message if needed (optional, can conflict with other messages)
     // if (!canRunAssessment && aiAssessmentStatusDiv) {
@@ -600,7 +575,7 @@ async function runAIAssessment(): Promise<void> {
              const errorMsg = await getErrorMessage(alignmentResponse, 'Alignment calculation failed');
             throw new Error(errorMsg);
         }
-        const alignmentResult: AlignmentResult = await alignmentResponse.json();
+        const alignmentResult: any = await alignmentResponse.json();
         console.log('Alignment Calculation Result:', alignmentResult);
 
         // Display Results
@@ -621,7 +596,7 @@ async function runAIAssessment(): Promise<void> {
  * Display assessment alignment results in the UI.
  * @param results - The alignment result object from the backend.
  */
-function displayAssessmentResults(results: AlignmentResult): void {
+function displayAssessmentResults(results: any): void {
     if (!assessmentResultsArea || !overallAlignmentSpan || !dimensionAlignmentList || !radarChartCanvas || !itemAgreementSpan) {
          console.error('Cannot display results: Missing UI elements.');
          return;

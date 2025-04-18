@@ -4,8 +4,6 @@ import { dbAll } from '../lib/database'; // Only dbAll is needed here
 // import AssetProcessor from './assetProcessor'; // Removed unused import
 import ClaudeAPI from '../api/claude';
 import PromptService from '../services/promptService';
-import PdfProcessor from '../services/pdfProcessor';
-import { v4 as uuidv4 } from 'uuid';
 import { dbGet } from '../lib/database';
 
 // Define interfaces (or import if moved)

@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../lib/asyncHandler';
 import ClaudeAPI from '../api/claude';
-import PromptService from '../services/promptService';
 import PromptConstructionService from '../services/promptConstructionService';
 
 /**
@@ -10,7 +9,6 @@ import PromptConstructionService from '../services/promptConstructionService';
 export default function createChatRouter() {
     const router = Router();
     const claudeAPI = new ClaudeAPI();
-    const promptService = new PromptService();
     const promptConstructionService = new PromptConstructionService();
     
     /**
@@ -95,7 +93,7 @@ export default function createChatRouter() {
         
         try {
             // Use the prompt construction service to build the chat prompt
-            const { formattedSystemPrompt, userMessageFieldName } = await promptConstructionService.constructChatPrompt(userId);
+            const { formattedSystemPrompt } = await promptConstructionService.constructChatPrompt(userId);
 
             if (stream) {
                 res.setHeader('Content-Type', 'text/event-stream');
@@ -221,7 +219,7 @@ export default function createChatRouter() {
         
         try {
             // Use the prompt construction service to build the chat prompt
-            const { formattedSystemPrompt, userMessageFieldName } = await promptConstructionService.constructChatPrompt(userId);
+            const { formattedSystemPrompt } = await promptConstructionService.constructChatPrompt(userId);
             
             // Call Claude API with the formatted system prompt and user message
             const responseText = await claudeAPI.generateCompletion(

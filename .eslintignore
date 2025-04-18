@@ -1,0 +1,7 @@
+# Ignore compiled outputs and dependencies
+node_modules/
+dist/
+data/
+database/
+public/
+logs/

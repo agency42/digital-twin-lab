@@ -27,22 +27,6 @@ interface AlignmentScores {
     traitCorrelation: number | null;
 }
 
-// Helper function to parse AI score from text (e.g., "Score: 5/7")
-// Keep this local as it's specific to parsing AI string output
-// NOTE: This function is no longer needed since we're using the new AI service approach
-/*
-function parseAIScore(textResponse: string | null | undefined): number | null {
-    if (!textResponse) return null;
-    // Adjusted regex for 1-7 range
-    const match = textResponse.match(/\b([1-7])\b/);
-    if (match && match[1]) {
-        return parseInt(match[1], 10);
-    }
-    console.warn(`Could not parse score from AI response: "${textResponse}"`);
-    return null; // Indicate failure to parse
-}
-*/
-
 // Function to create the assessment router
 function createAssessmentRouter(): Router {
     const router = express.Router();

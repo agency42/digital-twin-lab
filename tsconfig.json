@@ -2,7 +2,7 @@
   "compilerOptions": {
     /* Basic Options */
     "target": "ES2020",                     // Specify ECMAScript target version
-    "module": "CommonJS",                  // CHANGE: Output CommonJS for Node.js compatibility
+    "module": "CommonJS",                  // Output CommonJS for Node.js compatibility
     "outDir": "./dist",                     // Redirect output structure to the directory
     "rootDir": "./src/server",              // Specify the root directory of input files - UPDATED FOR NEW STRUCTURE
     "strict": true,                        // Enable all strict type-checking options
@@ -36,7 +36,7 @@
     "alwaysStrict": true,                // Parse in strict mode and emit "use strict" for each source file
 
     /* Additional Checks */
-    // "noUnusedLocals": true,              // Report errors on unused locals (Temporarily disabled for dev setup)
+    "noUnusedLocals": true,              // Report errors on unused locals
     "noUnusedParameters": true,          // Report errors on unused parameters
     "noImplicitReturns": true,           // Report error when not all code paths in function return a value
     "noFallthroughCasesInSwitch": true   // Report errors for fallthrough cases in switch statement

@@ -25,7 +25,7 @@ let clearChatButton: HTMLButtonElement | null = null;
 let chatStatusDiv: HTMLDivElement | null = null;
 // let systemPromptEditor: HTMLTextAreaElement | null = null; // Keep if needed
 
-let currentChatSessionId: string | null = null; // Optional: for session management
+// Session management variable removed as unused
 
 /**
  * Initialize the chat module
@@ -117,10 +117,9 @@ async function sendMessage(): Promise<void> {
                 // Try to get error details from the body, even for stream errors initially
                 const errorData = await response.json(); 
                 errorMsg = errorData.error || errorMsg;
-            } catch (e) {
-                 // If json() fails (e.g., because it's actually a stream response starting)
-                 // or if there's no JSON body, use the status text.
-                 errorMsg = `${errorMsg}: ${response.statusText || 'Server error'}`;
+            } catch {
+                // Handle non-JSON error responses
+                errorMsg = `${errorMsg}: ${response.statusText || 'Server error'}`;
             }
             // Throw before trying to process the stream
             throw new Error(errorMsg); 
@@ -143,6 +142,7 @@ async function sendMessage(): Promise<void> {
             }
 
             try {
+                // eslint-disable-next-line no-constant-condition
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) {
@@ -157,7 +157,7 @@ async function sendMessage(): Promise<void> {
                     buffer += decoder.decode(value, { stream: true });
 
                     // Process lines in the buffer
-                    let lines = buffer.split('\n');
+                    const lines = buffer.split('\n');
                     buffer = lines.pop() || ''; // Keep the last potentially incomplete line in buffer
 
                     for (const line of lines) {
@@ -191,7 +191,7 @@ async function sendMessage(): Promise<void> {
                 }
             } finally {
                 // Ensure reader is cancelled if loop exits unexpectedly (e.g., error)
-                 reader.cancel(); 
+                reader.cancel(); 
             }
         } else {
             throw new Error("Response body is null");
@@ -245,7 +245,7 @@ function clearChat(): void {
     if (chatStatusDiv) {
         showStatus(chatStatusDiv, 'Chat cleared.', 'info', 1500);
     }
-    currentChatSessionId = null; // Reset session ID
+    // Session tracking removed; no state to reset
     console.log('Chat history cleared.');
 }
 

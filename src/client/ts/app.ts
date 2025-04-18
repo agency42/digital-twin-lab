@@ -4,7 +4,7 @@
  */
 
 // Import modules (add .js extension for browser compatibility)
-import { initUserModule, loadUserData } from './modules/userModule.js';
+import { initUserModule } from './modules/userModule.js';
 import { initNavigationModule, addDisabledTabStyling } from './modules/navigationModule.js';
 import { initPromptModule } from './modules/promptModule.js';
 import { initChatModule } from './modules/chatModule.js';

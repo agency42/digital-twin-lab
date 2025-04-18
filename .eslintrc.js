@@ -6,7 +6,7 @@ module.exports = {
   },
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: './tsconfig.json',
+    project: ['./tsconfig.json', './tsconfig.frontend.json'],
     ecmaVersion: 12,
     sourceType: 'module',
     ecmaFeatures: { jsx: true }
@@ -16,7 +16,6 @@ module.exports = {
     'import',
     'react',
     'react-hooks',
-    'node',
     'promise'
   ],
   extends: [
@@ -27,13 +26,23 @@ module.exports = {
     'plugin:import/typescript',
     'plugin:react/recommended',
     'plugin:react-hooks/recommended',
-    'plugin:node/recommended',
     'plugin:promise/recommended'
   ],
   settings: {
-    react: { version: 'detect' }
+    react: { version: 'detect' },
+    'import/parsers': {
+      '@typescript-eslint/parser': ['.ts', '.tsx']
+    },
+    'import/resolver': {
+      typescript: { project: ['./tsconfig.json', './tsconfig.frontend.json'], alwaysTryTypes: true }
+    }
   },
   rules: {
+    'import/no-unresolved': 'off',
+    'import/namespace': 'off',
+    'import/default': 'off',
+    'import/no-named-as-default': 'off',
+    'import/no-named-as-default-member': 'off',
     // custom rule overrides
   }
 };

@@ -1,4 +1,4 @@
-import { dbRun, dbGet, dbAll } from '../lib/database';
+import { dbRun, dbGet } from '../lib/database';
 import { v4 as uuidv4 } from 'uuid';
 // import { logger } from '../lib/logger'; // Assume logger is set up - REMOVED FOR NOW
 

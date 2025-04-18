@@ -32,7 +32,7 @@ yarn-error.log*
 .DS_Store
 
 # Cursor-specific mcp files (contains sensitive API keys)
-.cursor/mcp.json
+.cursor/
 
 # Database files
 *.sqlite

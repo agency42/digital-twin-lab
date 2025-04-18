@@ -1065,9 +1065,25 @@ Ensure the output is ONLY the JSON object, starting with { and ending with }.</t
               <h2 class="module-title">Evaluation</h2>
             </div>
             <p class="module-description">Assess and evaluate your Digital Twin's personality and performance.</p>
-
-            <!-- Content from the Alignment Metrics page goes here -->
-            <!-- ... Existing code ... -->
+            
+            <!-- AI Assessment Controls -->
+            <div id="evaluation-controls" style="margin-bottom: 20px;">
+              <button id="run-ai-assessment" class="action-button">Run AI Assessment</button>
+              <label for="runs-per-item" style="margin-left: 10px;">Runs Per Item:</label>
+              <input type="number" id="runs-per-item" min="1" value="1" style="width: 60px; margin-left: 5px;">
+              <label for="ai-assessment-temp" style="margin-left: 10px;">Temperature:</label>
+              <input type="number" id="ai-assessment-temp" min="0" max="1" step="0.1" value="0.7" style="width: 60px; margin-left: 5px;">
+              <div id="ai-assessment-status" class="status info" style="display: inline-block; margin-left: 15px;"></div>
+            </div>
+            <!-- Assessment Results Area -->
+            <div id="assessment-results-area" style="display: none; margin-top: 20px;">
+              <h3>Results</h3>
+              <div>Overall Alignment: <span id="overall-alignment"></span></div>
+              <div>Item Agreement: <span id="item-agreement"></span></div>
+              <h4>Dimension Alignment:</h4>
+              <ul id="dimension-alignment-list"></ul>
+              <canvas id="radar-chart" width="400" height="400"></canvas>
+            </div>
           </div>
         </div>
       </div>

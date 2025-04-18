@@ -43,7 +43,7 @@ interface InstructionTemplate {
 
 // Define the extended InstructionTemplate with parsed examples
 interface InstructionTemplateWithMetadata extends InstructionTemplate {
-    parsedExamples?: Record<string, any>; // Or a more specific type for examples
+    parsedExamples?: Record<string, unknown>; // Or a more specific type for examples
 }
 
 // Interface for data needed on this page
@@ -54,27 +54,6 @@ interface GenerationsData {
 }
 
 // --- Interfaces ---
-
-interface ContentMediumInstruction {
-    // Using a simplified structure for now, adjust based on actual needs
-    instruction: string;
-    // Add other fields if necessary based on agent-data-structures.mdc or specific needs
-}
-
-interface ContentMediumElements {
-    mediumTabsContainer: HTMLElement | null;
-    systemPromptEditor: HTMLTextAreaElement | null;
-    instructionEditor: HTMLTextAreaElement | null; // Added instruction editor element
-    saveVariationButton: HTMLButtonElement | null; // May remove later if auto-saving
-    resetPromptButton: HTMLButtonElement | null; // Renamed from resetToBasePromptButton
-    generateContentButton: HTMLButtonElement | null;
-    generatedContentOutput: HTMLElement | null;
-    generationStatusDiv: HTMLDivElement | null;
-    showSystemPromptCheckbox: HTMLInputElement | null;
-    mainGoalInput: HTMLTextAreaElement | null; // Added main goal input element
-    examplesInput: HTMLTextAreaElement | null; // Added examples input element
-    // Remove elements related to character card/instruction set selection
-}
 
 type ContentMediumType = 'chat' | 'post';
 
@@ -191,15 +170,10 @@ export function initContentMediumModule(): void {
     //     console.error("Cannot add click listener to saveMainGoalButton because element was not found");
     // }
     
-    if (saveExamplesButton) {
-        console.log("Adding click event listener to saveExamplesButton");
-        saveExamplesButton.addEventListener('click', function(event) {
-            console.log("Examples save button clicked!");
-            handleSaveExamples();
-        });
-    } else {
-        console.error("Cannot add click listener to saveExamplesButton because element was not found");
-    }
+    saveExamplesButton?.addEventListener('click', () => {
+        console.log("Examples save button clicked!");
+        handleSaveExamples();
+    });
 
     // Listen for user changes to trigger initial data load
     document.addEventListener('user-data-loaded', () => {
@@ -728,6 +702,7 @@ async function generateContent(): Promise<void> {
                         setTimeout(() => {
                             copyButton.textContent = 'Copy';
                         }, 2000);
+                        return;
                     })
                     .catch(err => {
                         console.error('Failed to copy:', err);
@@ -735,6 +710,7 @@ async function generateContent(): Promise<void> {
                         setTimeout(() => {
                             copyButton.textContent = 'Copy';
                         }, 2000);
+                        return;
                     });
             });
         }
@@ -742,7 +718,7 @@ async function generateContent(): Promise<void> {
         // Show success message
         showStatus(generationStatusDiv, 'Content generated successfully', 'success', 3000);
         
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error generating content:', error);
         const message = error instanceof Error ? error.message : String(error);
         showStatus(generationStatusDiv, `Error generating content: ${message}`, 'error'); // Added context to error
@@ -765,6 +741,7 @@ function getDefaultInstructionText(type: 'chat' | 'post'): string {
 /**
  * Handles saving the main goal via API call.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function handleSaveMainGoal(): Promise<void> {
     console.log("handleSaveMainGoal called");
     if (!state.currentUserId || !mainGoalInput || !saveMainGoalButton || !mainGoalStatusDiv) {
@@ -868,5 +845,3 @@ async function handleSaveExamples(): Promise<void> {
         saveExamplesButton.disabled = false;
     }
 }
-
-// (Add any other helper functions needed) 

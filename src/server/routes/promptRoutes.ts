@@ -360,14 +360,6 @@ function createPromptRouter(abstractionApproach: AbstractionApproach): Router {
     }));
     // --- End Template File Endpoints ---
 
-    // --- REMOVE OLD ENDPOINTS ---
-    // Remove GET /api/prompts/:userId
-    // Remove DELETE /api/prompts/:userId
-    // Remove POST /api/prompts/:userId/variations/:moduleContext
-    // Remove GET /api/prompts/:userId/variations/:moduleContext
-    // Remove DELETE /api/prompts/:userId/variations/:moduleContext
-    // Remove POST /api/prompts/:userId/generate
-
     return router;
 }
 

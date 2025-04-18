@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Twin Lab</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/playground.css">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --dark-100: #2f333d;
+      --dark-200: #2a2d37;
+      --dark-300: #25282f;
+      --dark-400: #1f2127;
+      --dark-500: #18191f;
+      --dark-600: #141519;
+      --dark-700: #101115;
+      --dark-800: #08090c;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--dark-800);
+      min-height: 100vh;
+    }
+    .playground-root {
+      display: flex;
+      flex-direction: row;
+      height: 100vh;
+    }
+    .sidebar-nav {
+      background-color: var(--dark-700);
+      width: 240px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-header {
+      margin-bottom: 16px;
+    }
+    .sidebar-logo {
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--primary);
+    }
+    .sidebar-sections {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .sidebar-section {
+      padding: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .sidebar-section.active {
+      background-color: var(--dark-600);
+    }
+    .sidebar-icon {
+      font-size: 16px;
+      color: var(--gray-400);
+    }
+    .sidebar-section span {
+      font-size: 14px;
+      color: var(--gray-300);
+    }
+    .main-workspace {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .workspace-header {
+      background-color: var(--dark-600);
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .workspace-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--gray-200);
+    }
+    .workspace-actions {
+      display: flex;
+      gap: 12px;
+    }
+    .workspace-action {
+      background-color: var(--dark-700);
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      font-size: 16px;
+      color: var(--gray-400);
+      cursor: pointer;
+    }
+    .content-split {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+    }
+    .prompt-panel {
+      width: 50%;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    .panel-header {
+      background-color: var(--dark-600);
+      padding: 12px;
+      border-bottom: 1px solid var(--dark-700);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .panel-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--gray-200);
+    }
+    .panel-content {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+    }
+    .prompt-editor {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .prompt-section {
+      background-color: var(--dark-600);
+      padding: 12px;
+      border-radius: 6px;
+    }
+    .prompt-section-header {
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--gray-200);
+      margin-bottom: 8px;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .settings-select {
+      background-color: var(--dark-700);
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      font-size: 14px;
+      color: var(--gray-400);
+    }
+    .prompt-input {
+      background-color: var(--dark-700);
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      font-size: 14px;
+      color: var(--gray-400);
+      width: 100%;
+      height: 120px;
+      resize: none;
+    }
+    .chat-panel {
+      width: 50%;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-history {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+    }
+    .chat-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+    .chat-empty-icon {
+      font-size: 24px;
+      color: var(--gray-400);
+    }
+    .chat-input-container {
+      padding: 12px;
+    }
+    .chat-input-wrapper {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+    }
+    .chat-input {
+      background-color: var(--dark-700);
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      font-size: 14px;
+      color: var(--gray-400);
+      width: 100%;
+      height: 40px;
+      resize: none;
+    }
+    .chat-send {
+      background-color: var(--primary);
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      font-size: 16px;
+      color: var(--gray-200);
+      cursor: pointer;
+    }
+    .user-message {
+      background-color: var(--dark-600);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+    .assistant-message {
+      background-color: var(--dark-700);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+    .twin-actions {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .twin-bio {
+      background-color: var(--dark-700);
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      font-size: 14px;
+      color: var(--gray-400);
+      width: 100%;
+      height: 60px;
+      resize: none;
+    }
+    
+    .twin-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .action-button {
+      background-color: var(--dark-700);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      color: var(--gray-300);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background-color 0.2s;
+    }
+    
+    .action-button:hover {
+      background-color: var(--dark-600);
+    }
+    
+    .primary-button {
+      background-color: var(--primary);
+      color: white;
+    }
+    
+    .primary-button:hover {
+      background-color: var(--primary-dark);
+    }
+    
+    .examples-content {
+      background-color: var(--dark-700);
+      border-radius: 6px;
+      padding: 12px;
+      min-height: 60px;
+    }
+    
+    .examples-empty {
+      color: var(--gray-500);
+      font-size: 14px;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="playground-root">
+    <!-- Left Sidebar -->
+    <aside class="sidebar-nav">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">Digital Twin Lab</div>
+      </div>
+      <div class="sidebar-sections">
+        <div class="sidebar-section active">
+          <i class="sidebar-icon fa-solid fa-flask"></i>
+          <span>Lab</span>
+        </div>
+        <div class="sidebar-section">
+          <i class="sidebar-icon fa-solid fa-book"></i>
+          <span>Library</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-workspace">
+      <!-- Top workspace header -->
+      <div class="workspace-header">
+        <div class="workspace-title">Digital Twin Lab</div>
+        <div class="workspace-actions">
+          <button class="workspace-action">
+            <i class="fa-solid fa-code"></i>
+          </button>
+          <button class="workspace-action">
+            <i class="fa-solid fa-arrows-left-right"></i>
+          </button>
+          <button class="workspace-action">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+          </button>
+          <button class="workspace-action">
+            <i class="fa-solid fa-gear"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Two-panel split -->
+      <div class="content-split">
+        <!-- Left: Prompt panel -->
+        <div class="prompt-panel">
+          <div class="panel-header">
+            <div class="panel-title">Your prompts</div>
+            <button class="workspace-action">
+              <i class="fa-solid fa-floppy-disk"></i>
+            </button>
+          </div>
+          
+          <div class="panel-content">
+            <div class="prompt-editor">
+              <!-- Twin selection -->
+              <div class="prompt-section">
+                <div class="prompt-section-header">Twin</div>
+                <div class="settings-row">
+                  <select class="settings-select">
+                    <option>Twin1</option>
+                    <option>Twin2</option>
+                  </select>
+                </div>
+                <div class="twin-actions">
+                  <textarea class="twin-bio" placeholder="Enter twin bio..."></textarea>
+                  <div class="twin-buttons">
+                    <button class="action-button">
+                      <i class="fa-solid fa-upload"></i> Upload
+                    </button>
+                    <button class="action-button">
+                      <i class="fa-solid fa-link"></i> URL
+                    </button>
+                    <button class="action-button primary-button">
+                      <i class="fa-solid fa-save"></i> Save Bio
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Character Card -->
+              <div class="prompt-section">
+                <div class="prompt-section-header">
+                  <span>Character Card</span>
+                  <button class="action-button">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Generate
+                  </button>
+                </div>
+                <textarea class="prompt-input" placeholder="Character card content..."></textarea>
+              </div>
+              
+              <!-- Instructions -->
+              <div class="prompt-section">
+                <div class="prompt-section-header">Instructions</div>
+                <textarea class="prompt-input" placeholder="Enter instructions for your digital twin..."></textarea>
+              </div>
+              
+              <!-- Examples -->
+              <div class="prompt-section">
+                <div class="prompt-section-header">
+                  <span>Examples</span>
+                  <button class="workspace-action">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+                <div class="examples-content">
+                  <p class="examples-empty">No examples yet. Click + to add an example interaction.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right: Chat panel -->
+        <div class="chat-panel">
+          <div class="chat-history">
+            <div class="chat-empty">
+              <i class="chat-empty-icon fa-regular fa-comments"></i>
+              <div>Your conversation will appear here</div>
+            </div>
+          </div>
+          
+          <div class="chat-input-container">
+            <div class="chat-input-wrapper">
+              <textarea class="chat-input" placeholder="Prompt your twin..."></textarea>
+              <button class="chat-send">
+                <i class="fa-solid fa-paper-plane"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Chat input handling
+      const chatForm = document.querySelector('.chat-input-wrapper');
+      const chatInput = document.querySelector('.chat-input');
+      const chatHistory = document.querySelector('.chat-history');
+      const sendButton = document.querySelector('.chat-send');
+      
+      // Function to add a message to the chat
+      function addMessage(message, isUser = true) {
+        // Clear empty state if present
+        if (chatHistory.querySelector('.chat-empty')) {
+          chatHistory.innerHTML = '';
+        }
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = isUser ? 'user-message' : 'assistant-message';
+        messageDiv.textContent = message;
+        chatHistory.appendChild(messageDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      }
+      
+      // Send message on button click
+      sendButton.addEventListener('click', () => {
+        const message = chatInput.value.trim();
+        if (message) {
+          addMessage(message, true);
+          chatInput.value = '';
+          
+          // Simulate AI response (in real app, this would be an API call)
+          setTimeout(() => {
+            addMessage("I'm your Digital Twin. How can I help you today?", false);
+          }, 1000);
+        }
+      });
+      
+      // Send message on Enter (but allow shift+enter for new lines)
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendButton.click();
+        }
+      });
+      
+      // Auto-resize textarea
+      chatInput.addEventListener('input', () => {
+        chatInput.style.height = 'auto';
+        chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+      });
+      
+      // Sidebar navigation
+      document.querySelectorAll('.sidebar-section').forEach(section => {
+        section.addEventListener('click', () => {
+          document.querySelectorAll('.sidebar-section').forEach(s => {
+            s.classList.remove('active');
+          });
+          section.classList.add('active');
+        });
+      });
+    });
+  </script>
+</body>
+</html>

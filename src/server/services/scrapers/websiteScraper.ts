@@ -32,7 +32,7 @@ interface ScrapeSummary {
     imagesDownloaded: number;
     textAssetsCreated: number;
     durationSeconds: number;
-    assetResults: any[]; // TODO: Define a proper type for asset results
+    assetResults: any[];
 }
 
 class WebsiteScraper {
@@ -47,7 +47,7 @@ class WebsiteScraper {
     private pagesVisited: number;
     private textAssetsCreated: number;
     private imageDownloadCount: number;
-    private assetResults: any[]; // TODO: Use proper type
+    private assetResults: any[];
     private statusFilePath: string;
 
     constructor() {
@@ -338,7 +338,7 @@ class WebsiteScraper {
                     }
                 }
             }
-            // TODO: Add srcset handling if needed
+            // Add srcset handling if needed
         });
         await this.updateStatus({ imagesFound: this.foundImages.size });
     }
@@ -410,128 +410,6 @@ class WebsiteScraper {
              await Promise.all(downloadPromises);
         }
         console.log(`Finished image download process. Downloaded: ${this.imageDownloadCount}`);
-    }
-
-    /**
-     * Saves extracted text content as a new asset.
-     * @param content The text content.
-     * @param pageUrl The URL the text was extracted from.
-     * @param pageTitle Optional title of the page.
-     */
-    private async saveTextContent(content: string, pageUrl: string, pageTitle?: string): Promise<void> {
-        if (!this.personId) return;
-
-        const filename = sanitize(pageTitle || new URL(pageUrl).hostname || 'scraped_text') + '.txt';
-        const buffer = Buffer.from(content, 'utf8');
-
-        // Create a fake UploadedFile object for assetProcessor
-        const fakeFile: any = {
-            name: filename,
-            data: buffer,
-            size: buffer.length,
-            encoding: 'utf8',
-            tempFilePath: '',
-            truncated: false,
-            mimetype: 'text/plain',
-            md5: '',
-            mv: async (dest: string) => {
-                try {
-                    const destDir = path.dirname(dest);
-                    await fs.mkdir(destDir, { recursive: true });
-                    await fs.writeFile(dest, content, 'utf8');
-                } catch (mvError: any) {
-                    console.error(`Error writing scraped text file during mv (${filename}):`, mvError);
-                    throw mvError;
-                }
-            }
-        };
-
-        const metadata = {
-            userId: this.personId,
-            personId: this.personId,
-            sourceUrl: pageUrl,
-            sourcePlatform: 'website',
-            sourceMedium: 'article',
-            context: `Scraped from ${pageUrl}`,
-            title: pageTitle || pageUrl
-        };
-
-        try {
-            const asset = await this.assetProcessor.processAsset(fakeFile, metadata);
-            this.textAssetsCreated++;
-            this.assetResults.push({ type: 'text', id: asset.id, url: pageUrl });
-            await this.updateStatus({ textAssetsCreated: this.textAssetsCreated });
-            console.log(`Saved text asset for ${pageUrl}, ID: ${asset.id}`);
-        } catch (error) {
-            console.error(`Failed to save text asset for ${pageUrl}:`, error);
-            // Continue scraping other content
-        }
-    }
-
-    /**
-     * Downloads an image and saves it as a new asset.
-     * @param imageUrl The URL of the image to download.
-     */
-    private async saveImageContent(imageUrl: string): Promise<void> {
-        if (!this.personId) return;
-
-        try {
-            const response = await axios.get(imageUrl, { 
-                responseType: 'arraybuffer', 
-                timeout: 15000, // Longer timeout for image downloads
-                headers: { 'User-Agent': 'Mozilla/5.0' } // Basic user agent
-            });
-            // Create Buffer directly from ArrayBuffer without encoding
-            const buffer = Buffer.from(response.data as ArrayBuffer);
-            const mimeType = response.headers['content-type'] || 'image/jpeg'; // Default MIME type
-            const extension = mimeType.split('/')[1]?.split(';')[0] || 'jpg'; // Extract extension
-            
-            // Create a filename (can be improved)
-            const urlParts = new URL(imageUrl);
-            const baseFilename = path.basename(urlParts.pathname) || `image_${uuidv4().substring(0, 8)}`;
-            const safeFilename = sanitize(baseFilename);
-            const filename = path.parse(safeFilename).name + '.' + extension;
-
-            // Create fake UploadedFile object
-            const fakeFile: any = {
-                name: filename,
-                data: buffer,
-                size: buffer.length,
-                encoding: 'binary',
-                tempFilePath: '',
-                truncated: false,
-                mimetype: mimeType,
-                md5: '',
-                mv: async (dest: string) => {
-                    try {
-                        const destDir = path.dirname(dest);
-                        await fs.mkdir(destDir, { recursive: true });
-                        await fs.writeFile(dest, buffer);
-                    } catch (mvError: any) {
-                        console.error(`Error writing scraped image file during mv (${filename}):`, mvError);
-                        throw mvError;
-                    }
-                }
-            };
-
-            const metadata = {
-                userId: this.personId,
-                personId: this.personId,
-                sourceUrl: imageUrl,
-                sourcePlatform: 'website',
-                sourceMedium: 'image',
-                context: `Scraped image from ${this.baseUrl}`
-            };
-
-            const asset = await this.assetProcessor.processAsset(fakeFile, metadata);
-            this.imageDownloadCount++;
-            this.assetResults.push({ type: 'image', id: asset.id, url: imageUrl });
-            console.log(`Saved image asset from ${imageUrl}, ID: ${asset.id}`);
-
-        } catch (error: any) {
-            console.error(`Failed to download or save image ${imageUrl}:`, error.message);
-             // Continue with other images
-        }
     }
 }
 
