@@ -115,12 +115,8 @@ export async function loadCustomGenerationPrompt(): Promise<void> {
 }
 
 export function getDefaultCustomGenerationPrompt(): string {
-    // Default prompt from index.html
-    return `Analyze the following text which represents writings and information about a person. Based *only* on this text, generate a structured JSON object representing their personality profile. 
-
-The JSON object should follow the character card template structure you've been provided. Include personality traits, voice characteristics, communication patterns, and platform-specific adaptations where discernible from the content.
-
-Ensure the output is ONLY the JSON object, starting with { and ending with }.`;
+    // Default prompt should now only contain the analysis instruction part
+    return `Analyze the following text which represents writings and information about a person. Based *only* on this text, generate a structured JSON object representing their personality profile.\n\nInclude personality traits, voice characteristics, communication patterns, and platform-specific adaptations where discernible from the content.\n\nEnsure the output is ONLY the JSON object, starting with { and ending with }.`;
 }
 
 export async function saveCustomGenerationPrompt(): Promise<void> {

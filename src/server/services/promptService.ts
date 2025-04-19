@@ -36,7 +36,6 @@ interface InstructionTemplate {
     user_id: string;
     type: 'chat' | 'post';
     instruction_text: string;
-    mainGoal?: string | null;
     examples?: string | null;
     created_at: string;
     updated_at: string;
