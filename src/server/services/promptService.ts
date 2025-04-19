@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 const logger = {
     info: console.log,
     warn: console.warn,
-    error: console.error
+    error: console.error,
 };
 
 // Interfaces for the new schema
@@ -57,18 +57,21 @@ interface GenerationsData {
  * Service for managing character cards, system prompts, and instructions.
  */
 class PromptService {
-
     constructor() {}
 
     /**
      * Saves a new character card for a user, marking it as current and others as not current.
      * Also ensures default system prompts and instructions are created/updated.
-     * @param userId 
+     * @param userId
      * @param cardData Stringified JSON of the character card
      * @param options Optional parameters like card name and source asset IDs
      * @returns The saved character card record.
      */
-    async saveCharacterCard(userId: string, cardData: string, options: SaveCharacterCardOptions = {}): Promise<CharacterCard> {
+    async saveCharacterCard(
+        userId: string,
+        cardData: string,
+        options: SaveCharacterCardOptions = {}
+    ): Promise<CharacterCard> {
         const { cardName = 'Character Card', basedOnAssetIds = [] } = options;
         const newCardId = uuidv4();
         const now = new Date().toISOString();
@@ -93,11 +96,14 @@ class PromptService {
                 cardData,
                 basedOnAssetsJson,
                 now,
-                now
+                now,
             ]);
 
             // 3. Fetch the newly inserted card using 'id'
-            const newCard = await dbGet<CharacterCard>('SELECT * FROM character_cards WHERE id = ?', [newCardId]);
+            const newCard = await dbGet<CharacterCard>(
+                'SELECT * FROM character_cards WHERE id = ?',
+                [newCardId]
+            );
             if (!newCard) {
                 throw new Error('Failed to retrieve character card immediately after insertion.');
             }
@@ -113,7 +119,6 @@ class PromptService {
             await dbRun('COMMIT;');
             logger.info(`Successfully saved new character card ${newCardId} for user ${userId}`);
             return newCard;
-
         } catch (error: any) {
             // Rollback transaction on error
             await dbRun('ROLLBACK;');
@@ -122,13 +127,16 @@ class PromptService {
         }
     }
 
-     /**
+    /**
      * Ensure default system prompts and instruction templates exist for a user.
      * If they exist and are not custom, update them to match the latest card data.
-     * @param userId 
-     * @param characterCardData 
+     * @param userId
+     * @param characterCardData
      */
-     private async ensureDefaultPromptsAndInstructions(userId: string, characterCardData: string): Promise<void> {
+    private async ensureDefaultPromptsAndInstructions(
+        userId: string,
+        characterCardData: string
+    ): Promise<void> {
         const promptTypes: ('chat' | 'post')[] = ['chat', 'post'];
         const now = new Date().toISOString();
 
@@ -151,16 +159,23 @@ class PromptService {
                 VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, type) DO NOTHING; -- Don't overwrite existing instructions
             `;
-            await dbRun(upsertInstructionQuery, [uuidv4(), userId, type, defaultInstruction, now, now]);
+            await dbRun(upsertInstructionQuery, [
+                uuidv4(),
+                userId,
+                type,
+                defaultInstruction,
+                now,
+                now,
+            ]);
         }
         logger.info(`Ensured default prompts and instructions for user ${userId}`);
     }
 
     private getDefaultInstructionText(type: 'chat' | 'post'): string {
         if (type === 'chat') {
-            return "Engage in a helpful and informative conversation.";
+            return 'Engage in a helpful and informative conversation.';
         }
-        return "Generate content for a specific platform (e.g., Twitter, LinkedIn, Blog). Specify platform requirements in your instructions, such as 'Create a tweet under 280 characters' or 'Write a professional LinkedIn post'.";
+        return "Generate content for a specific platform (e.g., Twitter, Blog). Specify platform requirements in your instructions, such as 'Create a tweet under 280 characters'.";
     }
 
     /**
@@ -170,27 +185,30 @@ class PromptService {
      */
     async getCurrentCharacterCard(userId: string): Promise<CharacterCard | null> {
         try {
-            const card = await dbGet<CharacterCard>('SELECT * FROM character_cards WHERE user_id = ? AND is_current = 1', [userId]);
+            const card = await dbGet<CharacterCard>(
+                'SELECT * FROM character_cards WHERE user_id = ? AND is_current = 1',
+                [userId]
+            );
             return card || null;
         } catch (error: any) {
             logger.error(`Error getting current character card for user ${userId}:`, error);
             return null;
         }
     }
-    
-     /**
+
+    /**
      * Retrieves the data needed for the Generations tab.
-     * @param userId 
-     * @param type 
+     * @param userId
+     * @param type
      * @returns {Promise<GenerationsData>}
      */
-     async getGenerationsData(userId: string, type: 'chat' | 'post'): Promise<GenerationsData> {
+    async getGenerationsData(userId: string, type: 'chat' | 'post'): Promise<GenerationsData> {
         try {
             const characterCard = await this.getCurrentCharacterCard(userId);
             const systemPrompt = await this.getSystemPrompt(userId, type);
             const instructionTemplate = await this.getInstructionTemplate(userId, type);
-            
-             // If system prompt is missing, create a default one based on current card
+
+            // If system prompt is missing, create a default one based on current card
             let finalSystemPrompt = systemPrompt;
             if (!finalSystemPrompt && characterCard) {
                 logger.warn(`No system prompt found for ${userId}/${type}, creating default.`);
@@ -200,9 +218,14 @@ class PromptService {
 
             // If instruction template is missing, create a default one
             let finalInstructionTemplate = instructionTemplate;
-             if (!finalInstructionTemplate) {
-                logger.warn(`No instruction template found for ${userId}/${type}, creating default.`);
-                 await this.ensureDefaultPromptsAndInstructions(userId, characterCard?.card_data || ''); // Need card data even if prompt exists
+            if (!finalInstructionTemplate) {
+                logger.warn(
+                    `No instruction template found for ${userId}/${type}, creating default.`
+                );
+                await this.ensureDefaultPromptsAndInstructions(
+                    userId,
+                    characterCard?.card_data || ''
+                ); // Need card data even if prompt exists
                 finalInstructionTemplate = await this.getInstructionTemplate(userId, type);
             }
 
@@ -212,20 +235,26 @@ class PromptService {
                 instructionTemplate: finalInstructionTemplate,
             };
         } catch (error: any) {
-            logger.error(`Error fetching generations data for user ${userId}, type ${type}:`, error);
+            logger.error(
+                `Error fetching generations data for user ${userId}, type ${type}:`,
+                error
+            );
             throw error; // Re-throw error to be handled by the route
         }
     }
 
     /**
      * Retrieves a specific system prompt.
-     * @param userId 
-     * @param type 
-     * @returns 
+     * @param userId
+     * @param type
+     * @returns
      */
     async getSystemPrompt(userId: string, type: 'chat' | 'post'): Promise<SystemPrompt | null> {
         try {
-            const prompt = await dbGet<SystemPrompt>('SELECT * FROM system_prompts WHERE user_id = ? AND type = ?', [userId, type]);
+            const prompt = await dbGet<SystemPrompt>(
+                'SELECT * FROM system_prompts WHERE user_id = ? AND type = ?',
+                [userId, type]
+            );
             return prompt || null;
         } catch (error: any) {
             logger.error(`Error getting system prompt for user ${userId}, type ${type}:`, error);
@@ -239,17 +268,19 @@ class PromptService {
      * @param type The template type ('chat' or 'post').
      * @returns {Promise<InstructionTemplate | null>} The template or null.
      */
-    async getInstructionTemplate(userId: string, type: 'chat' | 'post'): Promise<InstructionTemplate | null> {
+    async getInstructionTemplate(
+        userId: string,
+        type: 'chat' | 'post'
+    ): Promise<InstructionTemplate | null> {
         try {
             // Fetch directly including mainGoal and examples
             const template = await dbGet<InstructionTemplate>(
                 'SELECT * FROM instruction_templates WHERE user_id = ? AND type = ?',
                 [userId, type]
             );
-            
-            // No need to parse metadata, return directly
-            return template || null; 
 
+            // No need to parse metadata, return directly
+            return template || null;
         } catch (error: any) {
             logger.error(`Error getting instruction template for ${userId}/${type}:`, error);
             return null;
@@ -258,15 +289,19 @@ class PromptService {
 
     /**
      * Saves/Updates a system prompt, marking it as custom if it differs from the current character card.
-     * @param userId 
-     * @param type 
-     * @param promptText 
-     * @returns 
+     * @param userId
+     * @param type
+     * @param promptText
+     * @returns
      */
-    async saveSystemPrompt(userId: string, type: 'chat' | 'post', promptText: string): Promise<SystemPrompt> {
+    async saveSystemPrompt(
+        userId: string,
+        type: 'chat' | 'post',
+        promptText: string
+    ): Promise<SystemPrompt> {
         const now = new Date().toISOString();
         const currentCard = await this.getCurrentCharacterCard(userId);
-        const isCustom = (currentCard && currentCard.card_data !== promptText) ? 1 : 0;
+        const isCustom = currentCard && currentCard.card_data !== promptText ? 1 : 0;
 
         const upsertQuery = `
             INSERT INTO system_prompts (id, user_id, type, prompt_text, is_custom, created_at, updated_at)
@@ -294,11 +329,11 @@ class PromptService {
 
     /**
      * Resets a system prompt to match the current character card.
-     * @param userId 
-     * @param type 
-     * @returns 
+     * @param userId
+     * @param type
+     * @returns
      */
-     async resetSystemPrompt(userId: string, type: 'chat' | 'post'): Promise<SystemPrompt | null> {
+    async resetSystemPrompt(userId: string, type: 'chat' | 'post'): Promise<SystemPrompt | null> {
         const currentCard = await this.getCurrentCharacterCard(userId);
         if (!currentCard) {
             throw new Error('Cannot reset prompt: No current character card found.');
@@ -308,4 +343,4 @@ class PromptService {
     }
 }
 
-export default PromptService; 
+export default PromptService;

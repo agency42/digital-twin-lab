@@ -2,10 +2,11 @@
  * contentModule.ts - Handles content library functionality
  */
 import { state, showStatus } from './utils.js';
-// Removed unused import: import { updateGenerateButtonState } from './personalityModule.js'; 
+// Removed unused import: import { updateGenerateButtonState } from './personalityModule.js';
 
 // Simple placeholder for missing images (question mark in gray box)
-const PLACEHOLDER_IMAGE_URI = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="%23f0f0f0"/><text x="50%" y="50%" font-family="Arial" font-size="12" text-anchor="middle" dominant-baseline="middle" fill="%23999">?</text></svg>';
+const PLACEHOLDER_IMAGE_URI =
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="%23f0f0f0"/><text x="50%" y="50%" font-family="Arial" font-size="12" text-anchor="middle" dominant-baseline="middle" fill="%23999">?</text></svg>';
 
 // Define interfaces for data structures
 interface Asset {
@@ -23,11 +24,12 @@ interface Asset {
     createdAt?: string; // ISO Date string
     assetUrl?: string; // Direct URL if available
     filePath?: string; // Relative path if known
-    contentPreview?: string; 
+    contentPreview?: string;
     extractedContent?: string;
     extractedContentLength?: number;
     context?: string;
-    metadata?: { // Allow flexible metadata
+    metadata?: {
+        // Allow flexible metadata
         [key: string]: unknown;
         sourceType?: string;
         source?: string;
@@ -142,15 +144,21 @@ export function initContentModule(elements: ContentModuleElements): void {
             // Check if the content library is the active page before loading
             const contentPage = document.getElementById('content-library-page');
             if (contentPage && contentPage.classList.contains('active')) {
-                 log(3, `User data loaded for ${detail.userId}, loading assets as content page is active.`);
-                 loadAssets(detail.userId);
+                log(
+                    3,
+                    `User data loaded for ${detail.userId}, loading assets as content page is active.`
+                );
+                loadAssets(detail.userId);
             } else {
-                log(3, `User data loaded for ${detail.userId}, but content page is not active. Assets will load on activation.`);
+                log(
+                    3,
+                    `User data loaded for ${detail.userId}, but content page is not active. Assets will load on activation.`
+                );
             }
         } else {
             log(2, 'User data loaded event received, but no userId found in detail.');
             // Potentially clear assets if user is deselected?
-            // clearAssetsDisplay(); 
+            // clearAssetsDisplay();
         }
     });
 
@@ -173,7 +181,9 @@ export function startScraping(): void {
 
     // Check for user ID in state or try to get it from UI
     if (!state.currentUserId) {
-        const userDisplaySpan = document.getElementById('current-user-display') as HTMLSpanElement | null;
+        const userDisplaySpan = document.getElementById(
+            'current-user-display'
+        ) as HTMLSpanElement | null;
         if (userDisplaySpan?.textContent && userDisplaySpan.textContent !== 'None Selected') {
             log(3, 'Restoring lost user context for scraping:', userDisplaySpan.textContent);
             state.currentUserId = userDisplaySpan.textContent;
@@ -188,7 +198,11 @@ export function startScraping(): void {
     try {
         new URL(url);
     } catch (error) {
-        showStatus(scrapeStatusDiv, 'Please enter a valid URL (e.g., https://example.com)', 'error');
+        showStatus(
+            scrapeStatusDiv,
+            'Please enter a valid URL (e.g., https://example.com)',
+            'error'
+        );
         return;
     }
 
@@ -201,34 +215,44 @@ export function startScraping(): void {
     fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, userId: currentUserId })
+        body: JSON.stringify({ url, userId: currentUserId }),
     })
-    .then(async response => {
-        if (!response.ok) {
-            let errorMsg = `Failed to start scraping (${response.status})`;
-            try {
-                const errorData = await response.json();
-                errorMsg = errorData.error || errorMsg;
-            } catch { /* Ignore */ }
-            throw new Error(errorMsg);
-        }
-        return response.json();
-    })
-    .then(data => {
-        log(3, 'Scrape result:', data);
-        if (data.status === 'started' && data.jobId) {
-            showStatus(scrapeStatusDiv, `Scraping in progress. This may take a minute...`, 'loading');
-            pollScrapeStatus(data.jobId, 1);
-        } else {
-            showStatus(scrapeStatusDiv, `Scrape complete. ${data.assetsCreated ?? 0} assets created.`, 'success');
-            loadAssets(currentUserId); // Refresh assets
-        }
-    })
-    .catch(error => {
-        log(1, 'Error starting scrape:', error);
-        const message = error instanceof Error ? error.message : String(error);
-        showStatus(scrapeStatusDiv, `Error: ${message}`, 'error');
-    });
+        .then(async (response) => {
+            if (!response.ok) {
+                let errorMsg = `Failed to start scraping (${response.status})`;
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } catch {
+                    /* Ignore */
+                }
+                throw new Error(errorMsg);
+            }
+            return response.json();
+        })
+        .then((data) => {
+            log(3, 'Scrape result:', data);
+            if (data.status === 'started' && data.jobId) {
+                showStatus(
+                    scrapeStatusDiv,
+                    `Scraping in progress. This may take a minute...`,
+                    'loading'
+                );
+                pollScrapeStatus(data.jobId, 1);
+            } else {
+                showStatus(
+                    scrapeStatusDiv,
+                    `Scrape complete. ${data.assetsCreated ?? 0} assets created.`,
+                    'success'
+                );
+                loadAssets(currentUserId); // Refresh assets
+            }
+        })
+        .catch((error) => {
+            log(1, 'Error starting scrape:', error);
+            const message = error instanceof Error ? error.message : String(error);
+            showStatus(scrapeStatusDiv, `Error: ${message}`, 'error');
+        });
 }
 
 /**
@@ -238,41 +262,60 @@ export function startScraping(): void {
  */
 function pollScrapeStatus(jobId: string, attempt: number): void {
     if (attempt > 10) {
-        showStatus(scrapeStatusDiv, 'Scraping is taking longer than expected. Please check back later.', 'info');
+        showStatus(
+            scrapeStatusDiv,
+            'Scraping is taking longer than expected. Please check back later.',
+            'info'
+        );
         return;
     }
 
     // Exponential backoff with jitter: Start at 1s, max at 5s
-    const delay = Math.min(Math.pow(1.5, attempt) * 1000, 5000) + (Math.random() * 1000);
+    const delay = Math.min(Math.pow(1.5, attempt) * 1000, 5000) + Math.random() * 1000;
 
     log(4, `Polling scrape status for job ${jobId} (attempt ${attempt}, delay ${delay}ms)`);
 
     setTimeout(() => {
         fetch(`/api/scrape/status/${jobId}`)
-            .then(async response => {
+            .then(async (response) => {
                 if (!response.ok) {
                     let errorMsg = `Failed to get scrape status (${response.status})`;
                     try {
                         const errorData = await response.json();
                         errorMsg = errorData.error || errorMsg;
-                    } catch { /* Ignore */ }
+                    } catch {
+                        /* Ignore */
+                    }
                     throw new Error(errorMsg);
                 }
                 return response.json();
             })
-            .then(data => {
+            .then((data) => {
                 log(3, 'Scrape status:', data);
                 if (data.status === 'completed') {
-                    showStatus(scrapeStatusDiv, `Scrape complete. ${data.assetsCreated ?? 0} assets created.`, 'success');
+                    showStatus(
+                        scrapeStatusDiv,
+                        `Scrape complete. ${data.assetsCreated ?? 0} assets created.`,
+                        'success'
+                    );
                     if (state.currentUserId) loadAssets(state.currentUserId); // Refresh assets
                 } else if (data.status === 'failed') {
-                    showStatus(scrapeStatusDiv, `Scrape failed: ${data.error || 'Unknown error'}`, 'error');
-                } else { // Status is still 'in_progress' or similar
-                    showStatus(scrapeStatusDiv, `Scraping in progress (${attempt}/10)...`, 'loading');
+                    showStatus(
+                        scrapeStatusDiv,
+                        `Scrape failed: ${data.error || 'Unknown error'}`,
+                        'error'
+                    );
+                } else {
+                    // Status is still 'in_progress' or similar
+                    showStatus(
+                        scrapeStatusDiv,
+                        `Scraping in progress (${attempt}/10)...`,
+                        'loading'
+                    );
                     pollScrapeStatus(jobId, attempt + 1); // Continue polling
                 }
             })
-            .catch(error => {
+            .catch((error) => {
                 log(1, 'Error checking scrape status:', error);
                 const message = error instanceof Error ? error.message : String(error);
                 showStatus(scrapeStatusDiv, `Error checking status: ${message}`, 'error');
@@ -294,8 +337,12 @@ function handleFileUpload(): void {
     const files = uploadFileInput.files;
 
     // Get source platform and medium from the new select elements
-    const sourcePlatformSelect = document.getElementById('upload-source-platform') as HTMLSelectElement | null;
-    const sourceMediumSelect = document.getElementById('upload-source-medium') as HTMLSelectElement | null;
+    const sourcePlatformSelect = document.getElementById(
+        'upload-source-platform'
+    ) as HTMLSelectElement | null;
+    const sourceMediumSelect = document.getElementById(
+        'upload-source-medium'
+    ) as HTMLSelectElement | null;
     const sourcePlatform = sourcePlatformSelect?.value || 'direct_upload';
     const sourceMedium = sourceMediumSelect?.value || 'file';
 
@@ -307,39 +354,53 @@ function handleFileUpload(): void {
 
     for (let i = 0; i < files.length; i++) {
         // Use 'file' as the key, as expected by the backend
-        formData.append('file', files[i]); 
+        formData.append('file', files[i]);
     }
 
-    showStatus(uploadStatusDiv, `Uploading ${files.length} file(s) (Platform: ${sourcePlatform}, Medium: ${sourceMedium})...`, 'loading');
-    log(3, `Uploading ${files.length} file(s) for user ${currentUserId} with source: ${sourcePlatform}/${sourceMedium}`);
+    showStatus(
+        uploadStatusDiv,
+        `Uploading ${files.length} file(s) (Platform: ${sourcePlatform}, Medium: ${sourceMedium})...`,
+        'loading'
+    );
+    log(
+        3,
+        `Uploading ${files.length} file(s) for user ${currentUserId} with source: ${sourcePlatform}/${sourceMedium}`
+    );
 
     // Fetch endpoint is /api/upload/ according to uploadRoutes.ts
     fetch('/api/upload/', {
         method: 'POST',
-        body: formData
+        body: formData,
     })
-    .then(async response => {
-        if (!response.ok) {
-            let errorMsg = `Failed to upload (${response.status})`;
-            try {
-                const errorData = await response.json();
-                errorMsg = errorData.error || errorMsg;
-            } catch { /* Ignore */ }
-            throw new Error(errorMsg);
-        }
-        return response.json();
-    })
-    .then(data => {
-        log(3, 'Upload result:', data);
-        showStatus(uploadStatusDiv, `Successfully uploaded ${data.uploaded ?? 0} file(s)`, 'success', 3000);
-        if (uploadFileInput) uploadFileInput.value = ''; // Reset input
-        loadAssets(currentUserId); // Refresh assets
-    })
-    .catch(error => {
-        log(1, 'Error uploading files:', error);
-        const message = error instanceof Error ? error.message : String(error);
-        showStatus(uploadStatusDiv, `Error uploading: ${message}`, 'error');
-    });
+        .then(async (response) => {
+            if (!response.ok) {
+                let errorMsg = `Failed to upload (${response.status})`;
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } catch {
+                    /* Ignore */
+                }
+                throw new Error(errorMsg);
+            }
+            return response.json();
+        })
+        .then((data) => {
+            log(3, 'Upload result:', data);
+            showStatus(
+                uploadStatusDiv,
+                `Successfully uploaded ${data.uploaded ?? 0} file(s)`,
+                'success',
+                3000
+            );
+            if (uploadFileInput) uploadFileInput.value = ''; // Reset input
+            loadAssets(currentUserId); // Refresh assets
+        })
+        .catch((error) => {
+            log(1, 'Error uploading files:', error);
+            const message = error instanceof Error ? error.message : String(error);
+            showStatus(uploadStatusDiv, `Error uploading: ${message}`, 'error');
+        });
 }
 
 /**
@@ -367,26 +428,29 @@ export function loadAssets(userId: string): void {
     displayArea.innerHTML = '<p>Loading assets...</p>'; // Show loading message
 
     fetch(`/api/assets/${userId}`)
-        .then(response => {
+        .then((response) => {
             if (!response.ok) {
-                throw new Error(`Failed to load assets (${response.status} ${response.statusText})`);
+                throw new Error(
+                    `Failed to load assets (${response.status} ${response.statusText})`
+                );
             }
             return response.json();
         })
         .then((assets: Asset[]) => {
             log(3, `Loaded ${assets.length} assets for user ${userId}`);
             // Re-check the const variable
-            if (!displayArea) return; 
+            if (!displayArea) return;
 
             if (assets.length === 0) {
                 // Use the const variable
-                displayArea.innerHTML = '<p>No assets found. Upload files or scrape websites to add assets.</p>';
+                displayArea.innerHTML =
+                    '<p>No assets found. Upload files or scrape websites to add assets.</p>';
                 return;
             }
 
             // Group assets by profile ID (usually same as userId for now)
             const assetsByProfile: { [key: string]: Asset[] } = {};
-            assets.forEach(asset => {
+            assets.forEach((asset) => {
                 const profileId = asset.profileId || asset.userId || 'unknown';
                 if (!assetsByProfile[profileId]) {
                     assetsByProfile[profileId] = [];
@@ -397,8 +461,12 @@ export function loadAssets(userId: string): void {
             // Use the const variable
             displayArea.innerHTML = ''; // Clear display area
 
-            const assetGroupTemplate = document.getElementById('asset-group-template') as HTMLTemplateElement | null;
-            const assetCardTemplate = document.getElementById('asset-card-template') as HTMLTemplateElement | null;
+            const assetGroupTemplate = document.getElementById(
+                'asset-group-template'
+            ) as HTMLTemplateElement | null;
+            const assetCardTemplate = document.getElementById(
+                'asset-card-template'
+            ) as HTMLTemplateElement | null;
 
             if (!assetGroupTemplate || !assetCardTemplate) {
                 log(1, 'Asset templates not found');
@@ -409,28 +477,36 @@ export function loadAssets(userId: string): void {
 
             const sortedProfileIds = Object.keys(assetsByProfile).sort();
 
-            sortedProfileIds.forEach(profileId => {
+            sortedProfileIds.forEach((profileId) => {
                 const profileAssets = assetsByProfile[profileId];
                 const groupElement = assetGroupTemplate.content.cloneNode(true) as DocumentFragment;
-                const groupTitle = groupElement.querySelector('.profile-id-display') as HTMLSpanElement | null;
+                const groupTitle = groupElement.querySelector(
+                    '.profile-id-display'
+                ) as HTMLSpanElement | null;
                 if (groupTitle) groupTitle.textContent = profileId;
 
-                const textGrid = groupElement.querySelector('.text-content-grid') as HTMLDivElement | null;
-                const imageGrid = groupElement.querySelector('.image-content-grid') as HTMLDivElement | null;
+                const textGrid = groupElement.querySelector(
+                    '.text-content-grid'
+                ) as HTMLDivElement | null;
+                const imageGrid = groupElement.querySelector(
+                    '.image-content-grid'
+                ) as HTMLDivElement | null;
 
                 if (!textGrid || !imageGrid) return; // Skip if grid containers missing
 
                 const textAssets = profileAssets.filter(isTextAsset);
                 const imageAssets = profileAssets.filter(isImageAsset);
 
-                textGrid.innerHTML = textAssets.length > 0 ? '' : '<p>No text assets for this profile.</p>';
-                imageGrid.innerHTML = imageAssets.length > 0 ? '' : '<p>No image assets for this profile.</p>';
+                textGrid.innerHTML =
+                    textAssets.length > 0 ? '' : '<p>No text assets for this profile.</p>';
+                imageGrid.innerHTML =
+                    imageAssets.length > 0 ? '' : '<p>No image assets for this profile.</p>';
 
-                textAssets.forEach(asset => {
+                textAssets.forEach((asset) => {
                     const cardElement = createAssetCard(asset, assetCardTemplate);
                     textGrid.appendChild(cardElement);
                 });
-                imageAssets.forEach(asset => {
+                imageAssets.forEach((asset) => {
                     const cardElement = createAssetCard(asset, assetCardTemplate);
                     imageGrid.appendChild(cardElement);
                 });
@@ -439,10 +515,10 @@ export function loadAssets(userId: string): void {
                 displayArea.appendChild(groupElement);
             });
         })
-        .catch(error => {
+        .catch((error) => {
             log(1, 'Error loading assets:', error);
             // Use the const variable, checking again just in case
-            if (displayArea) { 
+            if (displayArea) {
                 const message = error instanceof Error ? error.message : String(error);
                 displayArea.innerHTML = `<p style="color: red;">Error loading assets: ${message}</p>`;
             }
@@ -452,11 +528,10 @@ export function loadAssets(userId: string): void {
 /** Type guard to check if an asset is a text asset */
 function isTextAsset(asset: Asset): boolean {
     return (
-        asset.contentType === 'text' || 
-        asset.contentType?.startsWith('text/') || 
-        asset.mimetype === 'text/plain' || 
-        asset.mimetype === 'application/json' || 
-        asset.sourceType === 'linkedin'
+        asset.contentType === 'text' ||
+        asset.contentType?.startsWith('text/') ||
+        asset.mimetype === 'text/plain' ||
+        asset.mimetype === 'application/json'
     );
 }
 
@@ -464,12 +539,11 @@ function isTextAsset(asset: Asset): boolean {
 function isImageAsset(asset: Asset): boolean {
     // Add !! to coerce the result to a strict boolean
     return !!(
-        asset.contentType === 'image' || 
-        asset.contentType?.startsWith('image/') || 
+        asset.contentType === 'image' ||
+        asset.contentType?.startsWith('image/') ||
         asset.mimetype?.startsWith('image/')
     );
 }
-
 
 /**
  * Create an asset card element
@@ -490,10 +564,18 @@ function createAssetCard(asset: Asset, template: HTMLTemplateElement): HTMLEleme
     const selectCheckbox = cardElement.querySelector('.content-select') as HTMLInputElement | null;
     const previewButton = cardElement.querySelector('.preview-button') as HTMLButtonElement | null;
 
-    if (!typeSpan || !titleDiv || !sourceDiv || !dateDiv || !previewDiv || !selectCheckbox || !previewButton) {
+    if (
+        !typeSpan ||
+        !titleDiv ||
+        !sourceDiv ||
+        !dateDiv ||
+        !previewDiv ||
+        !selectCheckbox ||
+        !previewButton
+    ) {
         log(1, 'Card template is missing required elements', asset.id);
         // Return an empty div or similar fallback to prevent errors
-        return document.createElement('div'); 
+        return document.createElement('div');
     }
 
     // Set content type
@@ -508,7 +590,12 @@ function createAssetCard(asset: Asset, template: HTMLTemplateElement): HTMLEleme
     }
 
     // Set title
-    const title = asset.fileName || asset.filename || asset.context || asset.metadata?.context || `Asset ${asset.id.substring(0, 8)}`;
+    const title =
+        asset.fileName ||
+        asset.filename ||
+        asset.context ||
+        asset.metadata?.context ||
+        `Asset ${asset.id.substring(0, 8)}`;
     titleDiv.textContent = title;
     titleDiv.title = title; // Add tooltip
 
@@ -517,7 +604,8 @@ function createAssetCard(asset: Asset, template: HTMLTemplateElement): HTMLEleme
     if (asset.sourceMedium) {
         sourceText += ` (${asset.sourceMedium})`;
     }
-    if (asset.source) { // Add original URL if available (e.g., for scrapes)
+    if (asset.source) {
+        // Add original URL if available (e.g., for scrapes)
         sourceText += `: ${asset.source}`;
     }
     sourceDiv.textContent = sourceText;
@@ -532,18 +620,15 @@ function createAssetCard(asset: Asset, template: HTMLTemplateElement): HTMLEleme
     if (isTextAsset(asset)) {
         const textPreview = document.createElement('div');
         textPreview.className = 'text-preview';
-        const isLinkedIn = asset.sourceType === 'linkedin' || asset.metadata?.sourceType === 'linkedin' || asset.fileName?.toLowerCase().includes('linkedin');
-        if (isLinkedIn) {
-            textPreview.textContent = 'LinkedIn Profile Data';
-        } else {
-            const previewText = asset.contentPreview || 
-                              asset.extractedContent?.substring(0, 100) + (asset.extractedContent && asset.extractedContent.length > 100 ? '...' : '') || 
-                              asset.metadata?.preview || 
-                              (typeof asset.extractedContentLength === 'number' ? 
-                                `Text content (${asset.extractedContentLength} chars)` : 
-                                'No preview available');
-            textPreview.textContent = previewText;
-        }
+        const previewText =
+            asset.contentPreview ||
+            asset.extractedContent?.substring(0, 100) +
+                (asset.extractedContent && asset.extractedContent.length > 100 ? '...' : '') ||
+            asset.metadata?.preview ||
+            (typeof asset.extractedContentLength === 'number'
+                ? `Text content (${asset.extractedContentLength} chars)`
+                : 'No preview available');
+        textPreview.textContent = previewText;
         previewDiv.appendChild(textPreview);
     } else if (isImageAsset(asset)) {
         const imagePreview = document.createElement('div');
@@ -554,21 +639,28 @@ function createAssetCard(asset: Asset, template: HTMLTemplateElement): HTMLEleme
             // 1. Direct asset path (preferred)
             asset.filePath ? `/assets/${asset.filePath}` : undefined,
             // 2. Fallback using userId and fileName (less reliable)
-            (asset.userId || state.currentUserId) && asset.fileName ? `/assets/${asset.userId || state.currentUserId}/${asset.fileName}` : undefined,
+            (asset.userId || state.currentUserId) && asset.fileName
+                ? `/assets/${asset.userId || state.currentUserId}/${asset.fileName}`
+                : undefined,
             // 3. Fallback using profileId (legacy?)
-            (asset.profileId || asset.userId || state.currentUserId) && (asset.fileName || asset.filename) ? `/data/assets/${asset.profileId || asset.userId || state.currentUserId}/${asset.fileName || asset.filename}` : undefined,
-             // 4. Explicit assetUrl if provided (might be external)
-            asset.assetUrl
+            (asset.profileId || asset.userId || state.currentUserId) &&
+            (asset.fileName || asset.filename)
+                ? `/data/assets/${asset.profileId || asset.userId || state.currentUserId}/${
+                      asset.fileName || asset.filename
+                  }`
+                : undefined,
+            // 4. Explicit assetUrl if provided (might be external)
+            asset.assetUrl,
             // Removed API paths: /api/assets/${asset.id}/content and /preview
         ].filter((p): p is string => typeof p === 'string' && p.length > 0); // Filter out null/undefined/empty strings
-        
+
         if (paths.length > 0) {
             loadImageWithFallbacks(image, paths, 0);
         } else {
             // If no valid path constructed, show fallback immediately
             image.src = PLACEHOLDER_IMAGE_URI;
             image.alt = 'Image path not found';
-            image.style.width = '32px'; 
+            image.style.width = '32px';
             image.style.height = '32px';
         }
         imagePreview.appendChild(image);
@@ -580,8 +672,8 @@ function createAssetCard(asset: Asset, template: HTMLTemplateElement): HTMLEleme
     selectCheckbox.checked = state.selectedAssets.has(asset.id);
     // Add explicit null check and assign checked value to intermediate variable
     if (selectCheckbox) {
-      const isChecked = selectCheckbox.checked; // Assign here
-      cardElement.classList.toggle('selected', isChecked); // Use the variable
+        const isChecked = selectCheckbox.checked; // Assign here
+        cardElement.classList.toggle('selected', isChecked); // Use the variable
     }
 
     // Add checkbox listener
@@ -604,18 +696,21 @@ function createAssetCard(asset: Asset, template: HTMLTemplateElement): HTMLEleme
     return cardElement;
 }
 
-
 /**
  * Load an image with fallback paths if the primary path fails
  * @param imgElement - The image element to load
  * @param paths - Array of paths to try
  * @param index - The current path index
  */
-function loadImageWithFallbacks(imgElement: HTMLImageElement, paths: string[], index: number): void {
+function loadImageWithFallbacks(
+    imgElement: HTMLImageElement,
+    paths: string[],
+    index: number
+): void {
     // Just use placeholder immediately and never try to load real images
     imgElement.onload = null;
     imgElement.onerror = null;
-    
+
     // Set the placeholder image
     imgElement.src = PLACEHOLDER_IMAGE_URI;
     imgElement.alt = 'Image placeholder';
@@ -637,7 +732,7 @@ function updateSelectionInfo(): void {
 
     // Dispatch event for personality module
     const event = new CustomEvent('assets-selection-changed', {
-        detail: { count }
+        detail: { count },
     });
     document.dispatchEvent(event);
 }
@@ -646,7 +741,7 @@ function updateSelectionInfo(): void {
  * Select all text assets currently displayed
  */
 function selectAllTextAssets(): void {
-    document.querySelectorAll('.content-card .content-type.text').forEach(typeElement => {
+    document.querySelectorAll('.content-card .content-type.text').forEach((typeElement) => {
         const card = typeElement.closest('.content-card') as HTMLElement | null;
         if (card) {
             const checkbox = card.querySelector('.content-select') as HTMLInputElement | null;
@@ -665,7 +760,7 @@ function selectAllTextAssets(): void {
  * Select all image assets currently displayed
  */
 function selectAllImageAssets(): void {
-    document.querySelectorAll('.content-card .content-type.image').forEach(typeElement => {
+    document.querySelectorAll('.content-card .content-type.image').forEach((typeElement) => {
         const card = typeElement.closest('.content-card') as HTMLElement | null;
         if (card) {
             const checkbox = card.querySelector('.content-select') as HTMLInputElement | null;
@@ -684,7 +779,7 @@ function selectAllImageAssets(): void {
  * Deselect all assets currently displayed
  */
 function deselectAllAssets(): void {
-    document.querySelectorAll('.content-card .content-select').forEach(element => {
+    document.querySelectorAll('.content-card .content-select').forEach((element) => {
         const checkbox = element as HTMLInputElement;
         checkbox.checked = false;
         const card = checkbox.closest('.content-card');
@@ -707,7 +802,11 @@ async function deleteSelectedAssets(): Promise<void> {
         return;
     }
 
-    if (!confirm(`Are you sure you want to delete ${state.selectedAssets.size} asset(s)? This cannot be undone.`)) {
+    if (
+        !confirm(
+            `Are you sure you want to delete ${state.selectedAssets.size} asset(s)? This cannot be undone.`
+        )
+    ) {
         return;
     }
 
@@ -717,18 +816,26 @@ async function deleteSelectedAssets(): Promise<void> {
     showStatus(uploadStatusDiv, `Deleting ${assetsToDelete.length} asset(s)...`, 'loading');
     log(3, `Deleting ${assetsToDelete.length} assets for user ${currentUserId}`);
 
-    const deletePromises = assetsToDelete.map(assetId => 
+    const deletePromises = assetsToDelete.map((assetId) =>
         fetch(`/api/assets/${assetId}`, { method: 'DELETE' })
-            .then(response => {
+            .then((response) => {
                 if (!response.ok) {
                     // Log individual errors but continue with others
-                    response.json().then(err => log(1, `Failed to delete asset ${assetId}: ${err.error || response.status}`)).catch(() => {});
-                    return { success: false, id: assetId }; 
+                    response
+                        .json()
+                        .then((err) =>
+                            log(
+                                1,
+                                `Failed to delete asset ${assetId}: ${err.error || response.status}`
+                            )
+                        )
+                        .catch(() => {});
+                    return { success: false, id: assetId };
                 }
                 log(4, `Successfully deleted asset ${assetId}`);
                 return { success: true, id: assetId };
             })
-            .catch(error => {
+            .catch((error) => {
                 log(1, `Network error deleting asset ${assetId}:`, error);
                 return { success: false, id: assetId };
             })
@@ -736,22 +843,33 @@ async function deleteSelectedAssets(): Promise<void> {
 
     try {
         const results = await Promise.all(deletePromises);
-        const deletedCount = results.filter(r => r.success).length;
+        const deletedCount = results.filter((r) => r.success).length;
         const failedCount = assetsToDelete.length - deletedCount;
 
-        log(3, `Deletion finished: ${deletedCount} succeeded, ${failedCount} failed for user ${currentUserId}`);
+        log(
+            3,
+            `Deletion finished: ${deletedCount} succeeded, ${failedCount} failed for user ${currentUserId}`
+        );
 
         if (failedCount > 0) {
-            showStatus(uploadStatusDiv, `Deleted ${deletedCount} assets. Failed to delete ${failedCount}.`, 'error');
+            showStatus(
+                uploadStatusDiv,
+                `Deleted ${deletedCount} assets. Failed to delete ${failedCount}.`,
+                'error'
+            );
         } else {
-            showStatus(uploadStatusDiv, `Successfully deleted ${deletedCount} asset(s)`, 'success', 3000);
+            showStatus(
+                uploadStatusDiv,
+                `Successfully deleted ${deletedCount} asset(s)`,
+                'success',
+                3000
+            );
         }
 
         // Clear selection ONLY for successfully deleted assets (state might have changed)
-        results.filter(r => r.success).forEach(r => state.selectedAssets.delete(r.id));
-        
-        loadAssets(currentUserId); // Refresh assets list
+        results.filter((r) => r.success).forEach((r) => state.selectedAssets.delete(r.id));
 
+        loadAssets(currentUserId); // Refresh assets list
     } catch (error) {
         // This catch is unlikely to be hit due to individual catches in map
         log(1, 'Unexpected error during bulk delete:', error);
@@ -783,7 +901,7 @@ async function previewAsset(asset: Asset): Promise<void> {
     // Close on clicking outside the modal content
     previewModal.onclick = (event: MouseEvent) => {
         if (event.target === previewModal) {
-            previewModal.style.display = 'none'; 
+            previewModal.style.display = 'none';
         }
     };
 
@@ -799,25 +917,27 @@ async function previewAsset(asset: Asset): Promise<void> {
             const blob = await response.blob();
             const imageUrl = URL.createObjectURL(blob);
             modalBody.innerHTML = `<img src="${imageUrl}" alt="Asset Preview" style="max-width: 100%; max-height: 70vh; display: block; margin: auto;">`;
-            
+
             const originalModalHandlerForRevoke = previewModal.onclick;
 
             // Override handlers to include revokeObjectURL
-            closeModalButton.onclick = () => { 
+            closeModalButton.onclick = () => {
                 URL.revokeObjectURL(imageUrl);
                 if (previewModal) previewModal.style.display = 'none'; // Ensure modal hides
             };
-             previewModal.onclick = (event: MouseEvent) => {
+            previewModal.onclick = (event: MouseEvent) => {
                 if (event.target === previewModal) {
                     URL.revokeObjectURL(imageUrl);
                     // Use .call() for original handler if it existed
-                    if (typeof originalModalHandlerForRevoke === 'function') originalModalHandlerForRevoke.call(previewModal, event);
+                    if (typeof originalModalHandlerForRevoke === 'function')
+                        originalModalHandlerForRevoke.call(previewModal, event);
                 } else {
-                     if (typeof originalModalHandlerForRevoke === 'function') originalModalHandlerForRevoke.call(previewModal, event);
+                    if (typeof originalModalHandlerForRevoke === 'function')
+                        originalModalHandlerForRevoke.call(previewModal, event);
                 }
             };
-
-        } else { // Assume text-based
+        } else {
+            // Assume text-based
             const content = await response.text();
             const preElement = document.createElement('pre');
             preElement.style.whiteSpace = 'pre-wrap';
@@ -827,16 +947,21 @@ async function previewAsset(asset: Asset): Promise<void> {
 
             // Attempt to format if JSON
             let formattedContent = content;
-            if (asset.mimetype === 'application/json' || asset.contentType === 'application/json' || asset.fileName?.endsWith('.json')) {
-                 try {
+            if (
+                asset.mimetype === 'application/json' ||
+                asset.contentType === 'application/json' ||
+                asset.fileName?.endsWith('.json')
+            ) {
+                try {
                     formattedContent = JSON.stringify(JSON.parse(content), null, 2);
-                } catch { /* Keep original text if parsing fails */ }
+                } catch {
+                    /* Keep original text if parsing fails */
+                }
             }
             preElement.textContent = formattedContent;
             modalBody.innerHTML = ''; // Clear loading
             modalBody.appendChild(preElement);
         }
-
     } catch (error) {
         log(1, 'Error loading asset preview content:', error);
         const message = error instanceof Error ? error.message : String(error);
@@ -853,7 +978,11 @@ async function clearContentLibrary(): Promise<void> {
         return;
     }
 
-    if (!confirm(`ARE YOU SURE you want to delete ALL assets and generated profiles for user '${state.currentUserId}'? This cannot be undone.`)) {
+    if (
+        !confirm(
+            `ARE YOU SURE you want to delete ALL assets and generated profiles for user '${state.currentUserId}'? This cannot be undone.`
+        )
+    ) {
         return;
     }
 
@@ -862,14 +991,18 @@ async function clearContentLibrary(): Promise<void> {
     log(2, `Clearing content library for user ${currentUserId}`);
 
     try {
-        const response = await fetch(`/api/users/${currentUserId}/clear-library`, { method: 'POST' });
+        const response = await fetch(`/api/users/${currentUserId}/clear-library`, {
+            method: 'POST',
+        });
 
         if (!response.ok) {
             let errorMsg = `Failed to clear library (${response.status})`;
             try {
                 const errorData = await response.json();
                 errorMsg = errorData.error || errorMsg;
-            } catch { /* Ignore */ }
+            } catch {
+                /* Ignore */
+            }
             throw new Error(errorMsg);
         }
 
@@ -887,10 +1020,11 @@ async function clearContentLibrary(): Promise<void> {
         // Reload assets (which will show empty state)
         loadAssets(currentUserId);
         updateSelectionInfo(); // Update selection count display
-        
-        // Dispatch event so personality module clears its state too
-        document.dispatchEvent(new CustomEvent('library-cleared', { detail: { userId: currentUserId } }));
 
+        // Dispatch event so personality module clears its state too
+        document.dispatchEvent(
+            new CustomEvent('library-cleared', { detail: { userId: currentUserId } })
+        );
     } catch (error) {
         log(1, 'Error clearing content library:', error);
         const message = error instanceof Error ? error.message : String(error);
@@ -898,6 +1032,6 @@ async function clearContentLibrary(): Promise<void> {
     }
 }
 
-// The handleCharacterCardResponse function is removed as it duplicates functionality 
+// The handleCharacterCardResponse function is removed as it duplicates functionality
 // that exists in promptModule.ts and contains multiple undefined references
-// If this functionality is needed, it should be imported from promptModule.ts instead 
+// If this functionality is needed, it should be imported from promptModule.ts instead

@@ -122,12 +122,8 @@ document.addEventListener('DOMContentLoaded', function () {
         userBioTextarea: document.getElementById('user-bio') as HTMLTextAreaElement | null,
         saveBioButton: document.getElementById('save-bio-button') as HTMLButtonElement | null,
         bioStatusDiv: document.getElementById('bio-status') as HTMLDivElement | null,
-        connectLinkedinButton: document.getElementById(
-            'connect-linkedin-button'
-        ) as HTMLButtonElement | null,
-        disconnectLinkedinButton: document.getElementById(
-            'disconnect-linkedin-button'
-        ) as HTMLButtonElement | null,
+        connectLinkedinButton: null,
+        disconnectLinkedinButton: null,
 
         navTabs: document.querySelectorAll('.nav-tab'),
         pages: document.querySelectorAll('.page'),
@@ -319,9 +315,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // Add disabled tab styling
     addDisabledTabStyling();
 
-    // Check for social auth callback (e.g., LinkedIn)
-    checkSocialAuthCallback();
-
     // Restore last selected user if available
     if (lastSelectedUser && elements.userSelectDropdown) {
         console.log('Restoring last selected user from localStorage:', lastSelectedUser);
@@ -364,125 +357,3 @@ document.addEventListener('DOMContentLoaded', function () {
 
     console.log('Application initialized successfully');
 });
-
-/**
- * Check for social authentication callbacks (e.g., LinkedIn)
- * This needs to run at app startup to handle OAuth redirects
- */
-function checkSocialAuthCallback(): void {
-    console.log('Checking for social auth callbacks');
-
-    // Parse the URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-
-    // Check for all possible auth parameters, explicitly typing them as string | null
-    const authStatus: string | null = urlParams.get('auth_status');
-    const oauthSource: string | null = urlParams.get('oauth_source');
-    const status: string | null = urlParams.get('status');
-    const userId: string | null = urlParams.get('user_id');
-    const provider: string | null = urlParams.get('provider');
-    const error: string | null = urlParams.get('error');
-
-    // Check localStorage (not sessionStorage) for pending LinkedIn auth
-    const pendingAuth: boolean = localStorage.getItem('pendingLinkedInAuth') === 'true';
-    const pendingUserId: string | null = localStorage.getItem('linkedInAuthUserId');
-    const lastSelectedUser: string | null = localStorage.getItem('lastSelectedUser'); // Already declared above, ensure consistency
-
-    console.log('URL params and stored data:', {
-        authStatus,
-        oauthSource,
-        status,
-        userId,
-        provider,
-        error,
-        pendingAuth,
-        pendingUserId,
-        lastSelectedUser,
-    });
-
-    const userStatusDiv = document.getElementById('user-status') as HTMLDivElement | null;
-
-    // If there was an error, show it and clear pending state
-    if (error) {
-        console.error('Authentication error:', error);
-        if (userStatusDiv) {
-            // Use the imported showStatus function (already checks for null container)
-            showStatus(userStatusDiv, `Authentication error: ${error}`, 'error');
-        }
-
-        // Clean up all authentication state to prevent stale state
-        localStorage.removeItem('pendingLinkedInAuth');
-        localStorage.removeItem('linkedInAuthUserId');
-        // Keep lastSelectedUser for selection restoration
-
-        // Clear URL parameters even if there was an error
-        if (authStatus || oauthSource || status || provider || error) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-            console.log('Cleared URL parameters after error');
-        }
-        return;
-    }
-
-    // Handle LinkedIn auth callback - unified detection for all parameter combinations
-    const isLinkedInCallback: boolean =
-        (authStatus === 'success' && (provider === 'linkedin' || !provider)) ||
-        (status === 'success' && (oauthSource === 'linkedin' || !oauthSource)) ||
-        (oauthSource === 'linkedin' && status === 'success') ||
-        pendingAuth;
-
-    if (isLinkedInCallback) {
-        console.log('Detected LinkedIn auth callback');
-
-        // Get the target user ID from URL param, localStorage, or fallback to last selected user
-        const targetUserId: string | null = userId || pendingUserId || lastSelectedUser;
-
-        if (!targetUserId) {
-            console.error('No target user ID found for LinkedIn auth');
-            if (userStatusDiv) {
-                showStatus(
-                    userStatusDiv,
-                    'Authentication succeeded but user ID was lost.',
-                    'error'
-                );
-            }
-            // Clean up potentially dangling state even if no user ID
-            localStorage.removeItem('pendingLinkedInAuth');
-            localStorage.removeItem('linkedInAuthUserId');
-            if (authStatus || oauthSource || status || provider) {
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-            return;
-        }
-
-        console.log('Setting current user ID in state to:', targetUserId);
-        state.currentUserId = targetUserId; // state is imported from utils
-
-        // Clear authentication state immediately
-        localStorage.removeItem('pendingLinkedInAuth');
-        localStorage.removeItem('linkedInAuthUserId');
-
-        // Clear URL parameters before loading user data
-        if (authStatus || oauthSource || status || provider) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-            console.log('Cleared URL parameters after successful auth');
-        }
-
-        // Update UI to show the correct user is selected
-        const userSelect = document.getElementById('user-select') as HTMLSelectElement | null;
-        if (userSelect) {
-            userSelect.value = targetUserId; // Set dropdown value
-
-            // Trigger change event to load user data
-            console.log('Dispatching change event on user select for:', targetUserId);
-            const event = new Event('change');
-            userSelect.dispatchEvent(event);
-
-            // Show success status (using the cached userStatusDiv if available)
-            if (userStatusDiv) {
-                showStatus(userStatusDiv, 'LinkedIn connected successfully!', 'success', 5000); // Added timeout
-            }
-        } else {
-            console.warn('User select dropdown not found after LinkedIn auth.');
-        }
-    }
-}

@@ -8,7 +8,6 @@ import { updateNavigationTabsState } from './navigationModule.js'; // Import nec
 interface User {
     id: string;
     bio?: string;
-    linkedInConnected?: boolean;
     createdAt?: string; // Assuming ISO string format
     // Include other relevant fields from API response as needed
     assessment?: {
@@ -39,8 +38,6 @@ interface UserModuleElements {
     userBioTextarea: HTMLTextAreaElement | null;
     saveBioButton: HTMLButtonElement | null;
     bioStatusDiv: HTMLDivElement | null;
-    connectLinkedinButton: HTMLButtonElement | null;
-    disconnectLinkedinButton: HTMLButtonElement | null;
     startUserAssessmentButton: HTMLButtonElement | null;
     retakeUserAssessmentButton: HTMLButtonElement | null;
     tipiModalForm: HTMLFormElement | null;
@@ -63,8 +60,6 @@ let currentUserDisplaySpan: HTMLSpanElement | null = null;
 let userBioTextarea: HTMLTextAreaElement | null = null;
 let saveBioButton: HTMLButtonElement | null = null;
 let bioStatusDiv: HTMLDivElement | null = null;
-let connectLinkedinButton: HTMLButtonElement | null = null;
-let disconnectLinkedinButton: HTMLButtonElement | null = null;
 let startUserAssessmentButton: HTMLButtonElement | null = null;
 let retakeUserAssessmentButton: HTMLButtonElement | null = null;
 let tipiModalForm: HTMLFormElement | null = null;
@@ -89,8 +84,6 @@ export function initUserModule(elements: UserModuleElements): void {
     userBioTextarea = elements.userBioTextarea;
     saveBioButton = elements.saveBioButton;
     bioStatusDiv = elements.bioStatusDiv;
-    connectLinkedinButton = elements.connectLinkedinButton;
-    disconnectLinkedinButton = elements.disconnectLinkedinButton;
     startUserAssessmentButton = elements.startUserAssessmentButton;
     retakeUserAssessmentButton = elements.retakeUserAssessmentButton;
     tipiModalForm = elements.tipiModalForm;
@@ -111,26 +104,6 @@ export function initUserModule(elements: UserModuleElements): void {
     userSelectDropdown?.addEventListener('change', handleUserSelectChange);
     createUserButton?.addEventListener('click', handleCreateUser);
     saveBioButton?.addEventListener('click', handleSaveBio);
-
-    // Clone LinkedIn buttons to ensure clean event listeners
-    if (connectLinkedinButton && connectLinkedinButton.parentNode) {
-        const newConnectButton = connectLinkedinButton.cloneNode(true) as HTMLButtonElement;
-        connectLinkedinButton.parentNode.replaceChild(newConnectButton, connectLinkedinButton);
-        connectLinkedinButton = newConnectButton;
-        connectLinkedinButton.addEventListener('click', handleLinkedInConnect);
-        console.log('LinkedIn connect button listener attached (after clone)');
-    }
-
-    if (disconnectLinkedinButton && disconnectLinkedinButton.parentNode) {
-        const newDisconnectButton = disconnectLinkedinButton.cloneNode(true) as HTMLButtonElement;
-        disconnectLinkedinButton.parentNode.replaceChild(
-            newDisconnectButton,
-            disconnectLinkedinButton
-        );
-        disconnectLinkedinButton = newDisconnectButton;
-        disconnectLinkedinButton.addEventListener('click', handleLinkedInDisconnect);
-        console.log('LinkedIn disconnect button listener attached (after clone)');
-    }
 
     // Set up assessment buttons/modal listeners
     startUserAssessmentButton?.addEventListener('click', handleStartAssessment);
@@ -246,9 +219,6 @@ export async function handleUserSelectChange(): Promise<void> {
     } catch (error) {
         console.error('Error ensuring Content Library tab enabled:', error);
     }
-
-    // Check LinkedIn connection status
-    checkLinkedInConnectionStatus();
 }
 
 /**
@@ -284,9 +254,6 @@ export async function loadUserData(userId: string): Promise<any | null> {
         // Update UI based on loaded data
         updateUIWithUserData(userData);
 
-        // Check for LinkedIn connection status
-        checkLinkedInConnectionStatus(); // Check status based on loaded data
-
         // Update nav tabs BEFORE showing success message
         updateNavigationTabsState();
 
@@ -321,13 +288,8 @@ export function updateUIWithUserData(userData: User): void {
         currentUserDisplaySpan.textContent = userData.id;
     }
 
-    // Update UI elements (Bio, LinkedIn status, etc.)
+    // Update UI elements (Bio)
     if (userBioTextarea) userBioTextarea.value = userData.bio || '';
-    if (userData.linkedInConnected) {
-        showLinkedInConnectedUI();
-    } else {
-        showLinkedInDisconnectedUI();
-    }
 
     // Log final state for debugging
     console.log('Final state after updateUIWithUserData:', {
@@ -466,309 +428,6 @@ export async function handleSaveBio(): Promise<void> {
         console.error('Error saving bio:', error);
         const message = error instanceof Error ? error.message : String(error);
         showStatus(bioStatusDiv, `Error saving bio: ${message}`, 'error');
-    }
-}
-
-/**
- * Check LinkedIn connection status - relies on other functions to update UI
- */
-export function checkLinkedInConnectionStatus(): void {
-    if (!state.currentUserId) {
-        console.warn('checkLinkedInConnectionStatus called without a user context.');
-        // Attempt to restore context - might be redundant if called after loadUserData
-        const userDisplaySpan = document.getElementById(
-            'current-user-display'
-        ) as HTMLSpanElement | null;
-        if (userDisplaySpan?.textContent && userDisplaySpan.textContent !== 'None Selected') {
-            state.currentUserId = userDisplaySpan.textContent;
-            console.log('Restored user context during LinkedIn check:', state.currentUserId);
-        } else {
-            // If still no user, ensure UI shows disconnected state
-            handleLinkedInStatus(false, false);
-            return;
-        }
-    }
-
-    const currentUserId = state.currentUserId;
-    console.log(`Checking LinkedIn connection status for user: ${currentUserId}`);
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const isCallbackDetected = detectLinkedInCallback(urlParams);
-    const paramUserId = urlParams.get('user_id');
-
-    // If callback detected for a *different* user than current, something is wrong
-    if (isCallbackDetected && paramUserId && paramUserId !== currentUserId) {
-        console.warn(
-            `LinkedIn callback detected for user ${paramUserId}, but current user is ${currentUserId}. Ignoring callback.`
-        );
-        // Clear potentially incorrect callback state
-        clearLinkedInCallbackState(urlParams);
-        // Proceed to check status for the *current* user
-    } else if (isCallbackDetected) {
-        console.log(`LinkedIn callback detected for current user ${currentUserId}`);
-    }
-
-    // Check assets first as primary indicator
-    fetch(`/api/assets/${currentUserId}`)
-        .then((response) => {
-            if (!response.ok) {
-                // Don't throw error, just assume no assets if fetch fails for status check
-                console.warn(`Failed to fetch assets for status check: ${response.status}`);
-                return [];
-            }
-            return response.json();
-        })
-        .then((assets: any[]) => {
-            // Type assets loosely for now
-            const hasLinkedInAssets = assets.some(
-                (asset) =>
-                    asset.sourceType === 'linkedin' ||
-                    asset.context === 'LinkedIn Profile' ||
-                    asset.fileName === 'linkedin_profile.json' ||
-                    (asset.context &&
-                        typeof asset.context === 'string' &&
-                        asset.context.toLowerCase().includes('linkedin')) ||
-                    (asset.fileName &&
-                        typeof asset.fileName === 'string' &&
-                        asset.fileName.toLowerCase().includes('linkedin'))
-            );
-            console.log(`LinkedIn asset check for ${currentUserId}: ${hasLinkedInAssets}`);
-
-            if (hasLinkedInAssets || (isCallbackDetected && currentUserId === paramUserId)) {
-                // If assets found OR callback matches current user, treat as connected
-                handleLinkedInStatus(true, isCallbackDetected);
-                return;
-            } else {
-                // If no assets and no relevant callback, check user flag as fallback
-                return fetch(`/api/users/${currentUserId}`)
-                    .then((response) => {
-                        if (!response.ok) {
-                            console.warn(
-                                `Failed to fetch user data for status check: ${response.status}`
-                            );
-                            return { linkedInConnected: false }; // Assume not connected on error
-                        }
-                        return response.json();
-                    })
-                    .then((userData: User) => {
-                        const isConnected = !!userData.linkedInConnected;
-                        console.log(`User data flag check for ${currentUserId}: ${isConnected}`);
-                        handleLinkedInStatus(isConnected, false); // Callback relevance handled above
-                        return;
-                    });
-            }
-        })
-        .catch((error) => {
-            console.error(`Error checking LinkedIn status for ${currentUserId}:`, error);
-            // Assume disconnected on error, but clear callback state if detected
-            handleLinkedInStatus(false, isCallbackDetected);
-        });
-}
-
-/**
- * Detects if the current URL parameters indicate a LinkedIn callback.
- */
-function detectLinkedInCallback(urlParams: URLSearchParams): boolean {
-    const authStatus = urlParams.get('auth_status');
-    const oauthSource = urlParams.get('oauth_source');
-    const status = urlParams.get('status');
-    const provider = urlParams.get('provider');
-    const error = urlParams.get('error');
-
-    // Check localStorage as well, as URL params might be cleared quickly
-    const pendingAuth = localStorage.getItem('pendingLinkedInAuth') === 'true';
-
-    // Check for error first
-    if (error) {
-        console.error(`LinkedIn Auth Error detected in URL: ${error}`);
-        return true; // Treat error as a callback that needs clearing
-    }
-
-    return (
-        (authStatus === 'success' && (provider === 'linkedin' || !provider)) ||
-        (status === 'success' && (oauthSource === 'linkedin' || !oauthSource)) ||
-        pendingAuth
-    );
-}
-
-/**
- * Clears LinkedIn callback state from localStorage and URL.
- */
-function clearLinkedInCallbackState(urlParams: URLSearchParams): void {
-    localStorage.removeItem('pendingLinkedInAuth');
-    localStorage.removeItem('linkedInAuthUserId');
-    console.log('Cleared LinkedIn auth localStorage state.');
-
-    // Check which params actually exist before trying to clear
-    const paramsToClear = [
-        'auth_status',
-        'oauth_source',
-        'status',
-        'provider',
-        'user_id',
-        'error',
-    ].filter((p) => urlParams.has(p));
-
-    if (paramsToClear.length > 0) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-        console.log('Cleared LinkedIn URL parameters.');
-    }
-}
-
-/**
- * Updates UI and potentially backend based on LinkedIn connection status.
- * @param isConnected - Whether LinkedIn is determined to be connected.
- * @param wasCallbackDetected - Whether this check was triggered by detecting callback params.
- */
-function handleLinkedInStatus(isConnected: boolean, wasCallbackDetected: boolean): void {
-    const currentUserId = state.currentUserId;
-
-    // Update UI immediately
-    if (isConnected) {
-        showLinkedInConnectedUI();
-    } else {
-        showLinkedInDisconnectedUI();
-    }
-
-    // If connected, ensure backend user flag is set
-    if (isConnected && currentUserId) {
-        fetch(`/api/users/${currentUserId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ linkedInConnected: true }),
-        })
-            .then((response) => {
-                if (!response.ok)
-                    console.error('Failed to update backend user linkedInConnected flag.');
-                else console.log('Backend user linkedInConnected flag updated.');
-            })
-            .catch((error) => console.error('Error updating backend user flag:', error));
-
-        // Show success message if this was triggered by a callback
-        if (wasCallbackDetected) {
-            showStatus(userStatusDiv, 'LinkedIn connected successfully!', 'success', 3000);
-        }
-    }
-
-    // If a callback was detected (success or error), clear the state
-    if (wasCallbackDetected) {
-        clearLinkedInCallbackState(new URLSearchParams(window.location.search));
-    }
-}
-
-/**
- * Handle LinkedIn connect button click
- */
-export function handleLinkedInConnect(): void {
-    if (!state.currentUserId) {
-        // Attempt context restoration one last time
-        const userDisplaySpan = document.getElementById(
-            'current-user-display'
-        ) as HTMLSpanElement | null;
-        if (userDisplaySpan?.textContent && userDisplaySpan.textContent !== 'None Selected') {
-            state.currentUserId = userDisplaySpan.textContent;
-        } else {
-            showStatus(userStatusDiv, 'Please select or create a user profile first.', 'error');
-            return;
-        }
-    }
-
-    const userIdToConnect = state.currentUserId;
-    console.log('Initiating LinkedIn connection for user:', userIdToConnect);
-
-    const authUrl = `/api/oauth/linkedin/authorize?userId=${encodeURIComponent(userIdToConnect)}`;
-
-    // Set flags before redirecting
-    localStorage.setItem('pendingLinkedInAuth', 'true');
-    localStorage.setItem('linkedInAuthUserId', userIdToConnect);
-    localStorage.setItem('lastSelectedUser', userIdToConnect); // Ensure user context is saved
-
-    showStatus(userStatusDiv, 'Redirecting to LinkedIn for authentication...', 'loading');
-
-    // Redirect
-    window.location.href = authUrl;
-}
-
-/** Helper function to update UI for LinkedIn connected state */
-function showLinkedInConnectedUI(): void {
-    connectLinkedinButton?.style.setProperty('display', 'none');
-    disconnectLinkedinButton?.style.setProperty('display', 'flex');
-    (document.getElementById('linkedin-status-badge') as HTMLSpanElement | null)?.style.setProperty(
-        'display',
-        'inline-block'
-    );
-    console.log('UI updated to show LinkedIn connected.');
-}
-
-/** Helper function to update UI for LinkedIn disconnected state */
-function showLinkedInDisconnectedUI(): void {
-    connectLinkedinButton?.style.setProperty('display', 'flex');
-    disconnectLinkedinButton?.style.setProperty('display', 'none');
-    (document.getElementById('linkedin-status-badge') as HTMLSpanElement | null)?.style.setProperty(
-        'display',
-        'none'
-    );
-    console.log('UI updated to show LinkedIn disconnected.');
-}
-
-/**
- * Handle LinkedIn disconnect button click
- */
-export async function handleLinkedInDisconnect(): Promise<void> {
-    if (!state.currentUserId) {
-        showStatus(userStatusDiv, 'Please select a user first.', 'error');
-        return;
-    }
-
-    if (
-        !confirm(
-            'Are you sure you want to disconnect your LinkedIn account? This revokes access but keeps already imported data.'
-        )
-    ) {
-        return;
-    }
-
-    const userIdToDisconnect = state.currentUserId;
-    console.log('Disconnecting LinkedIn for user:', userIdToDisconnect);
-    showStatus(userStatusDiv, 'Disconnecting LinkedIn...', 'loading');
-
-    try {
-        const response = await fetch(
-            `/api/oauth/linkedin/disconnect?userId=${encodeURIComponent(userIdToDisconnect)}`
-        );
-
-        if (!response.ok) {
-            let errorMsg = `Failed to disconnect (${response.status})`;
-            try {
-                const errorData = await response.json();
-                errorMsg = errorData.error || errorMsg;
-            } catch {
-                /* Ignore */
-            }
-            throw new Error(errorMsg);
-        }
-
-        const data = await response.json();
-        console.log('LinkedIn disconnect result:', data);
-
-        // Update UI and clear state
-        showLinkedInDisconnectedUI();
-        clearLinkedInCallbackState(new URLSearchParams()); // Clear any potential leftover state
-
-        showStatus(userStatusDiv, 'LinkedIn disconnected successfully', 'success', 3000);
-
-        // Update user data flag on backend
-        await fetch(`/api/users/${userIdToDisconnect}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ linkedInConnected: false }),
-        });
-    } catch (error) {
-        console.error('Error disconnecting LinkedIn:', error);
-        const message = error instanceof Error ? error.message : String(error);
-        showStatus(userStatusDiv, `Error disconnecting LinkedIn: ${message}`, 'error');
-        // Optionally attempt to force UI to disconnected state even on error
-        showLinkedInDisconnectedUI();
     }
 }
 
@@ -1047,7 +706,6 @@ export function clearUIState(): void {
     if (newUserInput) newUserInput.value = ''; // Clear create user input
 
     // Reset button states / visibility
-    showLinkedInDisconnectedUI();
     updateAssessmentUI(false);
 
     // Reset status messages

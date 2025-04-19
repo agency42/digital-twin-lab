@@ -7,7 +7,7 @@
 export type BasePromptText = string;
 
 // Prompt Variation structure
-export interface PromptVariation { 
+export interface PromptVariation {
     variation_id: string; // Renamed from id for consistency with DB
     base_prompt_id: string; // Link to the base prompt
     module_context: string; // e.g., 'chat', 'assessment'
@@ -61,30 +61,31 @@ export interface ContentMediumInstruction {
     examples?: string[];
 }
 
-export type ContentMediumType = 'chat' | 'blog' | 'tweet' | 'linkedin';
+export type ContentMediumType = 'chat' | 'blog' | 'tweet';
 
 // Consolidated User Data structure (using new prompt terminology)
 export interface UserData {
     id: string;
     bio?: string;
-    linkedInConnected?: boolean;
     createdAt?: string;
-    assessment?: { // Keep assessment structure for now
+    assessment?: {
+        // Keep assessment structure for now
         userTipiScores?: Record<string, number> | null;
         aiTipiScores?: Record<string, number> | null;
         userAssessmentResultId?: string | null;
         aiAssessmentResultId?: string | null;
     };
-    basePrompt?: { // Renamed from primaryPersona
+    basePrompt?: {
+        // Renamed from primaryPersona
         id: string; // Renamed from base_prompt_id for frontend consistency?
         name?: string | null; // Renamed from prompt_name
         promptText: BasePromptText; // Renamed from profile: Profile
-        createdAt: string; 
-        updatedAt: string; 
+        createdAt: string;
+        updatedAt: string;
     } | null; // Allow null if no base prompt exists
     promptVariations?: { [moduleContext: string]: PromptVariation }; // Renamed from personaVariations
     contentMediumInstructions?: { [mediumType in ContentMediumType]?: ContentMediumInstruction }; // Added content medium instructions
-    latestChatSession?: { id: string; messages: ChatMessage[] }; 
+    latestChatSession?: { id: string; messages: ChatMessage[] };
 }
 
 // Main AppState interface (using new prompt terminology)
@@ -96,7 +97,7 @@ export interface AppState {
     currentUserData: any | null; // TODO: Define a proper UserData type if needed
     currentChatSessionId: string | null;
     currentContentMedium: 'chat' | 'post' | null;
-    currentCharacterCardData: CharacterCard | null; 
+    currentCharacterCardData: CharacterCard | null;
     currentSystemPrompt: SystemPrompt | null;
     currentInstructionTemplate: InstructionTemplate | null;
     currentChatHistory?: any[]; // TODO: Use specific ChatMessage type if available
@@ -115,10 +116,10 @@ export interface TipiQuestionData {
 export interface AssessmentResult {
     id: string;
     userId: string;
-    assessmentType: string; 
+    assessmentType: string;
     scores: { [key: string]: number };
     rawAnswers?: { [key: string]: number };
-    createdAt: string; 
+    createdAt: string;
     base_prompt_id?: string | null; // Added link (optional)
     prompt_variation_id?: string | null; // Added link (optional)
 }
@@ -169,14 +170,14 @@ export interface InstructionTemplate {
 
 // Added from docs/agent-data-structures.md
 export interface Prompt_config {
-  id: string; // Unique identifier
-  content: string;
-  image?: string; // Optional image
-  role: 'user' | 'system'; // user | system
+    id: string; // Unique identifier
+    content: string;
+    image?: string; // Optional image
+    role: 'user' | 'system'; // user | system
 }
 
 // Added from docs/agent-data-structures.md
-export interface Function_config { 
+export interface Function_config {
     // Define the structure based on how functions are actually configured
     // Placeholder for now
     name: string;
@@ -185,27 +186,27 @@ export interface Function_config {
 }
 
 export interface Tool {
-  id: string; // Tool ID
-  type: string;
-  function: Function_config;
+    id: string; // Tool ID
+    type: string;
+    function: Function_config;
 }
 
 // Define the structure of the JSON stored in CharacterCard.card_data
 export interface CharacterData {
-  id: string; // Unique identifier (optional within the data itself?)
-  agent_id: string; // Public unique identifier
-  botName: string; // Agent name
-  bio?: string; // Optional character biography
-  sytem_prompt: string | Prompt_config; // system_prompt in markdown
-  // --- OPTIONALS --- //
-  version?: number; // Version number of the Agent
-  api_key?: string; // key that can be used for the character
-  memory_system_prompt?: string | Prompt_config[]; // memory_system_prompt in markdown
-  summary_system_prompt?: string | Prompt_config[]; // summary_system_prompt in markdown
-  primary_model?: string; // Primary model in use
-  logic_model_url?: string; // URL for logic model
-  image_model_url?: string; // URL for image processing model
-  lora_url?: string; // URL for LoRA tuning
-  boredom?: number; // Boredom factor influencing agent behavior
-  tools?: Tool[];
-} 
+    id: string; // Unique identifier (optional within the data itself?)
+    agent_id: string; // Public unique identifier
+    botName: string; // Agent name
+    bio?: string; // Optional character biography
+    sytem_prompt: string | Prompt_config; // system_prompt in markdown
+    // --- OPTIONALS --- //
+    version?: number; // Version number of the Agent
+    api_key?: string; // key that can be used for the character
+    memory_system_prompt?: string | Prompt_config[]; // memory_system_prompt in markdown
+    summary_system_prompt?: string | Prompt_config[]; // summary_system_prompt in markdown
+    primary_model?: string; // Primary model in use
+    logic_model_url?: string; // URL for logic model
+    image_model_url?: string; // URL for image processing model
+    lora_url?: string; // URL for LoRA tuning
+    boredom?: number; // Boredom factor influencing agent behavior
+    tools?: Tool[];
+}

@@ -22,7 +22,6 @@ import ClaudeAPI from './api/claude';
 import createAssetRouter from './routes/assetRoutes';
 import createPromptRouter from './routes/promptRoutes';
 import createUserRouter from './routes/userRoutes';
-import createOAuthRouter from './routes/oauthRoutes';
 import createAssessmentRouter from './routes/assessmentRoutes';
 import createChatRouter from './routes/chatRoutes';
 import createScrapeRouter from './routes/scrapeRoutes';
@@ -47,7 +46,7 @@ app.use(
                 scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
                 styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
                 imgSrc: ["'self'", 'data:', '*'],
-                connectSrc: ["'self'", 'api.anthropic.com', '*.linkedin.com'],
+                connectSrc: ["'self'", 'api.anthropic.com'],
                 fontSrc: ["'self'"],
                 objectSrc: ["'none'"],
                 frameSrc: ["'none'"],
@@ -124,7 +123,6 @@ app.get('/api/health', (_, res: Response) => {
 app.use('/api/users', createUserRouter());
 app.use('/api/assets', createAssetRouter(assetProcessor, claudeAPI));
 app.use('/api/prompts', createPromptRouter(abstractionApproach));
-app.use('/api/oauth', createOAuthRouter());
 app.use('/api/assessment', createAssessmentRouter());
 app.use('/api/chat', createChatRouter());
 app.use('/api/scrape', createScrapeRouter());
@@ -151,25 +149,6 @@ app.get(
         }
     }
 );
-
-// Direct LinkedIn authentication endpoint - legacy support
-app.get('/api/auth/linkedin', (req: Request, res: Response): void => {
-    try {
-        const userId = req.query.user_id as string | undefined;
-        if (!userId) {
-            res.status(400).json({ error: 'Missing required query parameter: user_id' });
-            return;
-        }
-        res.redirect(`/api/oauth/linkedin/authorize?userId=${encodeURIComponent(userId)}`);
-        return;
-    } catch (error: any) {
-        console.error('Error redirecting to LinkedIn OAuth:', error);
-        res.status(500).json({
-            error: `Failed to initiate LinkedIn authorization: ${error.message}`,
-        });
-        return;
-    }
-});
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

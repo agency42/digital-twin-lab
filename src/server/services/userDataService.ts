@@ -8,8 +8,6 @@ import { TipiDimensionScores } from '../lib/tipiUtils'; // Import type for score
 
 interface UserProfile {
     bio?: string | null;
-    linkedin_connected?: boolean;
-    linkedin_profile_asset_id?: string | null;
     current_character_card_id?: string | null; // Add field to link to current card
     // Add other simple user fields stored directly in the users table
 }
@@ -71,12 +69,13 @@ interface ComprehensiveUserData extends UserProfile {
     currentCharacterCard?: CharacterCard | null; // Current active character card
     systemPrompts?: SystemPrompt[]; // All system prompts for the user
     instructionTemplates?: InstructionTemplate[]; // All instruction templates for the user
-    assessments?: { // Group assessments by type?
+    assessments?: {
+        // Group assessments by type?
         [assessmentType: string]: {
             user?: AssessmentResult | null; // Latest user result
             latestAi?: AssessmentResult | null; // Latest AI result
             alignment?: any; // Placeholder for latest alignment metrics
-        }
+        };
     };
     // Add other relevant fields like assets? Requires joining assets table
 }
@@ -92,10 +91,6 @@ interface UserData {
     password_hash?: string | null;
     created_at?: string;
     updated_at?: string;
-    // OAuth related fields
-    linkedin_connected?: boolean | number; // Use boolean in logic, DB might store 0/1
-    linkedin_profile_asset_id?: string | null;
-    // Other profile info
     bio?: string | null;
     current_character_card_id?: string | null; // Add field to users table if storing current card link there
     // Add more fields as needed (e.g., name, preferences, etc.)
@@ -140,7 +135,6 @@ class UserDataService {
             createdAt: userData.created_at,
             updatedAt: userData.updated_at,
             bio: userData.bio, // Ensure bio is mapped
-            linkedinConnected: !!userData.linkedin_connected, // Ensure boolean
         };
 
         // Map current Character Card
@@ -176,7 +170,10 @@ class UserDataService {
         }
 
         // Map Instruction Templates (keyed by type)
-        if (Array.isArray(userData.instructionTemplates) && userData.instructionTemplates.length > 0) {
+        if (
+            Array.isArray(userData.instructionTemplates) &&
+            userData.instructionTemplates.length > 0
+        ) {
             result.instructionTemplates = {};
             userData.instructionTemplates.forEach((it: InstructionTemplate) => {
                 result.instructionTemplates[it.type] = {
@@ -195,10 +192,10 @@ class UserDataService {
                 userTipiScores: userData.assessments.TIPI?.user?.parsed_scores || null,
                 aiTipiScores: userData.assessments.TIPI?.latestAi?.parsed_scores || null,
                 userAssessmentResultId: userData.assessments.TIPI?.user?.result_id || null,
-                aiAssessmentResultId: userData.assessments.TIPI?.latestAi?.result_id || null
+                aiAssessmentResultId: userData.assessments.TIPI?.latestAi?.result_id || null,
             };
         }
-        
+
         return result;
     }
 
@@ -215,10 +212,13 @@ class UserDataService {
         }
         try {
             // 1. Get base user data (ensure current_character_card_id is selected)
-            const userBase = await dbGet<UserProfile & { user_id: string, created_at: string, current_character_card_id?: string | null }>(
-                `SELECT * FROM users WHERE user_id = ?`,
-                [userId]
-            );
+            const userBase = await dbGet<
+                UserProfile & {
+                    user_id: string;
+                    created_at: string;
+                    current_character_card_id?: string | null;
+                }
+            >(`SELECT * FROM users WHERE user_id = ?`, [userId]);
             if (!userBase) {
                 return null; // User not found
             }
@@ -226,41 +226,56 @@ class UserDataService {
             // 2. Get Current Character Card (if linked)
             let currentCharacterCard: CharacterCard | null = null;
             if (userBase.current_character_card_id) {
-                currentCharacterCard = await dbGet<CharacterCard>(
-                    'SELECT * FROM character_cards WHERE card_id = ? AND user_id = ? AND is_current = 1',
-                    [userBase.current_character_card_id, userId]
-                ) || null;
+                currentCharacterCard =
+                    (await dbGet<CharacterCard>(
+                        'SELECT * FROM character_cards WHERE card_id = ? AND user_id = ? AND is_current = 1',
+                        [userBase.current_character_card_id, userId]
+                    )) || null;
                 // Fallback if ID exists but card is missing/not current (should ideally not happen)
                 if (!currentCharacterCard) {
-                     currentCharacterCard = await dbGet<CharacterCard>(
-                         'SELECT * FROM character_cards WHERE user_id = ? AND is_current = 1 ORDER BY updated_at DESC LIMIT 1',
-                         [userId]
-                     ) || null;
-                     // Update userBase if we found a different current card
-                     if (currentCharacterCard && userBase.current_character_card_id !== currentCharacterCard.card_id) {
+                    currentCharacterCard =
+                        (await dbGet<CharacterCard>(
+                            'SELECT * FROM character_cards WHERE user_id = ? AND is_current = 1 ORDER BY updated_at DESC LIMIT 1',
+                            [userId]
+                        )) || null;
+                    // Update userBase if we found a different current card
+                    if (
+                        currentCharacterCard &&
+                        userBase.current_character_card_id !== currentCharacterCard.card_id
+                    ) {
                         userBase.current_character_card_id = currentCharacterCard.card_id;
                         // Optionally update the users table here, though might be better elsewhere
-                     }
+                    }
                 }
             } else {
                 // If no ID is linked, find the latest current card
-                 currentCharacterCard = await dbGet<CharacterCard>(
-                     'SELECT * FROM character_cards WHERE user_id = ? AND is_current = 1 ORDER BY updated_at DESC LIMIT 1',
-                     [userId]
-                 ) || null;
-                  if (currentCharacterCard) {
-                      userBase.current_character_card_id = currentCharacterCard.card_id;
-                  }
+                currentCharacterCard =
+                    (await dbGet<CharacterCard>(
+                        'SELECT * FROM character_cards WHERE user_id = ? AND is_current = 1 ORDER BY updated_at DESC LIMIT 1',
+                        [userId]
+                    )) || null;
+                if (currentCharacterCard) {
+                    userBase.current_character_card_id = currentCharacterCard.card_id;
+                }
             }
 
             // 3. Get All System Prompts for the user
-            const systemPrompts = await dbAll<SystemPrompt>('SELECT * FROM system_prompts WHERE user_id = ?', [userId]);
+            const systemPrompts = await dbAll<SystemPrompt>(
+                'SELECT * FROM system_prompts WHERE user_id = ?',
+                [userId]
+            );
 
             // 4. Get All Instruction Templates for the user
-            const instructionTemplates = await dbAll<InstructionTemplate>('SELECT * FROM instruction_templates WHERE user_id = ?', [userId]);
+            const instructionTemplates = await dbAll<InstructionTemplate>(
+                'SELECT * FROM instruction_templates WHERE user_id = ?',
+                [userId]
+            );
 
             // 5. Get Assessment Results (latest user and AI for each type)
-            const assessmentTypes = await dbAll<{ assessment_type: string }>('SELECT DISTINCT assessment_type FROM assessment_results WHERE user_id = ?', [userId]);
+            const assessmentTypes = await dbAll<{ assessment_type: string }>(
+                'SELECT DISTINCT assessment_type FROM assessment_results WHERE user_id = ?',
+                [userId]
+            );
             const assessments: ComprehensiveUserData['assessments'] = {};
 
             for (const typeRow of assessmentTypes) {
@@ -268,37 +283,43 @@ class UserDataService {
                 const latestUserResult = await dbGet<AssessmentResult>(
                     `SELECT * FROM assessment_results 
                      WHERE user_id = ? AND assessment_type = ? AND source = 'user' 
-                     ORDER BY timestamp DESC LIMIT 1`, [userId, type]
+                     ORDER BY timestamp DESC LIMIT 1`,
+                    [userId, type]
                 );
                 const latestAiResult = await dbGet<AssessmentResult>(
                     `SELECT * FROM assessment_results 
                      WHERE user_id = ? AND assessment_type = ? AND source = 'ai' 
-                     ORDER BY timestamp DESC LIMIT 1`, [userId, type]
+                     ORDER BY timestamp DESC LIMIT 1`,
+                    [userId, type]
                 );
-                
+
                 // Parse scores if available
                 if (latestUserResult && latestUserResult.scores) {
                     try {
                         latestUserResult.parsed_scores = JSON.parse(latestUserResult.scores);
                     } catch (e) {
-                        console.warn(`Failed to parse user scores JSON for ${userId}, assessment ${type}`);
+                        console.warn(
+                            `Failed to parse user scores JSON for ${userId}, assessment ${type}`
+                        );
                     }
                 }
-                
+
                 if (latestAiResult && latestAiResult.scores) {
                     try {
                         latestAiResult.parsed_scores = JSON.parse(latestAiResult.scores);
                     } catch (e) {
-                        console.warn(`Failed to parse AI scores JSON for ${userId}, assessment ${type}`);
+                        console.warn(
+                            `Failed to parse AI scores JSON for ${userId}, assessment ${type}`
+                        );
                     }
                 }
-                
+
                 // TODO: Fetch latest alignment metrics if needed
 
                 assessments[type] = {
                     user: latestUserResult || null,
                     latestAi: latestAiResult || null,
-                    alignment: null // Placeholder
+                    alignment: null, // Placeholder
                 };
             }
 
@@ -308,21 +329,20 @@ class UserDataService {
                 currentCharacterCard: currentCharacterCard,
                 systemPrompts: systemPrompts,
                 instructionTemplates: instructionTemplates,
-                assessments: assessments
+                assessments: assessments,
             };
 
             // Transform data for frontend consumption
             const frontendData = this.mapUserDataForFrontend(comprehensiveData);
             // console.log(`Transformed user data for ${userId} for frontend consumption:`, JSON.stringify(frontendData, null, 2)); // Verbose logging
             return frontendData; // Return the mapped data
-
         } catch (error: any) {
             console.error(`[DB GET Error] ${error.message}`); // Log the specific error message
             console.error(`Error getting comprehensive user data for ${userId} from DB:`, error);
             // Re-throw or handle appropriately - for now, return null or throw
             // Depending on how the route handles errors, throwing might be better
-             // throw new Error(`Failed to retrieve user data: ${error.message}`);
-             return null; // Returning null might lead to 404 on frontend as seen before
+            // throw new Error(`Failed to retrieve user data: ${error.message}`);
+            return null; // Returning null might lead to 404 on frontend as seen before
         }
     }
 
@@ -332,15 +352,20 @@ class UserDataService {
      * @param data Initial user data (e.g., email, bio). Password should be handled separately or via registration method.
      * @returns {Promise<UpdateResult>}
      */
-    async createUser(userId: string, data: Partial<Omit<UserData, 'user_id' | 'created_at' | 'updated_at'>>): Promise<UpdateResult> {
+    async createUser(
+        userId: string,
+        data: Partial<Omit<UserData, 'user_id' | 'created_at' | 'updated_at'>>
+    ): Promise<UpdateResult> {
         const existing = await this.getUserData(userId);
         if (existing) {
             throw new Error(`User with ID ${userId} already exists.`);
         }
         const userDataToInsert = { ...data };
         if (userDataToInsert.password_hash) {
-             console.warn(`Attempted to set password hash directly during createUser for ${userId}. Ignoring.`);
-             delete userDataToInsert.password_hash;
+            console.warn(
+                `Attempted to set password hash directly during createUser for ${userId}. Ignoring.`
+            );
+            delete userDataToInsert.password_hash;
         }
         const fields = ['user_id', ...Object.keys(userDataToInsert)];
         const values = [userId, ...Object.values(userDataToInsert)];
@@ -354,28 +379,29 @@ class UserDataService {
             throw new Error(`Database error during user creation: ${error.message}`);
         }
     }
-    
-     /**
+
+    /**
      * Sets or updates the password for a user.
      * @param userId The user ID.
      * @param password The plain text password.
      * @returns {Promise<UpdateResult>}
      */
     async setUserPassword(userId: string, password: string): Promise<UpdateResult> {
-        if (!password || password.length < 8) { 
+        if (!password || password.length < 8) {
             throw new Error('Password must be at least 8 characters long.');
         }
         try {
-             const passwordHash = await bcrypt.hash(password, this.saltRounds);
-             const sql = 'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?';
-             const result = await dbRun(sql, [passwordHash, userId]);
-             if (result.changes === 0) {
-                 throw new Error('User not found or password update failed.');
-             }
-             return { success: true, changes: result.changes };
+            const passwordHash = await bcrypt.hash(password, this.saltRounds);
+            const sql =
+                'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?';
+            const result = await dbRun(sql, [passwordHash, userId]);
+            if (result.changes === 0) {
+                throw new Error('User not found or password update failed.');
+            }
+            return { success: true, changes: result.changes };
         } catch (error: any) {
-             console.error(`Error setting password for user ${userId}:`, error);
-             throw new Error(`Failed to set user password: ${error.message}`);
+            console.error(`Error setting password for user ${userId}:`, error);
+            throw new Error(`Failed to set user password: ${error.message}`);
         }
     }
 
@@ -387,14 +413,17 @@ class UserDataService {
      */
     async verifyUserPassword(userId: string, password: string): Promise<boolean> {
         try {
-            const user = await dbGet<{ password_hash: string | null }>('SELECT password_hash FROM users WHERE user_id = ?', [userId]);
+            const user = await dbGet<{ password_hash: string | null }>(
+                'SELECT password_hash FROM users WHERE user_id = ?',
+                [userId]
+            );
             if (!user || !user.password_hash) {
                 return false;
             }
             return await bcrypt.compare(password, user.password_hash);
         } catch (error: any) {
-             console.error(`Error verifying password for user ${userId}:`, error);
-             return false;
+            console.error(`Error verifying password for user ${userId}:`, error);
+            return false;
         }
     }
 
@@ -404,21 +433,18 @@ class UserDataService {
      * @param updates Partial user data containing fields to update.
      * @returns {Promise<UpdateResult>}
      */
-    async updateUserData(userId: string, updates: Partial<Omit<UserData, 'user_id' | 'created_at' | 'updated_at'>>): Promise<UpdateResult> {
-        // Omit already excludes these fields, so no need to delete them
-        const allowedUpdates = { ...updates }; 
-
-        // Convert boolean linkedin_connected back to number for DB if present
-        if (typeof allowedUpdates.linkedin_connected === 'boolean') {
-            allowedUpdates.linkedin_connected = allowedUpdates.linkedin_connected ? 1 : 0;
-        }
+    async updateUserData(
+        userId: string,
+        updates: Partial<Omit<UserData, 'user_id' | 'created_at' | 'updated_at'>>
+    ): Promise<UpdateResult> {
+        const allowedUpdates = { ...updates };
 
         const fields = Object.keys(allowedUpdates);
         if (fields.length === 0) {
             return { success: true, changes: 0, message: 'No valid fields provided for update.' };
         }
 
-        const setClauses = fields.map(field => `${field} = ?`).join(', ');
+        const setClauses = fields.map((field) => `${field} = ?`).join(', ');
         const values = [...Object.values(allowedUpdates), userId];
         const sql = `UPDATE users SET ${setClauses}, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?`;
 
@@ -443,16 +469,20 @@ class UserDataService {
             // Optional: Add check if user exists before deleting?
             // const user = await this.getUserData(userId);
             // if (!user) return { success: true, changes: 0, message: 'User not found.' };
-            
+
             // Assuming CASCADE DELETE is set up in DB schema for related tables (base_prompts, assets, etc.)
             const sql = 'DELETE FROM users WHERE user_id = ?';
             const result = await dbRun(sql, [userId]);
 
             if (result.changes > 0) {
-                 return { success: true, changes: result.changes, message: 'User deleted successfully.' };
+                return {
+                    success: true,
+                    changes: result.changes,
+                    message: 'User deleted successfully.',
+                };
             } else {
-                 // User likely didn't exist
-                 return { success: true, changes: 0, message: 'User not found or already deleted.' };
+                // User likely didn't exist
+                return { success: true, changes: 0, message: 'User not found or already deleted.' };
             }
         } catch (error: any) {
             console.error(`Error deleting user ${userId}:`, error);
@@ -460,15 +490,17 @@ class UserDataService {
             throw new Error(`Database error deleting user: ${error.message}`);
         }
     }
-    
-     /**
+
+    /**
      * Retrieves all user IDs from the database.
      * @returns {Promise<string[]>}
      */
     async getAllUserIds(): Promise<string[]> {
         try {
-            const rows = await dbAll<{ user_id: string }>('SELECT user_id FROM users ORDER BY created_at DESC');
-            return rows.map(row => row.user_id);
+            const rows = await dbAll<{ user_id: string }>(
+                'SELECT user_id FROM users ORDER BY created_at DESC'
+            );
+            return rows.map((row) => row.user_id);
         } catch (error: any) {
             console.error('Error getting all user IDs:', error);
             throw new Error(`Database error fetching user IDs: ${error.message}`);
@@ -478,4 +510,4 @@ class UserDataService {
 
 // Export an instance of the service (Singleton pattern)
 const userDataService = new UserDataService();
-export default userDataService; 
+export default userDataService;
